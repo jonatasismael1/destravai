@@ -1,7 +1,5 @@
 import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea } from '../types'
-import { supabase } from './supabase/client'
-
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+import { generateText } from './ai/googleGemini'
 
 const EXPOSURE_LABELS: Record<ExposureLevel, string> = {
   'no-appearance': 'não aparece no vídeo — usa só texto, imagem estática ou carrossel',
@@ -93,35 +91,9 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
 }`
 }
 
-// Chama a IA através da Edge Function do Supabase (chave do Gemini fica no servidor).
-// Nunca expõe a API key no frontend — exige sessão válida do usuário.
+// Chama a IA via serviço centralizado (Google Gemini @google/genai).
 async function callGemini(prompt: string): Promise<string> {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session) throw new Error('Sua sessão expirou. Faça login novamente.')
-
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/destravai-gemini`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ prompt }),
-  })
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as { error?: string }
-    const msg = err?.error ?? `Erro ${response.status}`
-
-    if (response.status === 429) {
-      throw new Error('Você fez muitas gerações em pouco tempo. Espere alguns minutos e tente de novo.')
-    }
-    throw new Error(msg)
-  }
-
-  const data = await response.json() as { text?: string }
-  const text = data.text ?? ''
-  if (!text) throw new Error('A IA retornou vazio. Tente novamente.')
-  return text
+  return generateText(prompt)
 }
 
 function extractJSON(raw: string): Record<string, unknown> {

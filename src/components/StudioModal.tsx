@@ -80,10 +80,17 @@ export default function StudioModal({ idea, onClose }: Props) {
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
     stopStream()
     try {
+      // Não forçamos resolução fixa (1080x1920) — isso fazia a câmera recortar
+      // o sensor e aplicar zoom digital. Pedimos apenas o facingMode e uma
+      // proporção ideal de story (9:16); o navegador escolhe a melhor resolução
+      // nativa sem cropar, evitando o efeito de "zoom".
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode, width: { ideal: 1080 }, height: { ideal: 1920 } },
+        video: { facingMode: mode, aspectRatio: { ideal: 9 / 16 } },
         audio: true,
-      })
+      }).catch(() =>
+        // Fallback: se aspectRatio não for suportado, pede só o facingMode
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true })
+      )
       streamRef.current = stream
       if (liveVideoRef.current) {
         liveVideoRef.current.srcObject = stream

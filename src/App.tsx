@@ -4,6 +4,7 @@ import { AppProvider, useApp } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
 import { ThemeProvider } from './context/ThemeContext'
 import Layout from './components/Layout'
+import InstallPrompt from './components/InstallPrompt'
 
 const Login = lazy(() => import('./pages/Login'))
 const Onboarding = lazy(() => import('./pages/Onboarding'))
@@ -95,6 +96,7 @@ export default function App() {
         <AppProvider>
           <ToastProvider>
             <AppRoutes />
+            <InstallPrompt />
           </ToastProvider>
         </AppProvider>
       </ThemeProvider>

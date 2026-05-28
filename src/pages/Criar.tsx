@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X } from 'lucide-react'
+import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { generateContent, generateCaption, generatePersonalizedCTAs } from '../lib/ai'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
 
 const CONTENT_TYPES = [
-  { value: 'story', label: 'Story', icon: '📱', desc: 'Direto ao ponto' },
-  { value: 'sequence', label: 'Sequência', icon: '🎞️', desc: '3–5 stories' },
-  { value: 'reel', label: 'Reels', icon: '🎬', desc: 'Vídeo curto' },
+  { value: 'story', label: 'Story', Icon: Smartphone, desc: 'Direto ao ponto' },
+  { value: 'sequence', label: 'Sequência', Icon: LayoutList, desc: '3–5 stories' },
+  { value: 'reel', label: 'Reels', Icon: Film, desc: 'Vídeo curto' },
 ] as const
 
 const OBJECTIVES = [
@@ -134,7 +134,7 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
         <div className="p-5">
           <div className="flex flex-wrap gap-1.5 mb-3">
             <span className="tag tag-purple capitalize">
-              {idea.type === 'story' ? '📱 Story' : idea.type === 'sequence' ? '🎞️ Sequência' : '🎬 Reels'}
+              {idea.type === 'story' ? 'Story' : idea.type === 'sequence' ? 'Sequência' : 'Reels'}
             </span>
             <span className="tag tag-amber">{idea.timeEstimate}</span>
           </div>
@@ -369,9 +369,9 @@ export default function Criar() {
   return (
     <div className="p-5 space-y-6 pb-28">
       <div className="pt-4">
-        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Criar</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravar</h1>
         <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Gere roteiros ou CTAs personalizados para o seu perfil.
+          Escolha o formato, defina o tema e receba o roteiro.
         </p>
       </div>
 
@@ -386,7 +386,7 @@ export default function Criar() {
             boxShadow: '0 4px 16px rgba(109,93,246,0.4)',
           } : { color: 'var(--text-muted)' }}
         >
-          <Sparkles size={14} /> Roteiro com IA
+          <Sparkles size={14} /> Roteiro
         </button>
         <button
           onClick={() => setActiveTab('ctas')}
@@ -397,7 +397,7 @@ export default function Criar() {
             border: '1px solid rgba(109,93,246,0.35)',
           } : { color: 'var(--text-muted)' }}
         >
-          <Zap size={14} /> CTAs personalizados
+          <Zap size={14} /> CTAs
         </button>
       </div>
 
@@ -406,7 +406,7 @@ export default function Criar() {
       {activeTab === 'criar' && <>
         {/* Type selector */}
         <div className="grid grid-cols-3 gap-2">
-          {CONTENT_TYPES.map(({ value, label, icon, desc }) => (
+          {CONTENT_TYPES.map(({ value, label, Icon, desc }) => (
             <button
               key={value}
               onClick={() => { setContentType(value); setFormat(''); setResult(null) }}
@@ -420,7 +420,14 @@ export default function Criar() {
                 border: '1px solid var(--border-color)',
               }}
             >
-              <span className="text-2xl block mb-1.5">{icon}</span>
+              <div className="flex justify-center mb-2">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={contentType === value
+                    ? { background: 'rgba(124,92,255,0.2)', border: '1px solid rgba(124,92,255,0.3)' }
+                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)' }}>
+                  <Icon size={18} style={{ color: contentType === value ? '#9B8CFF' : 'var(--text-muted)' }} />
+                </div>
+              </div>
               <span className="block text-sm font-extrabold" style={{ color: contentType === value ? '#9B8CFF' : 'var(--text-primary)' }}>{label}</span>
               <span className="block text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</span>
             </button>
@@ -474,10 +481,10 @@ export default function Criar() {
           {loading ? (
             <>
               <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              Gerando ideia...
+              Destravando ideia...
             </>
           ) : (
-            <><Sparkles size={18} /> Gerar ideia</>
+            <><Sparkles size={18} /> Destravar ideia</>
           )}
         </button>
 

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase/client'
 import type { DestravaiProfile, BrandEssence } from '../lib/supabase/types'
 import type { ContentIdea, Mission, Progress, PersonalSpace, PersonalContext, JournalEntry, PersonalIdea, ProfessionalProfile } from '../types'
 import { calculateStreak, calculateLevel, getWeekKey, inferCategory } from '../lib/progress'
+import { getCurrentProfile } from '../services/profileService'
 
 // ─── Chaves de armazenamento ──────────────────────────────────
 // Apenas dados de UI (tema, progresso, perfil local para IA) ficam em localStorage.
@@ -105,27 +106,44 @@ export function AppProvider({ children }: { children: ReactNode }) {
     authLoading: true,
   })
 
-  // Sincronizar sessão do Supabase
+  // Sincronizar sessão do Supabase e buscar profile ao carregar
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(s => ({
-        ...s,
-        supabaseUser: session?.user ?? null,
-        session,
-        authLoading: false,
-      }))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (session?.user) {
+        // Buscar profile imediatamente para que onboarding_completed esteja disponível
+        const profile = await getCurrentProfile().catch(() => null)
+        setState(s => ({
+          ...s,
+          supabaseUser: session.user,
+          session,
+          profile,
+          authLoading: false,
+        }))
+      } else {
+        setState(s => ({ ...s, supabaseUser: null, session: null, authLoading: false }))
+      }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState(s => ({
-        ...s,
-        supabaseUser: session?.user ?? null,
-        session,
-        authLoading: false,
-        // Limpar profile/essence ao deslogar
-        profile: session ? s.profile : null,
-        essence: session ? s.essence : null,
-      }))
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const profile = await getCurrentProfile().catch(() => null)
+        setState(s => ({
+          ...s,
+          supabaseUser: session.user,
+          session,
+          profile,
+          authLoading: false,
+        }))
+      } else {
+        setState(s => ({
+          ...s,
+          supabaseUser: null,
+          session: null,
+          authLoading: false,
+          profile: null,
+          essence: null,
+        }))
+      }
     })
 
     return () => subscription.unsubscribe()

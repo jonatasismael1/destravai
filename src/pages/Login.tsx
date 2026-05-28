@@ -2,9 +2,15 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase/client'
 import { useApp } from '../context/AppContext'
 import { getCurrentProfile } from '../services/profileService'
-import { ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Zap, Video, Sparkles } from 'lucide-react'
 
 type Mode = 'login' | 'register'
+
+const BENEFITS = [
+  { icon: Zap, label: 'Roteiro pronto em 30s', color: '#FFB547' },
+  { icon: Video, label: 'Teleprompter integrado', color: '#7C5CFF' },
+  { icon: Sparkles, label: 'IA personalizada pro seu jeito', color: '#A78BFA' },
+]
 
 export default function Login() {
   const { setProfile } = useApp()
@@ -34,7 +40,6 @@ export default function Login() {
         })
         if (signUpError) throw signUpError
 
-        // Aguardar trigger criar o perfil e buscá-lo
         await new Promise(r => setTimeout(r, 800))
         const profile = await getCurrentProfile()
         if (profile) setProfile(profile)
@@ -60,22 +65,22 @@ export default function Login() {
 
   return (
     <div
-      className="h-full flex flex-col items-center justify-center p-6 relative overflow-y-auto"
+      className="flex flex-col items-center justify-center p-6 relative overflow-y-auto"
       style={{ minHeight: '100svh', background: '#0B0B12' }}
     >
       {/* Background orbs */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-20 -right-20 w-[380px] h-[380px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(124,92,255,0.25) 0%, transparent 65%)', filter: 'blur(60px)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(124,92,255,0.22) 0%, transparent 65%)', filter: 'blur(60px)' }} />
         <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(255,181,71,0.15) 0%, transparent 65%)', filter: 'blur(60px)' }} />
+          style={{ background: 'radial-gradient(circle, rgba(255,181,71,0.12) 0%, transparent 65%)', filter: 'blur(60px)' }} />
       </div>
 
       <div className="w-full max-w-sm relative z-10 animate-fade-up">
 
-        {/* Brand */}
-        <div className="text-center mb-10">
-          <div className="flex items-center justify-center mb-5 animate-float">
+        {/* ── Hero / Pitch ────────────────────────────────── */}
+        <div className="text-center mb-8">
+          <div className="flex items-center justify-center mb-6 animate-float">
             <img
               src="/destravai-logo-completa.png"
               alt="Destravaí"
@@ -83,14 +88,42 @@ export default function Login() {
               style={{ filter: 'drop-shadow(0 0 28px rgba(124,92,255,0.5))' }}
             />
           </div>
-          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-            {mode === 'login'
-              ? 'Stories prontos para você gravar sem travar.'
-              : 'Crie sua conta e comece a destravar.'}
-          </p>
+
+          {/* Headline principal — só aparece no modo registro (pitch de venda) */}
+          {mode === 'register' ? (
+            <>
+              <h1 className="text-2xl font-extrabold tracking-tight leading-tight mb-2"
+                style={{ color: 'var(--text-primary)' }}>
+                Pare de travar<br />
+                <span className="gradient-text">nos stories.</span>
+              </h1>
+              <p className="text-sm font-medium leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                Escolha o momento, receba o roteiro, grave e poste.<br />
+                Sem tela em branco. Sem enrolar.
+              </p>
+
+              {/* Benefícios com ícones vetoriais */}
+              <div className="flex flex-col gap-2 mt-5 text-left">
+                {BENEFITS.map(({ icon: Icon, label, color }) => (
+                  <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
+                      <Icon size={15} style={{ color }} />
+                    </div>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+              Stories prontos para você gravar sem travar.
+            </p>
+          )}
         </div>
 
-        {/* Card */}
+        {/* ── Card do formulário ───────────────────────────── */}
         <div className="glass p-6">
           {/* Tab switcher */}
           <div
@@ -119,8 +152,8 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'register' && (
               <div>
-                <label className="label">Nome</label>
-                <input type="text" className="input" placeholder="Seu nome completo"
+                <label className="label">Seu nome</label>
+                <input type="text" className="input" placeholder="Como quer ser chamado(a)?"
                   value={name} onChange={e => setName(e.target.value)} />
               </div>
             )}
@@ -144,6 +177,7 @@ export default function Login() {
                   onClick={() => setShowPass(!showPass)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 transition-colors"
                   style={{ color: 'var(--text-muted)' }}
+                  aria-label={showPass ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
@@ -168,7 +202,7 @@ export default function Login() {
                 <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  {mode === 'login' ? 'Entrar' : 'Criar conta'}
+                  {mode === 'login' ? 'Entrar' : 'Destravar meus stories'}
                   <ArrowRight size={18} />
                 </>
               )}
@@ -195,15 +229,10 @@ export default function Login() {
           )}
         </div>
 
-        {/* Features strip */}
-        <div className="flex justify-center gap-6 mt-8">
-          {['IA personalizada', 'Mobile-first', 'Sem superprodução'].map(f => (
-            <div key={f} className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'linear-gradient(135deg, #7C5CFF, #A78BFA)' }} />
-              <span className="text-[10px] font-semibold tracking-wide uppercase" style={{ color: 'var(--text-muted)' }}>{f}</span>
-            </div>
-          ))}
-        </div>
+        {/* ── Rodapé de confiança ──────────────────────────── */}
+        <p className="text-center text-xs mt-6" style={{ color: 'var(--text-muted)' }}>
+          Grátis para começar · Sem cartão de crédito
+        </p>
       </div>
     </div>
   )

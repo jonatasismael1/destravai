@@ -2,35 +2,37 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight, Settings, Camera, Wand2, FileText, Copy, X } from 'lucide-react'
+import {
+  Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight,
+  Settings, Camera, Wand2, FileText, Copy, X,
+  Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp
+} from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
-import { getQuoteOfDay } from '../lib/quotes'
 import { todayKey } from '../lib/progress'
 import StudioModal from '../components/StudioModal'
 
-// Check-ins universais fixos
+// Check-ins com ícones vetoriais (sem emojis estruturais)
 const BASE_CHECKIN_OPTIONS = [
-  { label: 'Tenho 2 min', value: '2min', icon: '⚡' },
-  { label: 'Tenho 10 min', value: '10min', icon: '⏰' },
-  { label: 'Quero vender', value: 'sell', icon: '💰' },
-  { label: 'Quero educar', value: 'educate', icon: '📚' },
-  { label: 'Algo leve', value: 'light', icon: '☀️' },
-  { label: 'Gravar reels', value: 'reel', icon: '🎬' },
+  { label: 'Tenho 2 min', value: '2min', Icon: Zap },
+  { label: 'Tenho 10 min', value: '10min', Icon: Timer },
+  { label: 'Quero vender', value: 'sell', Icon: ShoppingBag },
+  { label: 'Quero educar', value: 'educate', Icon: BookOpen },
+  { label: 'Algo leve', value: 'light', Icon: Sun },
+  { label: 'Gravar reels', value: 'reel', Icon: Film },
 ]
 
-// Mapeamento de momentos do perfil para check-in keys
-const MOMENT_TO_CHECKIN: Record<string, { value: string; icon: string }> = {
-  'No trabalho': { value: 'work', icon: '💼' },
-  'No consultório': { value: 'work', icon: '🏥' },
-  'Em casa': { value: 'home', icon: '🏠' },
-  'No carro': { value: '2min', icon: '🚗' },
-  'Intervalo': { value: '10min', icon: '☕' },
-  'Antes do trabalho': { value: '2min', icon: '🌅' },
-  'Antes do atendimento': { value: '2min', icon: '🌅' },
-  'Fim do dia': { value: 'light', icon: '🌙' },
-  'De manhã cedo': { value: '2min', icon: '🌅' },
-  'À noite': { value: 'light', icon: '🌙' },
+const MOMENT_TO_CHECKIN: Record<string, { value: string; Icon: typeof Zap }> = {
+  'No trabalho': { value: 'work', Icon: Briefcase },
+  'No consultório': { value: 'work', Icon: Briefcase },
+  'Em casa': { value: 'home', Icon: Sun },
+  'No carro': { value: '2min', Icon: Zap },
+  'Intervalo': { value: '10min', Icon: Timer },
+  'Antes do trabalho': { value: '2min', Icon: Zap },
+  'Antes do atendimento': { value: '2min', Icon: Zap },
+  'Fim do dia': { value: 'light', Icon: Sun },
+  'De manhã cedo': { value: '2min', Icon: Zap },
+  'À noite': { value: 'light', Icon: Sun },
 }
 
 const VARIATION_OPTIONS = [
@@ -40,10 +42,19 @@ const VARIATION_OPTIONS = [
   { label: 'Sem aparecer', hint: 'sem precisar aparecer no vídeo' },
 ]
 
+// Mapeamento de nível → missões necessárias para o próximo
+// Nomes espelham calculateLevel() em src/lib/progress.ts
+const LEVEL_MAP: Record<string, { next: string; missionTarget: number; missionFrom: number }> = {
+  'Começando a aparecer': { next: 'Criando ritmo', missionTarget: 5, missionFrom: 0 },
+  'Criando ritmo':        { next: 'Presença consistente', missionTarget: 15, missionFrom: 5 },
+  'Presença consistente': { next: 'Perfil ativo', missionTarget: 30, missionFrom: 15 },
+  'Perfil ativo':         { next: 'Referência em movimento', missionTarget: 50, missionFrom: 30 },
+  'Referência em movimento': { next: '—', missionTarget: 999, missionFrom: 50 },
+}
+
 const CHECKIN_STORAGE_KEY = `destravai-checkin-${todayKey()}`
 const DAILY_MISSION_KEY = `destravai-daily-${todayKey()}`
 
-// Modal de legenda gerada
 function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtags: string[]; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
   const fullText = caption + '\n\n' + hashtags.join(' ')
@@ -60,15 +71,13 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
       <div className="rounded-t-3xl p-5 pb-10 space-y-4 max-h-[80vh] overflow-y-auto"
         style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}>
         <div className="flex items-center justify-between">
-          <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>📝 Legenda gerada</p>
-          <button onClick={onClose} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
+          <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Legenda gerada</p>
+          <button onClick={onClose} style={{ color: 'var(--text-muted)' }} aria-label="Fechar"><X size={18} /></button>
         </div>
-
         <div className="rounded-2xl p-4 space-y-3" style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
           <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-primary)' }}>{caption}</p>
           <p className="text-xs leading-relaxed" style={{ color: '#9B8CFF' }}>{hashtags.join(' ')}</p>
         </div>
-
         <button onClick={handleCopy} className="btn-primary w-full py-3 text-sm"
           style={copied ? { background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 0 20px rgba(83,214,161,0.4)' } : {}}>
           {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar legenda + hashtags</>}
@@ -89,13 +98,20 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
 }) {
   const [expanded, setExpanded] = useState(featured ?? false)
   const [showVariations, setShowVariations] = useState(false)
+  const [celebrating, setCelebrating] = useState(false)
 
-  const TYPE_META: Record<string, { icon: string; label: string }> = {
-    story: { icon: '📱', label: 'Story' },
-    sequence: { icon: '🎞️', label: 'Sequência' },
-    reel: { icon: '🎬', label: 'Reels' },
+  const TYPE_META: Record<string, { label: string }> = {
+    story: { label: 'Story' },
+    sequence: { label: 'Sequência' },
+    reel: { label: 'Reels' },
   }
-  const meta = TYPE_META[idea.type] ?? { icon: '📝', label: idea.type }
+  const meta = TYPE_META[idea.type] ?? { label: idea.type }
+
+  const handleDone = () => {
+    setCelebrating(true)
+    setTimeout(() => setCelebrating(false), 1200)
+    onDone()
+  }
 
   return (
     <div
@@ -110,19 +126,34 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
         boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
       }}
     >
+      {/* Linha de topo no card em destaque */}
       {featured && (
         <div className="absolute top-0 left-0 right-0 h-px"
           style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.7), transparent)' }} />
+      )}
+
+      {/* Animação de celebração ao marcar Fiz */}
+      {celebrating && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
+          style={{ background: 'rgba(83,214,161,0.08)' }}>
+          <div className="flex flex-col items-center gap-2 animate-fade-up">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 0 30px rgba(83,214,161,0.5)' }}>
+              <Check size={28} className="text-white" />
+            </div>
+            <p className="text-sm font-extrabold" style={{ color: '#53D6A1' }}>+10 pontos!</p>
+          </div>
+        </div>
       )}
 
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1">
             <div className="flex flex-wrap gap-1.5 mb-2">
-              <span className="tag tag-purple">{meta.icon} {meta.label}</span>
+              <span className="tag tag-purple">{meta.label}</span>
               <span className="tag tag-amber flex items-center gap-1"><Clock size={9} /> {idea.timeEstimate}</span>
               {idea.status === 'done' && <span className="tag tag-mint flex items-center gap-1"><Check size={9} /> Feito</span>}
-              {idea.status === 'saved' && <span className="tag" style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.3)', color: '#9B8CFF' }}>⭐ Salvo</span>}
+              {idea.status === 'saved' && <span className="tag" style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.3)', color: '#9B8CFF' }}>Salvo</span>}
             </div>
             <h3 className="font-extrabold text-base leading-snug" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{idea.objective}</p>
@@ -150,27 +181,51 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
           className="flex items-center gap-1 text-sm font-bold mt-3 transition-colors"
           style={{ color: '#9B8CFF' }}
         >
-          {expanded ? 'Fechar' : 'Ver completo'}
+          {expanded ? 'Fechar roteiro' : 'Ver roteiro completo'}
           <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
         </button>
 
         {idea.status !== 'done' && (
           <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--border-color)' }}>
             <div className="flex gap-2">
-              <button onClick={onDone} className="btn-primary flex-1 py-2.5 text-sm">
+              {/* Botão Fiz — ação principal com label */}
+              <button onClick={handleDone} className="btn-primary flex-1 py-2.5 text-sm gap-1.5">
                 <Check size={14} /> Fiz
               </button>
-              <button onClick={onRecord} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gravar">
+              {/* Gravar — label visível no tooltip e aria-label */}
+              <button
+                onClick={onRecord}
+                className="btn-secondary py-2.5 px-3.5 text-sm flex items-center gap-1.5"
+                aria-label="Gravar com teleprompter"
+                title="Gravar"
+              >
                 <Camera size={14} />
+                <span className="text-xs hidden sm:inline">Gravar</span>
               </button>
-              <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
+              <button
+                onClick={onCaption}
+                className="btn-secondary py-2.5 px-3.5 text-sm flex items-center gap-1.5"
+                aria-label="Gerar legenda"
+                title="Legenda"
+              >
                 <FileText size={14} />
+                <span className="text-xs hidden sm:inline">Legenda</span>
               </button>
-              <button onClick={onSave} className="btn-secondary py-2.5 px-3.5 text-sm"
-                style={idea.status === 'saved' ? { borderColor: 'rgba(109,93,246,0.4)', color: '#9B8CFF' } : {}}>
+              <button
+                onClick={onSave}
+                className="btn-secondary py-2.5 px-3.5 text-sm"
+                aria-label="Salvar ideia"
+                title="Salvar"
+                style={idea.status === 'saved' ? { borderColor: 'rgba(109,93,246,0.4)', color: '#9B8CFF' } : {}}
+              >
                 <Bookmark size={14} />
               </button>
-              <button onClick={() => setShowVariations(!showVariations)} className="btn-secondary py-2.5 px-3.5 text-sm">
+              <button
+                onClick={() => setShowVariations(!showVariations)}
+                className="btn-secondary py-2.5 px-3.5 text-sm"
+                aria-label="Gerar variação"
+                title="Variar"
+              >
                 <RefreshCw size={14} />
               </button>
             </div>
@@ -221,15 +276,20 @@ export default function Home() {
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
 
-  const profile = state.localProfile  // ProfessionalProfile para chamadas de IA
+  const profile = state.localProfile
   const progress = state.progress
-  const quote = getQuoteOfDay()
   const firstName = profile?.professionalName?.split(' ')[0]
     ?? state.profile?.name?.split(' ')[0]
     ?? state.supabaseUser?.user_metadata?.name?.split(' ')[0]
     ?? 'você'
 
-  // Monta chips dinâmicos: base + momentos do perfil que ainda não estão na base
+  // Progresso para o próximo nível (baseado em missionsCompleted)
+  const levelInfo = LEVEL_MAP[progress.level] ?? LEVEL_MAP['Começando a aparecer']
+  const missionsInLevel = progress.missionsCompleted - levelInfo.missionFrom
+  const missionsNeeded = levelInfo.missionTarget - levelInfo.missionFrom
+  const levelProgress = Math.min(100, Math.round((missionsInLevel / missionsNeeded) * 100))
+
+  // Chips de check-in com ícones vetoriais
   const checkinOptions = (() => {
     const baseValues = new Set(BASE_CHECKIN_OPTIONS.map(o => o.value))
     const dynamicChips: typeof BASE_CHECKIN_OPTIONS = []
@@ -238,21 +298,19 @@ export default function Home() {
       profile.availableMoments.forEach(moment => {
         const mapped = MOMENT_TO_CHECKIN[moment]
         if (mapped && !baseValues.has(mapped.value) && !dynamicChips.find(c => c.value === mapped.value)) {
-          dynamicChips.push({ label: moment, value: mapped.value, icon: mapped.icon })
+          dynamicChips.push({ label: moment, value: mapped.value, Icon: mapped.Icon })
           baseValues.add(mapped.value)
         } else if (mapped && !dynamicChips.find(c => c.label === moment)) {
-          // Mesmo valor mas label diferente — adiciona como alias se ainda não existe label igual
           const alreadyExists = BASE_CHECKIN_OPTIONS.find(b => b.label === moment)
           if (!alreadyExists) {
-            dynamicChips.push({ label: moment, value: mapped.value, icon: mapped.icon })
+            dynamicChips.push({ label: moment, value: mapped.value, Icon: mapped.Icon })
           }
         }
       })
     }
 
-    // Se não tem "No trabalho" nem chip de escritório e o perfil existe, adiciona
     if (profile && !baseValues.has('work')) {
-      dynamicChips.push({ label: 'No trabalho', value: 'work', icon: '💼' })
+      dynamicChips.push({ label: 'No trabalho', value: 'work', Icon: Briefcase })
     }
 
     return [...BASE_CHECKIN_OPTIONS, ...dynamicChips.slice(0, 2)]
@@ -290,7 +348,7 @@ export default function Home() {
       localStorage.setItem(DAILY_MISSION_KEY, 'generated')
       addIdea(idea)
       addMission({ id: crypto.randomUUID(), title: idea.theme, description: idea.objective, type: idea.type, status: 'pending', date: new Date().toISOString(), content: idea, points: 10 })
-      addToast('Sua missão de hoje está pronta! 🎯', 'info')
+      addToast('Sua missão de hoje está pronta!', 'info')
     } catch {
       // silencioso
     }
@@ -313,7 +371,7 @@ export default function Home() {
       addIdea(missionIdea)
       extras.forEach(i => addIdea(i))
 
-      addToast('Ideias prontas para hoje! ✨', 'success')
+      addToast('Ideias prontas para hoje!', 'success')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[Home checkin]', msg)
@@ -323,7 +381,6 @@ export default function Home() {
     }
   }
 
-  // "Surpreenda-me" — gera usando pilar aleatório sem exigir check-in
   const handleSurprise = async () => {
     if (!profile) return
     setLoading(true)
@@ -340,7 +397,7 @@ export default function Home() {
       addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
       addIdea(missionIdea)
       extras.forEach(i => addIdea(i))
-      addToast('Surpresa gerada! ✨', 'success')
+      addToast('Surpresa gerada!', 'success')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       addToast(`Erro: ${msg.slice(0, 160)}`, 'error')
@@ -361,7 +418,7 @@ export default function Home() {
       setDayState(prev => ({ ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' } : i) }))
     }
 
-    addToast('Missão concluída! +10 pontos 🔥', 'success')
+    addToast('Missão concluída! +10 pontos', 'success')
   }
 
   const handleSave = (idea: ContentIdea) => {
@@ -386,7 +443,7 @@ export default function Home() {
       } else {
         setDayState(prev => ({ ...prev, extras: prev.extras.map(i => i.id === idea.id ? variation : i) }))
       }
-      addToast('Variação gerada! ✨', 'info')
+      addToast('Variação gerada!', 'info')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       addToast(`Erro na variação: ${msg.slice(0, 120)}`, 'error')
@@ -418,7 +475,7 @@ export default function Home() {
 
   return (
     <div className="p-5 space-y-5 pb-8">
-      {/* Header */}
+      {/* ── Header ─────────────────────────────────── */}
       <div className="pt-4 flex items-start justify-between">
         <div className="flex-1">
           <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
@@ -428,77 +485,122 @@ export default function Home() {
             <span style={{ color: 'var(--text-primary)' }}>Olá, </span>
             <span className="gradient-text">{firstName}</span>
           </h1>
-
-          <div className="mt-3 pl-3 py-1" style={{ borderLeft: '2px solid rgba(109,93,246,0.4)' }}>
-            <p className="text-sm italic leading-snug" style={{ color: 'var(--text-secondary)' }}>
-              "{quote.text}"
-            </p>
-            <p className="text-[10px] font-bold uppercase tracking-widest mt-1" style={{ color: 'var(--text-muted)' }}>
-              — {quote.author}
-            </p>
-          </div>
+          <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
+            O que você quer postar hoje?
+          </p>
         </div>
-        <button onClick={() => navigate('/configuracoes')} className="ml-3 w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <button
+          onClick={() => navigate('/configuracoes')}
+          className="ml-3 w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          aria-label="Configurações"
+        >
           <Settings size={16} style={{ color: 'var(--text-muted)' }} />
         </button>
       </div>
 
-      {/* Stats strip */}
-      <div className="rounded-2xl p-4 flex items-center gap-4"
+      {/* ── Gamification strip melhorado ───────────── */}
+      <div className="rounded-2xl p-4 space-y-3"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-            style={{ background: 'rgba(255,122,107,0.15)', border: '1px solid rgba(255,122,107,0.25)' }}>
-            <Flame size={15} style={{ color: '#FF7A6B' }} />
+        <div className="flex items-center gap-4">
+          {/* Streak */}
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+              style={{ background: 'rgba(255,122,107,0.15)', border: '1px solid rgba(255,122,107,0.25)' }}>
+              <Flame size={15} style={{ color: '#FF7A6B' }} />
+            </div>
+            <div>
+              <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>
+                {progress.currentStreak}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>dias</p>
+            </div>
           </div>
+
+          <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
+
+          {/* Missões semana */}
           <div>
-            <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>{progress.currentStreak}</p>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>dias</p>
+            <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>
+              {progress.weeklyMissions}
+            </p>
+            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>semana</p>
+          </div>
+
+          <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
+
+          {/* Nível com ícone de tendência */}
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={13} style={{ color: '#9B8CFF' }} />
+            <span className="text-[11px] font-bold px-2 py-1 rounded-full"
+              style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)', color: '#9B8CFF' }}>
+              {progress.level}
+            </span>
           </div>
         </div>
-        <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
-        <div>
-          <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>{progress.weeklyMissions}</p>
-          <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>semana</p>
-        </div>
-        <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
-        <span className="text-[10px] font-bold px-2 py-1 rounded-full"
-          style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)', color: '#9B8CFF' }}>
-          {progress.level}
-        </span>
+
+        {/* Barra de progresso para o próximo nível */}
+        {levelInfo.next !== '—' && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                Próximo: {levelInfo.next}
+              </p>
+              <p className="text-[10px] font-bold tabular-nums" style={{ color: '#9B8CFF' }}>
+                {levelProgress}%
+              </p>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${levelProgress}%` }} />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Check-in / conteúdo */}
+      {/* ── Check-in / conteúdo ─────────────────────── */}
       {!checkin ? (
         <div className="space-y-3">
           <p className="section-title">Como está seu dia?</p>
           <div className="grid grid-cols-2 gap-2">
-            {checkinOptions.map(opt => (
-              <button key={opt.value + opt.label} onClick={() => handleCheckin(opt.value)}
-                className="text-left p-4 rounded-2xl transition-all duration-200 active:scale-95"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = 'rgba(109,93,246,0.1)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(109,93,246,0.3)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-card)'; (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-color)' }}
-              >
-                <span className="text-xl block mb-1.5">{opt.icon}</span>
-                <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
-              </button>
-            ))}
+            {checkinOptions.map(opt => {
+              const Icon = opt.Icon
+              return (
+                <button
+                  key={opt.value + opt.label}
+                  onClick={() => handleCheckin(opt.value)}
+                  className="text-left p-4 rounded-2xl transition-all duration-200 active:scale-95"
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+                  onMouseEnter={e => {
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(109,93,246,0.1)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(109,93,246,0.3)'
+                  }}
+                  onMouseLeave={e => {
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-card)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-color)'
+                  }}
+                >
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
+                    style={{ background: 'rgba(124,92,255,0.1)', border: '1px solid rgba(124,92,255,0.15)' }}>
+                    <Icon size={16} style={{ color: '#9B8CFF' }} />
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
+                </button>
+              )
+            })}
           </div>
 
-          {/* Surpreenda-me */}
+          {/* Surpreenda-me — destaque visual melhorado */}
           {profile && (
             <button
               onClick={handleSurprise}
               className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
               style={{
-                background: 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.08))',
-                border: '1px solid rgba(109,93,246,0.3)',
-                color: '#9B8CFF',
+                background: 'linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.06))',
+                border: '1px solid rgba(255,181,71,0.3)',
+                color: '#FFB547',
               }}
             >
-              <Wand2 size={15} /> Surpreenda-me — gera uma ideia agora
+              <Wand2 size={15} /> Surpreenda-me — destravar uma ideia agora
             </button>
           )}
         </div>
@@ -510,7 +612,7 @@ export default function Home() {
             <Sparkles size={24} style={{ color: '#9B8CFF' }} className="animate-pulse" />
           </div>
           <div>
-            <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Criando suas ideias...</p>
+            <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Personalizando para o seu perfil</p>
           </div>
           <div className="flex gap-1.5">
@@ -559,16 +661,17 @@ export default function Home() {
             <Sparkles size={16} /> Criar mais ideias <ArrowRight size={16} />
           </button>
 
+          {/* Reiniciar — discreto para não confundir usuários novos */}
           <button
             onClick={() => {
               localStorage.removeItem(CHECKIN_STORAGE_KEY)
               localStorage.removeItem(DAILY_MISSION_KEY)
               setDayState({ checkin: '', mission: null, extras: [] })
             }}
-            className="w-full text-center text-xs py-2"
+            className="w-full text-center text-[11px] py-2 opacity-40 hover:opacity-70 transition-opacity"
             style={{ color: 'var(--text-muted)' }}
           >
-            Reiniciar missão do dia
+            Recomeçar o dia
           </button>
         </div>
       )}
@@ -589,7 +692,6 @@ export default function Home() {
         <StudioModal idea={studioIdea} onClose={() => setStudioIdea(null)} />
       )}
 
-      {/* Modal de legenda */}
       {captionIdea && (
         captionLoading ? (
           <div className="fixed inset-0 z-[150] flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)' }}>

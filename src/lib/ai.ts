@@ -1,4 +1,7 @@
 import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea } from '../types'
+import { supabase } from './supabase/client'
+
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 
 const EXPOSURE_LABELS: Record<ExposureLevel, string> = {
   'no-appearance': 'não aparece no vídeo — usa só texto, imagem estática ou carrossel',
@@ -90,44 +93,34 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
 }`
 }
 
+// Chama a IA através da Edge Function do Supabase (chave do Gemini fica no servidor).
+// Nunca expõe a API key no frontend — exige sessão válida do usuário.
 async function callGemini(prompt: string): Promise<string> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('API_KEY_MISSING')
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sua sessão expirou. Faça login novamente.')
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: 0.9,
-          maxOutputTokens: 2048,
-        },
-      }),
-    }
-  )
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/destravai-gemini`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ prompt }),
+  })
 
   if (!response.ok) {
-    const err = await response.json().catch(() => ({ error: { message: response.statusText } }))
-    const msg = err?.error?.message ?? `HTTP ${response.status}`
+    const err = await response.json().catch(() => ({})) as { error?: string }
+    const msg = err?.error ?? `Erro ${response.status}`
 
-    // Limite de uso da IA (cota diária/por minuto do Gemini) — mensagem amigável
-    if (response.status === 429 || /quota|rate limit|resource_exhausted/i.test(msg)) {
-      throw new Error('Você fez muitas gerações em pouco tempo. Espere alguns minutos e tente de novo. 🙂')
+    if (response.status === 429) {
+      throw new Error('Você fez muitas gerações em pouco tempo. Espere alguns minutos e tente de novo.')
     }
-    // Chave inválida ou sem permissão
-    if (response.status === 401 || response.status === 403) {
-      throw new Error('A chave da IA não está configurada corretamente. Verifique as configurações.')
-    }
-
-    throw new Error(`GEMINI_ERROR: ${msg}`)
+    throw new Error(msg)
   }
 
-  const data = await response.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  if (!text) throw new Error('GEMINI_EMPTY_RESPONSE')
+  const data = await response.json() as { text?: string }
+  const text = data.text ?? ''
+  if (!text) throw new Error('A IA retornou vazio. Tente novamente.')
   return text
 }
 
@@ -329,9 +322,6 @@ export async function generateCheckinIdea(
 ): Promise<ContentIdea> {
   const cfg = CHECKIN_CONFIG[checkinKey] ?? CHECKIN_CONFIG['2min']
 
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) return buildMockContent({ type: cfg.type, theme: cfg.ctx, objective: 'Ideia rápida de conteúdo', exposureLevel: profile.exposureLevel, timeAvailable: cfg.time, tone: profile.voiceTone, profile })
-
   const prompt = buildCheckinPrompt(profile, checkinKey, variationHint)
   const raw = await callGemini(prompt)
   const parsed = extractJSON(raw)
@@ -358,21 +348,21 @@ export async function generatePersonalSuggestions(
   recentJournal: JournalEntry[],
   recentIdeas: PersonalIdea[]
 ): Promise<string[]> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    return [
-      `Conte como um hobby seu — ${ctx.hobbies?.[0] ?? 'algo que você ama'} — te ensinou algo valioso sobre ${profile.specialty}`,
-      `${ctx.lifeMoment ? 'Baseado no que você está vivendo agora: compartilhe' : 'Compartilhe'} uma lição que sua trajetória como ${profile.specialty} te ensinou sobre equilíbrio`,
-      `Uma história real do seu dia a dia que conecta o humano ao técnico — o tipo de conteúdo que só você pode contar`,
-    ]
-  }
+  const fallback = [
+    `Conte como um hobby seu — ${ctx.hobbies?.[0] ?? 'algo que você ama'} — te ensinou algo valioso sobre ${profile.specialty}`,
+    `${ctx.lifeMoment ? 'Baseado no que você está vivendo agora: compartilhe' : 'Compartilhe'} uma lição que sua trajetória como ${profile.specialty} te ensinou sobre equilíbrio`,
+    `Uma história real do seu dia a dia que conecta o humano ao técnico — o tipo de conteúdo que só você pode contar`,
+  ]
 
-  const prompt = buildPersonalSuggestionsPrompt(profile, ctx, recentJournal, recentIdeas)
-  const raw = await callGemini(prompt)
-  const parsed = extractJSON(raw)
-  const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String) : []
-  if (suggestions.length === 0) throw new Error('EMPTY_SUGGESTIONS')
-  return suggestions
+  try {
+    const prompt = buildPersonalSuggestionsPrompt(profile, ctx, recentJournal, recentIdeas)
+    const raw = await callGemini(prompt)
+    const parsed = extractJSON(raw)
+    const suggestions = Array.isArray(parsed.suggestions) ? parsed.suggestions.map(String) : []
+    return suggestions.length > 0 ? suggestions : fallback
+  } catch {
+    return fallback
+  }
 }
 
 // Gera legenda completa para Instagram a partir de uma ideia existente
@@ -380,12 +370,9 @@ export async function generateCaption(
   idea: ContentIdea,
   profile: ProfessionalProfile
 ): Promise<{ caption: string; hashtags: string[] }> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    return {
-      caption: `${idea.theme}\n\n${idea.objective}\n\n${idea.cta || 'Me conta nos comentários!'}`,
-      hashtags: ['#instagram', `#${profile.specialty.toLowerCase().replace(/\s+/g, '')}`, '#conteudo'],
-    }
+  const fallback = {
+    caption: `${idea.theme}\n\n${idea.objective}\n\n${idea.cta || 'Me conta nos comentários!'}`,
+    hashtags: ['#instagram', `#${profile.specialty.toLowerCase().replace(/\s+/g, '')}`, '#conteudo'],
   }
 
   const tone = profile.voiceTone.join(', ') || 'natural e próximo'
@@ -417,11 +404,15 @@ Responda SOMENTE com este JSON:
   "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3"]
 }`
 
-  const raw = await callGemini(prompt)
-  const parsed = extractJSON(raw)
-  return {
-    caption: String(parsed.caption ?? idea.objective),
-    hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags.map(String) : [],
+  try {
+    const raw = await callGemini(prompt)
+    const parsed = extractJSON(raw)
+    return {
+      caption: String(parsed.caption ?? idea.objective),
+      hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags.map(String) : [],
+    }
+  } catch {
+    return fallback
   }
 }
 
@@ -429,17 +420,14 @@ Responda SOMENTE com este JSON:
 export async function generatePersonalizedCTAs(
   profile: ProfessionalProfile
 ): Promise<Array<{ text: string; type: string; typeLabel: string }>> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    const name = profile.professionalName
-    return [
-      { text: `Me manda mensagem e vamos conversar sobre o que você precisa!`, type: 'interaction', typeLabel: 'Interação' },
-      { text: `Salva esse post pra não perder quando precisar 📌`, type: 'save', typeLabel: 'Salvar' },
-      { text: `Tem dúvida sobre isso? Me manda no direct, respondo hoje.`, type: 'interaction', typeLabel: 'Interação' },
-      { text: `Quer saber mais? Clica no link da bio de ${name}`, type: 'soft-sell', typeLabel: 'Venda leve' },
-      { text: `Me marca quando fizer isso — adoro ver quando funciona!`, type: 'interaction', typeLabel: 'Interação' },
-    ]
-  }
+  const name = profile.professionalName
+  const fallback = [
+    { text: `Me manda mensagem e vamos conversar sobre o que você precisa!`, type: 'interaction', typeLabel: 'Interação' },
+    { text: `Salva esse post pra não perder quando precisar`, type: 'save', typeLabel: 'Salvar' },
+    { text: `Tem dúvida sobre isso? Me manda no direct, respondo hoje.`, type: 'interaction', typeLabel: 'Interação' },
+    { text: `Quer saber mais? Clica no link da bio de ${name}`, type: 'soft-sell', typeLabel: 'Venda leve' },
+    { text: `Me marca quando fizer isso — adoro ver quando funciona!`, type: 'interaction', typeLabel: 'Interação' },
+  ]
 
   const services = profile.services.slice(0, 3).map(s => s.name).join(', ') || profile.specialty
   const tone = profile.voiceTone.join(', ') || 'próximo e natural'
@@ -482,41 +470,22 @@ Responda SOMENTE com este JSON:
   ]
 }`
 
-  const raw = await callGemini(prompt)
-  const parsed = extractJSON(raw)
-  const ctas = Array.isArray(parsed.ctas) ? parsed.ctas : []
-  return ctas.map((c: Record<string, unknown>) => ({
-    text: String(c.text ?? ''),
-    type: String(c.type ?? 'interaction'),
-    typeLabel: String(c.typeLabel ?? 'Interação'),
-  }))
-}
-
-function buildMockContent(req: GenerateRequest): ContentIdea {
-  const typeLabels: Record<string, string> = { story: 'Story', sequence: 'Sequência de stories', reel: 'Reels' }
-  return {
-    id: crypto.randomUUID(),
-    type: req.type,
-    theme: `${typeLabels[req.type] ?? req.type}: ${req.theme}`,
-    objective: req.objective,
-    content: `[Modo demo — configure VITE_GEMINI_API_KEY para gerar conteúdo real]\n\nTema: ${req.theme}\nObjetivo: ${req.objective}\n\nEste é um conteúdo de exemplo. Com a chave da API configurada, a IA gerará um roteiro completo e personalizado para o seu perfil.`,
-    cta: 'Me conta nos comentários o que você achou!',
-    timeEstimate: req.timeAvailable,
-    exposureLevel: req.exposureLevel,
-    status: 'pending',
-    favorite: false,
-    createdAt: new Date().toISOString(),
-    tags: ['demo', req.type],
+  try {
+    const raw = await callGemini(prompt)
+    const parsed = extractJSON(raw)
+    const ctas = Array.isArray(parsed.ctas) ? parsed.ctas : []
+    const mapped = ctas.map((c: Record<string, unknown>) => ({
+      text: String(c.text ?? ''),
+      type: String(c.type ?? 'interaction'),
+      typeLabel: String(c.typeLabel ?? 'Interação'),
+    }))
+    return mapped.length > 0 ? mapped : fallback
+  } catch {
+    return fallback
   }
 }
 
 export async function generateContent(req: GenerateRequest): Promise<ContentIdea> {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-
-  if (!apiKey) {
-    return buildMockContent(req)
-  }
-
   const prompt = buildPrompt(req)
   const raw = await callGemini(prompt)
   const parsed = extractJSON(raw)

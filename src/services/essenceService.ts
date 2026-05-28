@@ -1,5 +1,46 @@
 import { supabase } from '../lib/supabase/client'
 import type { BrandEssence } from '../lib/supabase/types'
+import type { ProfessionalProfile, ContentPillar, ServiceTopic, ExposureLevel } from '../types'
+
+// Reconstrói o perfil usado pela IA (ProfessionalProfile) a partir da essência
+// salva no Supabase. É isso que permite o app funcionar em qualquer dispositivo:
+// a essência é a fonte da verdade, não o localStorage.
+export function essenceToProfile(essence: BrandEssence, name = ''): ProfessionalProfile {
+  const raw = (essence.raw_answers_json ?? {}) as Record<string, unknown>
+  const str = (v: unknown, fb = '') => (typeof v === 'string' ? v : fb)
+  const strArr = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : [])
+
+  const pillars: ContentPillar[] = (essence.topics ?? []).map((n, i) => ({
+    id: crypto.randomUUID(), name: n, description: '', priority: i + 1,
+  }))
+  const services: ServiceTopic[] = (essence.services ?? []).map((n) => ({
+    id: crypto.randomUUID(), name: n, category: essence.profession ?? 'Geral', commercialGoal: 'Venda',
+  }))
+  const voiceTone = (essence.tone_of_voice ?? '')
+    .split(',').map((s) => s.trim()).filter(Boolean)
+
+  return {
+    professionalName: str(raw.professional_name) || name,
+    specialty: essence.profession ?? essence.niche ?? '',
+    city: str(raw.city),
+    targetAudience: essence.audience ?? '',
+    instagram: str(raw.instagram),
+    serviceType: essence.routine ?? '',
+    currentGoal: essence.content_goals ?? '',
+    exposureLevel: (str(raw.exposure_level) || 'short-videos') as ExposureLevel,
+    voiceTone,
+    pillars,
+    services,
+    limits: {
+      avoidTopics: essence.restrictions ?? [],
+      sensitiveMatter: [], noTeamShow: false, noOfficeShow: false, humorRestrictions: '',
+    },
+    catchphrase: (essence.phrases ?? [])[0] ?? '',
+    preferredWords: [],
+    avoidedWords: strArr(raw.avoided_words),
+    availableMoments: [],
+  }
+}
 
 export async function getBrandEssence(): Promise<BrandEssence | null> {
   const { data: { user } } = await supabase.auth.getUser()

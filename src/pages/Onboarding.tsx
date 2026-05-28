@@ -211,6 +211,13 @@ export default function Onboarding() {
         differentials: '',
         frequent_questions: [],
         common_objections: [],
+        // Campos extras guardados no raw_answers_json para reconstruir o perfil
+        // em qualquer dispositivo (não têm coluna própria na tabela de essência)
+        professional_name: professionalName,
+        city,
+        instagram,
+        exposure_level: exposureLevel,
+        avoided_words: avoidedWords.split(',').map(s => s.trim()).filter(Boolean),
       }
       const savedEssence = await saveBrandEssence(essenceAnswers)
       setEssence(savedEssence)

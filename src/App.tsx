@@ -31,7 +31,9 @@ function PageLoader() {
 function ProtectedRoutes() {
   const { state } = useApp()
 
-  if (state.authLoading) return <PageLoader />
+  // Aguarda tanto a sessão quanto o profile/essência carregarem, senão o
+  // onboarding_completed ainda não está disponível e redireciona errado.
+  if (state.authLoading || state.profileLoading) return <PageLoader />
   if (!state.supabaseUser) return <Navigate to="/login" replace />
 
   // Redirecionar para onboarding se profile ainda não completou
@@ -60,7 +62,9 @@ function ProtectedRoutes() {
 function AppRoutes() {
   const { state } = useApp()
 
-  if (state.authLoading) return <PageLoader />
+  // Espera a sessão e (se logado) o profile, para as rotas de login/onboarding
+  // não decidirem com onboarding_completed ainda indefinido.
+  if (state.authLoading || (state.supabaseUser && state.profileLoading)) return <PageLoader />
 
   return (
     <Suspense fallback={<PageLoader />}>

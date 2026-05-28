@@ -5,6 +5,7 @@ import type { DestravaiProfile, BrandEssence } from '../lib/supabase/types'
 import type { ContentIdea, Mission, Progress, PersonalSpace, PersonalContext, JournalEntry, PersonalIdea, ProfessionalProfile } from '../types'
 import { calculateStreak, calculateLevel, getWeekKey, inferCategory } from '../lib/progress'
 import { getCurrentProfile } from '../services/profileService'
+import { getBrandEssence, essenceToProfile } from '../services/essenceService'
 
 // ─── Chaves de armazenamento ──────────────────────────────────
 // Apenas dados de UI (tema, progresso, perfil local para IA) ficam em localStorage.
@@ -48,6 +49,9 @@ interface AppState {
   progress: Progress
   personalSpace: PersonalSpace
   authLoading: boolean
+  // Carregando profile/essência do banco após resolver a sessão.
+  // Separado de authLoading para evitar deadlock no callback de auth do Supabase.
+  profileLoading: boolean
 }
 
 interface AppContextType {
@@ -104,50 +108,72 @@ export function AppProvider({ children }: { children: ReactNode }) {
     progress: loadProgress(),
     personalSpace: defaultPersonalSpace,
     authLoading: true,
+    profileLoading: true,
   })
 
-  // Sincronizar sessão do Supabase e buscar profile ao carregar
+  // 1) Resolve a sessão. IMPORTANTE: o callback do onAuthStateChange deve ser
+  // SÍNCRONO. Chamar métodos do supabase (getUser, queries) aqui dentro trava
+  // o cliente de auth (deadlock) — por isso a busca de dados fica no efeito 2.
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        // Buscar profile imediatamente para que onboarding_completed esteja disponível
-        const profile = await getCurrentProfile().catch(() => null)
-        setState(s => ({
-          ...s,
-          supabaseUser: session.user,
-          session,
-          profile,
-          authLoading: false,
-        }))
-      } else {
-        setState(s => ({ ...s, supabaseUser: null, session: null, authLoading: false }))
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setState(s => ({
+        ...s,
+        supabaseUser: session?.user ?? null,
+        session,
+        authLoading: false,
+      }))
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session?.user) {
-        const profile = await getCurrentProfile().catch(() => null)
-        setState(s => ({
-          ...s,
-          supabaseUser: session.user,
-          session,
-          profile,
-          authLoading: false,
-        }))
-      } else {
-        setState(s => ({
-          ...s,
-          supabaseUser: null,
-          session: null,
-          authLoading: false,
-          profile: null,
-          essence: null,
-        }))
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState(s => ({
+        ...s,
+        supabaseUser: session?.user ?? null,
+        session,
+        authLoading: false,
+        // Ao deslogar, limpa dados sensíveis da sessão
+        profile: session ? s.profile : null,
+        essence: session ? s.essence : null,
+        localProfile: session ? s.localProfile : null,
+      }))
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  // 2) Quando o usuário muda, busca profile + essência do banco (fora do lock do
+  // auth) e reconstrói o localProfile a partir da essência — assim o app funciona
+  // em qualquer dispositivo, não só onde o onboarding foi preenchido.
+  useEffect(() => {
+    const userId = state.supabaseUser?.id
+    if (!userId) {
+      setState(s => ({ ...s, profileLoading: false }))
+      return
+    }
+
+    let cancelled = false
+    setState(s => ({ ...s, profileLoading: true }))
+
+    ;(async () => {
+      const [profile, essence] = await Promise.all([
+        getCurrentProfile().catch(() => null),
+        getBrandEssence().catch(() => null),
+      ])
+      if (cancelled) return
+      setState(s => {
+        const rebuilt = essence ? essenceToProfile(essence, profile?.name ?? '') : null
+        if (rebuilt) localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(rebuilt))
+        return {
+          ...s,
+          profile,
+          essence,
+          localProfile: rebuilt ?? s.localProfile,
+          profileLoading: false,
+        }
+      })
+    })()
+
+    return () => { cancelled = true }
+  }, [state.supabaseUser?.id])
 
   // Persistir progresso em localStorage (dados de UI)
   useEffect(() => {
@@ -223,6 +249,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       progress: defaultProgress,
       personalSpace: defaultPersonalSpace,
       authLoading: false,
+      profileLoading: false,
     })
   }
 

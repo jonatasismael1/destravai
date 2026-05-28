@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import { updateProfile } from '../services/profileService'
 import { saveBrandEssence } from '../services/essenceService'
 import type { ProfessionalProfile, ContentPillar, ServiceTopic, ExposureLevel } from '../types'
-import { ChevronLeft, ChevronRight, Zap, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check } from 'lucide-react'
 
 const TOTAL_STEPS = 8
 
@@ -363,10 +363,12 @@ export default function Onboarding() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6 pt-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 0 16px rgba(109,93,246,0.4)' }}>
-              <Zap size={15} className="text-white" fill="white" />
-            </div>
+            <img
+              src="/destravai-icone.png"
+              alt="Destravaí"
+              className="w-8 h-8 rounded-xl object-cover"
+              style={{ filter: 'drop-shadow(0 0 8px rgba(124,92,255,0.5))' }}
+            />
             <span className="font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravaí</span>
           </div>
           <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>

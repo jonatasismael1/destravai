@@ -79,8 +79,8 @@ export default function Login() {
             <img
               src="/destravai-logo-completa.png"
               alt="Destravaí"
-              className="h-14 w-auto"
-              style={{ filter: 'drop-shadow(0 0 24px rgba(124,92,255,0.45))' }}
+              className="h-36 w-auto max-w-[280px]"
+              style={{ filter: 'drop-shadow(0 0 28px rgba(124,92,255,0.5))' }}
             />
           </div>
           <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>

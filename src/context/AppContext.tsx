@@ -6,6 +6,7 @@ import type { ContentIdea, Mission, Progress, PersonalSpace, PersonalContext, Jo
 import { calculateStreak, calculateLevel, getWeekKey, inferCategory } from '../lib/progress'
 import { getCurrentProfile } from '../services/profileService'
 import { getBrandEssence, essenceToProfile } from '../services/essenceService'
+import { getSubscriptionStatus, type SubscriptionStatus } from '../services/subscriptionService'
 
 // ─── Chaves de armazenamento ──────────────────────────────────
 // Apenas dados de UI (tema, progresso, perfil local para IA) ficam em localStorage.
@@ -52,6 +53,10 @@ interface AppState {
   // Carregando profile/essência do banco após resolver a sessão.
   // Separado de authLoading para evitar deadlock no callback de auth do Supabase.
   profileLoading: boolean
+
+  // Assinatura (controle de acesso pago via Asaas)
+  subscription: SubscriptionStatus | null
+  subscriptionLoading: boolean
 }
 
 interface AppContextType {
@@ -65,6 +70,7 @@ interface AppContextType {
   updateMission: (id: string, updates: Partial<Mission>) => void
   updateProgress: (updates: Partial<Progress>) => void
   completeMission: (ideaObjective: string) => void
+  refreshSubscription: () => Promise<void>
   logout: () => Promise<void>
   savePersonalContext: (context: PersonalContext) => void
   setTodayMood: (mood: string, note?: string) => void
@@ -109,6 +115,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     personalSpace: defaultPersonalSpace,
     authLoading: true,
     profileLoading: true,
+    subscription: null,
+    subscriptionLoading: true,
   })
 
   // 1) Resolve a sessão. IMPORTANTE: o callback do onAuthStateChange deve ser
@@ -146,17 +154,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const userId = state.supabaseUser?.id
     if (!userId) {
-      setState(s => ({ ...s, profileLoading: false }))
+      setState(s => ({ ...s, profileLoading: false, subscriptionLoading: false }))
       return
     }
 
     let cancelled = false
-    setState(s => ({ ...s, profileLoading: true }))
+    setState(s => ({ ...s, profileLoading: true, subscriptionLoading: true }))
 
     ;(async () => {
-      const [profile, essence] = await Promise.all([
+      const [profile, essence, subscription] = await Promise.all([
         getCurrentProfile().catch(() => null),
         getBrandEssence().catch(() => null),
+        getSubscriptionStatus().catch(() => null),
       ])
       if (cancelled) return
       setState(s => {
@@ -167,13 +176,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
           profile,
           essence,
           localProfile: rebuilt ?? s.localProfile,
+          subscription,
           profileLoading: false,
+          subscriptionLoading: false,
         }
       })
     })()
 
     return () => { cancelled = true }
   }, [state.supabaseUser?.id])
+
+  const refreshSubscription = async () => {
+    const subscription = await getSubscriptionStatus().catch(() => null)
+    setState(s => ({ ...s, subscription }))
+  }
 
   // Persistir progresso em localStorage (dados de UI)
   useEffect(() => {
@@ -250,6 +266,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       personalSpace: defaultPersonalSpace,
       authLoading: false,
       profileLoading: false,
+      subscription: null,
+      subscriptionLoading: false,
     })
   }
 
@@ -300,7 +318,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       state, setProfile, setLocalProfile, setEssence, addIdea, updateIdea,
-      addMission, updateMission, updateProgress, completeMission, logout,
+      addMission, updateMission, updateProgress, completeMission, refreshSubscription, logout,
       savePersonalContext, setTodayMood,
       addJournalEntry, deleteJournalEntry,
       addPersonalIdea, deletePersonalIdea,

@@ -1,0 +1,118 @@
+// POST /.netlify/functions/asaas-webhook
+// Recebe eventos do Asaas. Valida o token, é idempotente (não reprocessa o
+// mesmo evento) e atualiza o status da assinatura no Supabase.
+// URL para cadastrar no painel do Asaas:
+//   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
+
+import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS } from './_shared.mjs'
+
+export const handler = async (event) => {
+  if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
+
+  // 1) Proteção contra webhook falso: valida o header asaas-access-token.
+  const token = event.headers['asaas-access-token'] || event.headers['Asaas-Access-Token']
+  const expected = process.env.ASAAS_WEBHOOK_TOKEN
+  if (!expected || token !== expected) {
+    console.warn('[asaas-webhook] token inválido ou ausente')
+    return json(401, { error: 'Token inválido' })
+  }
+
+  let payload
+  try {
+    payload = JSON.parse(event.body || '{}')
+  } catch {
+    return json(400, { error: 'Payload inválido' })
+  }
+
+  const admin = supabaseAdmin()
+
+  const eventId = payload.id || `${payload.event}-${payload.payment?.id || payload.subscription?.id || Date.now()}`
+  const eventType = payload.event || 'UNKNOWN'
+  const payment = payload.payment || null
+  const subscriptionObj = payload.subscription || null
+  const asaasSubscriptionId = payment?.subscription || subscriptionObj?.id || null
+  const asaasPaymentId = payment?.id || null
+
+  try {
+    // 2) Idempotência: registra o evento; se já existe (event_id único), ignora.
+    const { error: insertErr } = await admin.from('asaas_webhook_events').insert({
+      event_id: eventId,
+      event_type: eventType,
+      asaas_payment_id: asaasPaymentId,
+      asaas_subscription_id: asaasSubscriptionId,
+      payload,
+    })
+    if (insertErr) {
+      // Violação de unique = evento repetido → responde 200 e não reprocessa.
+      if (insertErr.code === '23505') {
+        return json(200, { ok: true, duplicated: true })
+      }
+      console.error('[asaas-webhook] erro ao registrar evento', insertErr.message)
+      // Mesmo assim seguimos tentando processar (não bloqueia).
+    }
+
+    // 3) Localiza a assinatura no nosso banco.
+    let subRow = null
+    if (asaasSubscriptionId) {
+      const { data } = await admin.from('subscriptions').select('*')
+        .eq('asaas_subscription_id', asaasSubscriptionId)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      subRow = data
+    }
+    // Fallback: por externalReference (user_id) ou customer.
+    if (!subRow) {
+      const userId = payment?.externalReference || subscriptionObj?.externalReference
+      const customerId = payment?.customer || subscriptionObj?.customer
+      if (userId) {
+        const { data } = await admin.from('subscriptions').select('*')
+          .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        subRow = data
+      } else if (customerId) {
+        const { data } = await admin.from('subscriptions').select('*')
+          .eq('asaas_customer_id', customerId).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        subRow = data
+      }
+    }
+
+    // 4) Aplica a mudança de status.
+    const mapped = eventType.startsWith('PAYMENT_') ? mapPaymentEvent(eventType) : null
+    const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
+
+    if (mapped) {
+      updates.status = mapped.status
+      updates.payment_status = mapped.payment_status
+      if (asaasPaymentId) updates.asaas_payment_id = asaasPaymentId
+
+      // Ao confirmar o primeiro pagamento, define started_at e refund_deadline.
+      if (mapped.payment_status === 'paid') {
+        const startedAt = subRow?.started_at ? new Date(subRow.started_at) : new Date()
+        updates.started_at = startedAt.toISOString()
+        const deadline = new Date(startedAt)
+        deadline.setDate(deadline.getDate() + GUARANTEE_DAYS)
+        updates.refund_deadline = deadline.toISOString()
+      }
+      if (mapped.status === 'refunded') updates.refunded_at = new Date().toISOString()
+    } else if (eventType === 'SUBSCRIPTION_DELETED' || eventType === 'SUBSCRIPTION_INACTIVATED') {
+      updates.status = 'canceled'
+      updates.canceled_at = new Date().toISOString()
+    }
+    // SUBSCRIPTION_CREATED / SUBSCRIPTION_UPDATED: só guardamos o último evento.
+
+    if (subRow) {
+      await admin.from('subscriptions').update(updates).eq('id', subRow.id)
+      // Marca o evento como processado e vincula o user_id.
+      await admin.from('asaas_webhook_events')
+        .update({ processed_at: new Date().toISOString(), user_id: subRow.user_id })
+        .eq('event_id', eventId)
+    } else {
+      console.warn('[asaas-webhook] assinatura não encontrada para', { asaasSubscriptionId, asaasPaymentId })
+    }
+
+    return json(200, { ok: true })
+  } catch (err) {
+    console.error('[asaas-webhook]', err?.message)
+    // Responde 200 para o Asaas não reenviar infinitamente em erro nosso não-crítico;
+    // o evento fica registrado e pode ser reprocessado manualmente se necessário.
+    return json(200, { ok: false, error: err?.message })
+  }
+}

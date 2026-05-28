@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase/client'
 import { useApp } from '../context/AppContext'
 import { getCurrentProfile } from '../services/profileService'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Zap, Video, Sparkles } from 'lucide-react'
 
 type Mode = 'login' | 'register'
@@ -231,7 +232,15 @@ export default function Login() {
 
         {/* ── Rodapé de confiança ──────────────────────────── */}
         <p className="text-center text-xs mt-6" style={{ color: 'var(--text-muted)' }}>
-          Grátis para começar · Sem cartão de crédito
+          7 dias de garantia · Cancele quando quiser
+        </p>
+
+        {/* Links legais */}
+        <p className="text-center text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+          Ao continuar, você concorda com os{' '}
+          <Link to="/termos" className="font-semibold underline" style={{ color: '#A78BFA' }}>Termos de Uso</Link>
+          {' '}e a{' '}
+          <Link to="/privacidade" className="font-semibold underline" style={{ color: '#A78BFA' }}>Política de Privacidade</Link>.
         </p>
       </div>
     </div>

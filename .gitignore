@@ -1,0 +1,30 @@
+# Local Netlify folder
+.netlify
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+docs/
+
+# Environment variables (credenciais — nunca commitar)
+.env
+.env.local
+.env.*.local
+
+# Agent/Codex internals
+.agents/
+.codex/
+ui-ux-pro-max-skill/
+
+# MCP config (referências de infraestrutura)
+.mcp.json
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

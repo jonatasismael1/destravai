@@ -1,0 +1,30 @@
+{
+  "name": "Destravaí",
+  "short_name": "Destravaí",
+  "description": "Stories prontos para você gravar sem travar.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0B0B12",
+  "theme_color": "#0B0B12",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/destravai-icone.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/destravai-icone-pwa.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/destravai-icone.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

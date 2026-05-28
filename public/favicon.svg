@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6D5DF6"/>
+      <stop offset="100%" stop-color="#9B8CFF"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.85)"/>
+    </linearGradient>
+  </defs>
+  <!-- Background rounded square -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <!-- Subtle inner glow -->
+  <rect width="512" height="512" rx="112" fill="url(#bolt)" opacity="0.06"/>
+  <!-- Zap / lightning bolt — DBE Pulse mark -->
+  <path
+    d="M296 80 L176 280 L248 280 L216 432 L336 232 L264 232 L296 80Z"
+    fill="white"
+    opacity="0.97"
+  />
+</svg>

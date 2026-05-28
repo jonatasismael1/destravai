@@ -1,0 +1,305 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════
+   DESIGN TOKENS — dark (default) / light
+   ═══════════════════════════════════════════════════════ */
+:root {
+  --bg-base:         #0B0B12;
+  --bg-card:         rgba(255, 255, 255, 0.04);
+  --bg-card-bright:  rgba(255, 255, 255, 0.08);
+  --bg-input:        rgba(255, 255, 255, 0.05);
+
+  --text-primary:    #F7F4FF;
+  --text-secondary:  rgba(247, 244, 255, 0.55);
+  --text-muted:      rgba(247, 244, 255, 0.32);
+
+  --border-color:    rgba(42, 38, 56, 0.9);
+  --border-bright:   rgba(55, 50, 75, 1);
+
+  --nav-bg:          rgba(11, 11, 18, 0.80);
+  --nav-border:      rgba(42, 38, 56, 0.8);
+  --divider:         rgba(42, 38, 56, 0.8);
+
+  --shadow-card:     0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-sm:       0 4px 16px rgba(0, 0, 0, 0.3);
+  --inset-line:      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="light"] {
+  --bg-base:         #FAF8FF;
+  --bg-card:         rgba(255, 255, 255, 0.95);
+  --bg-card-bright:  #FFFFFF;
+  --bg-input:        rgba(255, 255, 255, 0.85);
+
+  --text-primary:    #171326;
+  --text-secondary:  #6B667A;
+  --text-muted:      rgba(107, 102, 122, 0.55);
+
+  --border-color:    rgba(232, 225, 255, 0.9);
+  --border-bright:   rgba(232, 225, 255, 1);
+
+  --nav-bg:          rgba(255, 255, 255, 0.88);
+  --nav-border:      rgba(124, 92, 255, 0.15);
+  --divider:         rgba(124, 92, 255, 0.10);
+
+  --shadow-card:     0 4px 24px rgba(124, 92, 255, 0.09);
+  --shadow-sm:       0 2px 12px rgba(124, 92, 255, 0.07);
+  --inset-line:      inset 0 1px 0 rgba(124, 92, 255, 0.06);
+}
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+    box-sizing: border-box;
+  }
+
+  html {
+    height: 100%;
+    overscroll-behavior: none;
+  }
+
+  body {
+    @apply font-sans antialiased;
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    height: 100%;
+    overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  ::-webkit-scrollbar {
+    width: 2px;
+  }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(124, 92, 255, 0.4);
+    border-radius: 999px;
+  }
+
+  ::selection {
+    background: rgba(124, 92, 255, 0.4);
+    color: #fff;
+  }
+}
+
+@layer components {
+
+  /* ─── Glass Cards ─────────────────────────────── */
+  .glass {
+    background: var(--bg-card);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    box-shadow: var(--shadow-card), var(--inset-line);
+  }
+
+  .glass-sm {
+    background: var(--bg-card);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm), var(--inset-line);
+  }
+
+  .glass-bright {
+    background: var(--bg-card-bright);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-bright);
+    border-radius: 24px;
+    box-shadow: var(--shadow-card), var(--inset-line);
+  }
+
+  .glass-active {
+    background: rgba(124, 92, 255, 0.12);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(124, 92, 255, 0.35);
+    border-radius: 16px;
+    box-shadow: 0 0 20px rgba(124, 92, 255, 0.2), var(--inset-line);
+  }
+
+  /* ─── Buttons ─────────────────────────────────── */
+  .btn-primary {
+    @apply relative inline-flex items-center justify-center gap-2 font-bold rounded-2xl px-6 py-3.5 text-white transition-all duration-200 select-none;
+    background: linear-gradient(135deg, #7C5CFF 0%, #A78BFA 100%);
+    box-shadow: 0 0 24px rgba(124, 92, 255, 0.45), 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .btn-primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 36px rgba(124, 92, 255, 0.6), 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+    box-shadow: 0 0 16px rgba(124, 92, 255, 0.4);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-2xl px-6 py-3.5 transition-all duration-200 select-none;
+    background: var(--bg-card-bright);
+    border: 1px solid var(--border-bright);
+    color: var(--text-primary);
+  }
+  .btn-secondary:hover {
+    background: var(--bg-card-bright);
+    border-color: var(--border-bright);
+    transform: translateY(-1px);
+  }
+  .btn-secondary:active { transform: scale(0.97); }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 font-medium rounded-xl px-4 py-2 transition-all duration-200;
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover {
+    color: var(--text-primary);
+    background: var(--bg-card);
+  }
+
+  /* ─── Inputs ──────────────────────────────────── */
+  .input {
+    @apply w-full font-medium rounded-2xl px-4 py-3.5 transition-all duration-200 outline-none;
+    font-size: 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+  .input::placeholder {
+    color: var(--text-muted);
+  }
+  .input:focus {
+    background: rgba(124, 92, 255, 0.08);
+    border-color: rgba(124, 92, 255, 0.5);
+    box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12), 0 0 20px rgba(124, 92, 255, 0.1);
+  }
+
+  select.input option {
+    background: var(--bg-base);
+    color: var(--text-primary);
+  }
+
+  /* ─── Labels ──────────────────────────────────── */
+  .label {
+    @apply block text-xs font-bold uppercase tracking-widest mb-2;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* ─── Chips ───────────────────────────────────── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer select-none;
+  }
+  .chip-active {
+    background: linear-gradient(135deg, #7C5CFF, #A78BFA);
+    color: white;
+    box-shadow: 0 0 16px rgba(124, 92, 255, 0.4);
+  }
+  .chip-inactive {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+  }
+  .chip-inactive:hover {
+    background: rgba(124, 92, 255, 0.1);
+    border-color: rgba(124, 92, 255, 0.3);
+    color: #A78BFA;
+  }
+
+  /* ─── Tags ────────────────────────────────────── */
+  .tag {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold;
+  }
+  .tag-purple {
+    background: rgba(124, 92, 255, 0.2);
+    border: 1px solid rgba(124, 92, 255, 0.3);
+    color: #A78BFA;
+  }
+  .tag-coral {
+    background: rgba(255, 122, 107, 0.15);
+    border: 1px solid rgba(255, 122, 107, 0.25);
+    color: #FF7A6B;
+  }
+  .tag-mint {
+    background: rgba(83, 214, 161, 0.15);
+    border: 1px solid rgba(83, 214, 161, 0.25);
+    color: #53D6A1;
+  }
+  .tag-amber {
+    background: rgba(255, 181, 71, 0.15);
+    border: 1px solid rgba(255, 181, 71, 0.25);
+    color: #FFB547;
+  }
+
+  /* ─── Section Title ───────────────────────────── */
+  .section-title {
+    @apply text-base font-extrabold tracking-tight;
+    color: var(--text-primary);
+  }
+
+  /* ─── Gradient Text ───────────────────────────── */
+  .gradient-text {
+    background: linear-gradient(135deg, #A78BFA 0%, #7C5CFF 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .gradient-text-coral {
+    background: linear-gradient(135deg, #FF7A6B 0%, #FFB547 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ─── Progress Bar ────────────────────────────── */
+  .progress-bar {
+    @apply h-1.5 rounded-full overflow-hidden;
+    background: var(--border-color);
+  }
+  .progress-fill {
+    @apply h-full rounded-full transition-all duration-700;
+    background: linear-gradient(90deg, #7C5CFF, #A78BFA);
+    box-shadow: 0 0 10px rgba(124, 92, 255, 0.5);
+  }
+
+  /* ─── Divider ─────────────────────────────────── */
+  .divider {
+    height: 1px;
+    background: var(--divider);
+    margin: 0;
+  }
+
+  /* ─── Shimmer Loading ─────────────────────────── */
+  .shimmer {
+    background: linear-gradient(90deg,
+      var(--bg-card) 0%,
+      var(--bg-card-bright) 50%,
+      var(--bg-card) 100%
+    );
+    background-size: 400px 100%;
+    animation: shimmer 1.8s linear infinite;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .text-dim   { color: var(--text-secondary); }
+  .text-muted { color: var(--text-muted); }
+
+  .border-glass        { border-color: var(--border-color); }
+  .border-glass-bright { border-color: var(--border-bright); }
+
+  .bg-glass        { background: var(--bg-card); }
+  .bg-glass-bright { background: var(--bg-card-bright); }
+  .bg-glass-purple { background: rgba(124, 92, 255, 0.1); }
+}

@@ -323,17 +323,17 @@ export default function Home() {
   }, [dayState])
 
   useEffect(() => {
-    const alreadyGenerated = localStorage.getItem(DAILY_MISSION_KEY)
-    if (!alreadyGenerated && profile && !dayState.checkin) {
+    const dailyStatus = localStorage.getItem(DAILY_MISSION_KEY)
+    if (!dailyStatus && profile && !dayState.checkin) {
       generateDailyMission()
     }
-  }, [profile]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateDailyMission = async () => {
     if (!profile) return
-    const already = localStorage.getItem(DAILY_MISSION_KEY)
-    if (already) return
+    if (localStorage.getItem(DAILY_MISSION_KEY)) return
 
+    localStorage.setItem(DAILY_MISSION_KEY, 'attempted')
     try {
       const pillar = profile.pillars[new Date().getDay() % Math.max(1, profile.pillars.length)]
       const idea = await generateContent({
@@ -349,8 +349,8 @@ export default function Home() {
       addIdea(idea)
       addMission({ id: crypto.randomUUID(), title: idea.theme, description: idea.objective, type: idea.type, status: 'pending', date: new Date().toISOString(), content: idea, points: 10 })
       addToast('Sua missão de hoje está pronta!', 'info')
-    } catch {
-      // silencioso
+    } catch (err) {
+      console.error('[Home daily mission]', err)
     }
   }
 

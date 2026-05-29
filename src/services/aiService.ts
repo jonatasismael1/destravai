@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase/client'
 import type { LibraryItem, BrandEssence } from '../lib/supabase/types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
+const GEMINI_MODEL = 'gemini-flash-latest'
 
 interface EdgeFunctionError {
   error?: string
@@ -166,7 +167,7 @@ export async function callGeminiDirect(
   if (!apiKey) throw new Error('Chave da IA não configurada.')
 
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

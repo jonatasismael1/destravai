@@ -10,12 +10,7 @@ import { GoogleGenAI } from '@google/genai'
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 
-// Modelo configurável. Default no alias "latest" (sempre o flash mais recente
-// disponível); pode trocar via VITE_GEMINI_MODEL sem mexer no código.
-const PRIMARY_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string) || 'gemini-flash-latest'
-
-// Fallbacks caso o modelo configurado não exista/sem cota para a chave.
-const FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+const GEMINI_MODEL = 'gemini-flash-latest'
 
 let client: GoogleGenAI | null = null
 function getClient(): GoogleGenAI {
@@ -24,52 +19,35 @@ function getClient(): GoogleGenAI {
   return client
 }
 
-function isModelNotFound(err: unknown): boolean {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
-  return msg.includes('not found') || msg.includes('not supported') || msg.includes('404')
-}
-
 export interface GenerateOptions {
   temperature?: number
   maxOutputTokens?: number
 }
 
-// Gera texto a partir de um prompt. Tenta o modelo configurado e, se ele não
-// existir, cai para um modelo conhecido — garantindo que a IA não pare.
 export async function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
   const ai = getClient()
-  const models = [PRIMARY_MODEL, ...FALLBACK_MODELS.filter(m => m !== PRIMARY_MODEL)]
-
-  let lastError: unknown
-  for (const model of models) {
-    try {
-      const res = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-          temperature: opts.temperature ?? 0.9,
-          maxOutputTokens: opts.maxOutputTokens ?? 2048,
-        },
-      })
-      const text = res.text ?? ''
-      if (!text) throw new Error('A IA retornou vazio.')
-      return text
-    } catch (err) {
-      lastError = err
-      // Só tenta o próximo modelo se for "modelo inexistente"; outros erros
-      // (referrer bloqueado, cota, rede) não adianta repetir.
-      if (!isModelNotFound(err)) break
+  try {
+    const res = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+      config: {
+        temperature: opts.temperature ?? 0.9,
+        maxOutputTokens: opts.maxOutputTokens ?? 2048,
+      },
+    })
+    const text = res.text ?? ''
+    if (!text) throw new Error('A IA retornou vazio.')
+    return text
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Erro desconhecido na IA'
+    if (/referer|referrer|blocked|api key|forbidden|permission/i.test(msg)) {
+      throw new Error('A IA não está autorizada para este domínio. Verifique as restrições da chave no Google Cloud.')
     }
+    if (/quota|rate|resource_exhausted|429/i.test(msg)) {
+      throw new Error('A IA retornou limite temporário ou cota indisponível. Isso pode acontecer por limite da chave/API, não necessariamente porque você tentou muitas vezes. Espere alguns minutos e tente novamente.')
+    }
+    throw new Error(msg)
   }
-
-  const msg = lastError instanceof Error ? lastError.message : 'Erro desconhecido na IA'
-  if (/referer|referrer|blocked|api key|forbidden|permission/i.test(msg)) {
-    throw new Error('A IA não está autorizada para este domínio. Verifique as restrições da chave no Google Cloud.')
-  }
-  if (/quota|rate|resource_exhausted|429/i.test(msg)) {
-    throw new Error('Você fez muitas gerações em pouco tempo. Espere alguns minutos e tente de novo.')
-  }
-  throw new Error(msg)
 }
 
 export function isAIConfigured(): boolean {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, ChevronRight, ChevronLeft, Check } from 'lucide-react'
 import type { PersonalContext } from '../types'
 import { useApp } from '../context/AppContext'
@@ -70,17 +71,22 @@ export default function PersonalSetupModal({ onClose }: Props) {
 
   const progressWidth = `${(step / totalSteps) * 100}%`
 
-  return (
+  return createPortal((
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center"
-      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
+      className="fixed inset-0 z-[200] flex items-end justify-center sm:items-center"
+      style={{
+        background: 'rgba(0,0,0,0.4)',
+        backdropFilter: 'blur(4px)',
+        padding: 'max(env(safe-area-inset-top), 12px) 12px max(env(safe-area-inset-bottom), 12px)',
+      }}
     >
       <div
-        className="w-full max-w-md rounded-t-3xl pb-safe"
+        className="w-full max-w-md rounded-3xl"
         style={{
           background: '#FFFFFF',
-          maxHeight: '92svh',
+          maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), 12px) - max(env(safe-area-inset-bottom), 12px))',
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {/* Header */}
@@ -312,7 +318,10 @@ export default function PersonalSetupModal({ onClose }: Props) {
         )}
 
         {/* Buttons */}
-        <div className="px-5 pt-6 pb-8 flex gap-3">
+        <div
+          className="sticky bottom-0 z-10 px-5 pt-4 pb-5 flex gap-3"
+          style={{ background: '#FFFFFF', borderTop: '1px solid rgba(109,93,246,0.08)' }}
+        >
           {step > 1 && (
             <button
               onClick={() => setStep(s => s - 1)}
@@ -358,5 +367,5 @@ export default function PersonalSetupModal({ onClose }: Props) {
         )}
       </div>
     </div>
-  )
+  ), document.body)
 }

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import {
   X, SlidersHorizontal, Pencil, Scan, Timer, Type,
   Zap, Sparkles, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check,
@@ -214,7 +215,7 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   // ── PREVIEW ───────────────────────────────────────────────
   if (phase === 'preview') {
-    return (
+    return createPortal((
       <div className="fixed inset-0 z-[100] bg-black flex flex-col" style={{ height: '100dvh' }}>
         <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
           <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-contain" />
@@ -236,18 +237,18 @@ export default function StudioModal({ idea, onClose }: Props) {
           </button>
         </div>
       </div>
-    )
+    ), document.body)
   }
 
   const recording = phase === 'recording'
 
   // ── CÂMERA (setup + recording) ────────────────────────────
-  return (
+  return createPortal((
     <div className="fixed inset-0 z-[100] bg-black overflow-hidden" style={{ height: '100dvh', touchAction: 'none' }}>
       {/* Câmera tela cheia */}
       {hasCamera ? (
         <video ref={liveVideoRef} autoPlay playsInline muted
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
           style={{ transform: videoTransform, transition: 'transform 0.25s ease' }} />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center flex-col gap-3" style={{ background: '#111' }}>
@@ -455,5 +456,5 @@ export default function StudioModal({ idea, onClose }: Props) {
         </div>
       )}
     </div>
-  )
+  ), document.body)
 }

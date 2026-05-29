@@ -88,7 +88,7 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
   "theme": "título criativo e descritivo do conteúdo (máx 8 palavras)",
   "objective": "o que este conteúdo vai gerar no público (1 frase)",
   "timeEstimate": "tempo real de gravação estimado",
-  "content": "roteiro completo detalhado — inclua textos na tela, falas sugeridas, instruções de gravação, transições",
+  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.",
   "cta": "chamada para ação final natural e não-forçada, que soe como a pessoa falaria",
   "tags": ["categoria1", "categoria2"]
 }`

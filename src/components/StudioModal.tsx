@@ -105,29 +105,17 @@ function buildAudioConstraints(reduceNoise: boolean): MediaTrackConstraints {
 
 function getCameraAttempts(mode: 'user' | 'environment', audio: MediaTrackConstraints): MediaStreamConstraints[] {
   const facingMode = { ideal: mode }
-  const withNoBrowserCrop = (constraints: MediaTrackConstraints) => ({
-    ...constraints,
-    resizeMode: { ideal: 'none' },
-  }) as MediaTrackConstraints
+  // IMPORTANTE: NÃO forçamos aspectRatio nem resizeMode. Forçar 3:4 + resizeMode
+  // 'none' fazia o navegador entregar um RECORTE AMPLIADO do sensor (efeito de
+  // zoom diferente do app nativo/Instagram). Pedindo só a altura, mantemos o
+  // campo de visão natural da câmera; o recorte 9:16 é feito depois no canvas —
+  // exatamente como Instagram/Reels fazem.
   return [
-    {
-      video: withNoBrowserCrop({ facingMode, width: { ideal: 1440 }, height: { ideal: 1920 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
-      audio,
-    },
-    {
-      video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1440 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
-      audio,
-    },
-    {
-      video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } }),
-      audio,
-    },
-    {
-      video: withNoBrowserCrop({ facingMode, width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30, max: 30 } }),
-      audio,
-    },
-    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio },
-    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio: false },
+    { video: { facingMode, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } }, audio },
+    { video: { facingMode, height: { ideal: 1280 }, frameRate: { ideal: 30, max: 30 } }, audio },
+    { video: { facingMode, frameRate: { ideal: 30, max: 30 } }, audio },
+    { video: { facingMode }, audio },
+    { video: { facingMode }, audio: false },
   ]
 }
 

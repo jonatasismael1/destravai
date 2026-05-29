@@ -7,6 +7,7 @@ import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
 } from 'lucide-react'
+import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -83,6 +84,16 @@ export default function Configuracoes() {
 
   const profile = state.profile
   const supabaseUser = state.supabaseUser
+  const subscription = state.subscription
+  const planLabel = state.subscriptionLoading
+    ? 'Carregando plano'
+    : subscription?.hasSubscription
+      ? (subscription.planName ?? 'Plano ativo')
+      : 'Sem assinatura ativa'
+  const planDescription = subscription?.hasAccess
+    ? `Acesso liberado${subscription.price ? ` · R$ ${subscription.price}/mês` : ''}`
+    : 'Escolha um plano para liberar os recursos pagos'
+  const planBadge = subscription?.hasAccess ? 'Ativo' : 'Pendente'
 
   const handleLogout = async () => {
     await logout()
@@ -93,11 +104,9 @@ export default function Configuracoes() {
     addToast('Preferências salvas!', 'success')
   }
 
-  const handleResetDay = () => {
-    const today = new Date()
-    const key = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`
-    localStorage.removeItem(`destravai-checkin-${key}`)
-    localStorage.removeItem(`destravai-daily-${key}`)
+  const handleResetDay = async () => {
+    const key = toISODateKey()
+    await deleteDailyCheckin(key).catch(err => console.error('[Configuracoes reset day]', err))
     setShowResetDayConfirm(false)
     addToast('Missão do dia reiniciada!', 'success')
   }
@@ -162,20 +171,20 @@ export default function Configuracoes() {
                 <Star size={17} style={{ color: '#F7B955' }} />
               </div>
               <div>
-                <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Plano gratuito</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Gerações ilimitadas em modo demo</p>
+                <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{planLabel}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{planDescription}</p>
               </div>
             </div>
             <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
               style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)', color: '#F7B955' }}>
-              Free
+              {planBadge}
             </span>
           </div>
 
           <div className="mt-3 flex items-start gap-2">
             <CheckCircle size={13} style={{ color: '#53D6A1', flexShrink: 0, marginTop: 1 }} />
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Para usar a IA real, adicione sua chave Anthropic em <code className="font-mono">.env.local</code>
+              As gerações usam a configuração de IA do projeto. Chaves e integrações sensíveis ficam fora da interface do cliente.
             </p>
           </div>
         </div>
@@ -278,8 +287,8 @@ export default function Configuracoes() {
         <SectionHeader title="Privacidade" />
         <MenuItem
           icon={Shield}
-          label="Seus dados ficam no dispositivo"
-          sublabel="Sem servidor, sem compartilhamento"
+          label="Dados salvos na sua conta"
+          sublabel="Essência, progresso, calendário e Meu Espaço sincronizam entre dispositivos"
           right={<CheckCircle size={16} style={{ color: '#53D6A1', flexShrink: 0 }} />}
         />
       </div>
@@ -336,7 +345,7 @@ export default function Configuracoes() {
           <MenuItem
             icon={LogOut}
             label="Sair da conta"
-            sublabel="Todos os dados locais serão apagados"
+            sublabel="Você poderá entrar novamente; preferências locais deste aparelho serão limpas"
             onClick={() => setShowLogoutConfirm(true)}
             danger
           />
@@ -350,7 +359,7 @@ export default function Configuracoes() {
               <p className="font-bold text-sm" style={{ color: '#FF7A6B' }}>Confirmar saída?</p>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Todos os dados salvos localmente serão apagados. Esta ação não pode ser desfeita.
+              Seus dados de conta continuam salvos no Supabase. Esta ação limpa apenas a sessão e preferências locais deste aparelho.
             </p>
             <div className="flex gap-2">
               <button

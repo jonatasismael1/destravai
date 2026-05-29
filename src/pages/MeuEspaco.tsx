@@ -1,9 +1,11 @@
 ﻿import { useState } from 'react'
 import { Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Settings2, X } from 'lucide-react'
+import { useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import PersonalSetupModal from '../components/PersonalSetupModal'
 import type { JournalEntry, PersonalIdea } from '../types'
 import { generatePersonalSuggestions } from '../lib/ai'
+import { toISODateKey } from '../services/userJourneyService'
 
 // Paleta do Espaço — usa as CSS variables globais do tema
 const C = {
@@ -39,15 +41,24 @@ export default function MeuEspaco() {
   const { personalSpace } = state
   const profile = state.localProfile
   const { context, journal, ideas, todayMood, todayMoodNote, todayMoodDate } = personalSpace
+  const today = toISODateKey()
 
   const [showSetup, setShowSetup] = useState(false)
   const [selectedMood, setSelectedMood] = useState(
-    todayMoodDate === new Date().toDateString() ? (todayMood ?? '') : ''
+    todayMoodDate === today ? (todayMood ?? '') : ''
   )
   const [moodNote, setMoodNote] = useState(
-    todayMoodDate === new Date().toDateString() ? (todayMoodNote ?? '') : ''
+    todayMoodDate === today ? (todayMoodNote ?? '') : ''
   )
-  const [moodSaved, setMoodSaved] = useState(todayMoodDate === new Date().toDateString() && !!todayMood)
+  const [moodSaved, setMoodSaved] = useState(todayMoodDate === today && !!todayMood)
+
+  useEffect(() => {
+    if (todayMoodDate === today && todayMood) {
+      setSelectedMood(todayMood)
+      setMoodNote(todayMoodNote ?? '')
+      setMoodSaved(true)
+    }
+  }, [todayMood, todayMoodDate, todayMoodNote, today])
 
   // Journal
   const [journalOpen, setJournalOpen] = useState(false)
@@ -668,4 +679,3 @@ export default function MeuEspaco() {
     </>
   )
 }
-

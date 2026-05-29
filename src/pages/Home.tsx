@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
-import { todayKey } from '../lib/progress'
+import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
 import StudioModal from '../components/StudioModal'
 
 // Check-ins com ícones vetoriais (sem emojis estruturais)
@@ -52,8 +52,7 @@ const LEVEL_MAP: Record<string, { next: string; missionTarget: number; missionFr
   'Referência em movimento': { next: '—', missionTarget: 999, missionFrom: 50 },
 }
 
-const CHECKIN_STORAGE_KEY = `destravai-checkin-${todayKey()}`
-const DAILY_MISSION_KEY = `destravai-daily-${todayKey()}`
+const TODAY_KEY = toISODateKey()
 
 function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtags: string[]; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
@@ -256,19 +255,15 @@ interface DayState {
   extras: ContentIdea[]
 }
 
+const emptyDayState: DayState = { checkin: '', mission: null, extras: [] }
+
 export default function Home() {
   const { state, addIdea, updateIdea, addMission, updateMission, completeMission } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
 
-  const [dayState, setDayState] = useState<DayState>(() => {
-    try {
-      const stored = localStorage.getItem(CHECKIN_STORAGE_KEY)
-      return stored ? JSON.parse(stored) : { checkin: '', mission: null, extras: [] }
-    } catch {
-      return { checkin: '', mission: null, extras: [] }
-    }
-  })
+  const [dayState, setDayState] = useState<DayState>(emptyDayState)
+  const [dayLoaded, setDayLoaded] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
@@ -317,24 +312,44 @@ export default function Home() {
   })()
 
   useEffect(() => {
-    if (dayState.checkin) {
-      localStorage.setItem(CHECKIN_STORAGE_KEY, JSON.stringify(dayState))
-    }
-  }, [dayState])
+    let cancelled = false
+    setDayLoaded(false)
+
+    ;(async () => {
+      if (!state.supabaseUser) {
+        setDayState(emptyDayState)
+        setDayLoaded(true)
+        return
+      }
+
+      try {
+        const { state: storedDay } = await loadDailyCheckin(TODAY_KEY)
+        if (!cancelled) setDayState(storedDay ?? emptyDayState)
+      } catch (err) {
+        console.error('[Home daily state]', err)
+        if (!cancelled) setDayState(emptyDayState)
+      } finally {
+        if (!cancelled) setDayLoaded(true)
+      }
+    })()
+
+    return () => { cancelled = true }
+  }, [state.supabaseUser?.id])
 
   useEffect(() => {
-    const dailyStatus = localStorage.getItem(DAILY_MISSION_KEY)
-    if (!dailyStatus && profile && !dayState.checkin) {
+    if (dayLoaded && profile && !dayState.checkin) {
       generateDailyMission()
     }
-  }, [profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dayLoaded, profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateDailyMission = async () => {
     if (!profile) return
-    if (localStorage.getItem(DAILY_MISSION_KEY)) return
 
-    localStorage.setItem(DAILY_MISSION_KEY, 'attempted')
     try {
+      const { row } = await loadDailyCheckin(TODAY_KEY)
+      if (row?.daily_status && row.daily_status !== 'idle') return
+
+      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'attempted' })
       const pillar = profile.pillars[new Date().getDay() % Math.max(1, profile.pillars.length)]
       const idea = await generateContent({
         type: 'story',
@@ -345,12 +360,13 @@ export default function Home() {
         tone: profile.voiceTone,
         profile,
       })
-      localStorage.setItem(DAILY_MISSION_KEY, 'generated')
+      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'generated' })
       addIdea(idea)
       addMission({ id: crypto.randomUUID(), title: idea.theme, description: idea.objective, type: idea.type, status: 'pending', date: new Date().toISOString(), content: idea, points: 10 })
       addToast('Sua missão de hoje está pronta!', 'info')
     } catch (err) {
       console.error('[Home daily mission]', err)
+      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'idle' }).catch(() => undefined)
     }
   }
 
@@ -366,6 +382,7 @@ export default function Home() {
       const extras = [e1, e2]
       const newDayState: DayState = { checkin: value, mission: missionIdea, extras }
       setDayState(newDayState)
+      await upsertDailyCheckin(TODAY_KEY, newDayState)
 
       addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
       addIdea(missionIdea)
@@ -394,6 +411,7 @@ export default function Home() {
       ])
       const newDayState: DayState = { checkin: randomKey, mission: missionIdea, extras }
       setDayState(newDayState)
+      await upsertDailyCheckin(TODAY_KEY, newDayState)
       addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
       addIdea(missionIdea)
       extras.forEach(i => addIdea(i))
@@ -413,9 +431,17 @@ export default function Home() {
     completeMission(idea.objective)
 
     if (dayState.mission?.id === idea.id) {
-      setDayState(prev => ({ ...prev, mission: prev.mission ? { ...prev.mission, status: 'done' } : null }))
+      setDayState(prev => {
+        const next = { ...prev, mission: prev.mission ? { ...prev.mission, status: 'done' as const } : null }
+        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home done]', err))
+        return next
+      })
     } else {
-      setDayState(prev => ({ ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' } : i) }))
+      setDayState(prev => {
+        const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' as const } : i) }
+        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home done]', err))
+        return next
+      })
     }
 
     addToast('Missão concluída! +10 pontos', 'success')
@@ -424,9 +450,17 @@ export default function Home() {
   const handleSave = (idea: ContentIdea) => {
     updateIdea(idea.id, { favorite: true, status: 'saved' })
     if (dayState.mission?.id === idea.id) {
-      setDayState(prev => ({ ...prev, mission: prev.mission ? { ...prev.mission, status: 'saved' } : null }))
+      setDayState(prev => {
+        const next = { ...prev, mission: prev.mission ? { ...prev.mission, status: 'saved' as const } : null }
+        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home save]', err))
+        return next
+      })
     } else {
-      setDayState(prev => ({ ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'saved' } : i) }))
+      setDayState(prev => {
+        const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'saved' as const } : i) }
+        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home save]', err))
+        return next
+      })
     }
     addToast('Ideia salva na biblioteca!', 'info')
   }
@@ -439,9 +473,17 @@ export default function Home() {
       const variation = await generateCheckinIdea(profile, checkinKey, hint)
       addIdea(variation)
       if (dayState.mission?.id === idea.id) {
-        setDayState(prev => ({ ...prev, mission: variation }))
+        setDayState(prev => {
+          const next = { ...prev, mission: variation }
+          void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home variation]', err))
+          return next
+        })
       } else {
-        setDayState(prev => ({ ...prev, extras: prev.extras.map(i => i.id === idea.id ? variation : i) }))
+        setDayState(prev => {
+          const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? variation : i) }
+          void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home variation]', err))
+          return next
+        })
       }
       addToast('Variação gerada!', 'info')
     } catch (err) {
@@ -664,9 +706,8 @@ export default function Home() {
           {/* Reiniciar — discreto para não confundir usuários novos */}
           <button
             onClick={() => {
-              localStorage.removeItem(CHECKIN_STORAGE_KEY)
-              localStorage.removeItem(DAILY_MISSION_KEY)
-              setDayState({ checkin: '', mission: null, extras: [] })
+              void deleteDailyCheckin(TODAY_KEY).catch(err => console.error('[Home reset day]', err))
+              setDayState(emptyDayState)
             }}
             className="w-full text-center text-[11px] py-2 opacity-40 hover:opacity-70 transition-opacity"
             style={{ color: 'var(--text-muted)' }}

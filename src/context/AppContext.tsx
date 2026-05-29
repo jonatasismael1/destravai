@@ -7,6 +7,21 @@ import { calculateStreak, calculateLevel, getWeekKey, inferCategory } from '../l
 import { getCurrentProfile } from '../services/profileService'
 import { getBrandEssence, essenceToProfile } from '../services/essenceService'
 import { getSubscriptionStatus, type SubscriptionStatus } from '../services/subscriptionService'
+import {
+  createJournalEntry as createStoredJournalEntry,
+  createPersonalIdea as createStoredPersonalIdea,
+  deleteJournalEntry as deleteStoredJournalEntry,
+  deletePersonalIdea as deleteStoredPersonalIdea,
+  loadPersonalSpace,
+  loadStoredMissions,
+  loadStoredProgress,
+  toISODateKey,
+  updateStoredMission,
+  upsertPersonalContext,
+  upsertStoredMission,
+  upsertStoredProgress,
+  upsertTodayMood,
+} from '../services/userJourneyService'
 
 // ─── Chaves de armazenamento ──────────────────────────────────
 // Apenas dados de UI (tema, progresso, perfil local para IA) ficam em localStorage.
@@ -162,10 +177,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, profileLoading: true, subscriptionLoading: true }))
 
     ;(async () => {
-      const [profile, essence, subscription] = await Promise.all([
+      const localProgress = loadProgress()
+      const [profile, essence, subscription, progress, missions, personalSpace] = await Promise.all([
         getCurrentProfile().catch(() => null),
         getBrandEssence().catch(() => null),
         getSubscriptionStatus().catch(() => null),
+        loadStoredProgress(localProgress).catch(err => {
+          console.error('[AppContext progress]', err)
+          return localProgress
+        }),
+        loadStoredMissions().catch(err => {
+          console.error('[AppContext missions]', err)
+          return []
+        }),
+        loadPersonalSpace(defaultPersonalSpace).catch(err => {
+          console.error('[AppContext personal space]', err)
+          return defaultPersonalSpace
+        }),
       ])
       if (cancelled) return
       setState(s => {
@@ -176,6 +204,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
           profile,
           essence,
           localProfile: rebuilt ?? s.localProfile,
+          missions,
+          progress,
+          personalSpace,
           subscription,
           profileLoading: false,
           subscriptionLoading: false,
@@ -190,11 +221,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const subscription = await getSubscriptionStatus().catch(() => null)
     setState(s => ({ ...s, subscription }))
   }
-
-  // Persistir progresso em localStorage (dados de UI)
-  useEffect(() => {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(state.progress))
-  }, [state.progress])
 
   const setProfile = (profile: DestravaiProfile | null) =>
     setState(s => ({ ...s, profile }))
@@ -214,14 +240,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const updateIdea = (id: string, updates: Partial<ContentIdea>) =>
     setState(s => ({ ...s, ideas: s.ideas.map(i => i.id === id ? { ...i, ...updates } : i) }))
 
-  const addMission = (mission: Mission) =>
+  const addMission = (mission: Mission) => {
     setState(s => ({ ...s, missions: [mission, ...s.missions] }))
+    void upsertStoredMission(mission).catch(err => console.error('[AppContext add mission]', err))
+  }
 
-  const updateMission = (id: string, updates: Partial<Mission>) =>
+  const updateMission = (id: string, updates: Partial<Mission>) => {
     setState(s => ({ ...s, missions: s.missions.map(m => m.id === id ? { ...m, ...updates } : m) }))
+    void updateStoredMission(id, updates).catch(err => console.error('[AppContext update mission]', err))
+  }
 
   const updateProgress = (updates: Partial<Progress>) =>
-    setState(s => ({ ...s, progress: { ...s.progress, ...updates } }))
+    setState(s => {
+      const progress = { ...s.progress, ...updates }
+      void upsertStoredProgress(progress).catch(err => console.error('[AppContext update progress]', err))
+      return { ...s, progress }
+    })
 
   const completeMission = (ideaObjective: string) => {
     setState(s => {
@@ -234,17 +268,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s.progress.contentBalance,
         [category]: (s.progress.contentBalance[category as keyof typeof s.progress.contentBalance] ?? 0) + 1,
       }
+      const progress = {
+        ...s.progress,
+        missionsCompleted: newCompleted,
+        weeklyMissions: newWeekly,
+        currentStreak: newStreak,
+        level: newLevel,
+        contentBalance: newBalance,
+        lastActivity: new Date().toISOString(),
+      }
+      void upsertStoredProgress(progress).catch(err => console.error('[AppContext complete mission]', err))
       return {
         ...s,
-        progress: {
-          ...s.progress,
-          missionsCompleted: newCompleted,
-          weeklyMissions: newWeekly,
-          currentStreak: newStreak,
-          level: newLevel,
-          contentBalance: newBalance,
-          lastActivity: new Date().toISOString(),
-        },
+        progress,
       }
     })
   }
@@ -271,27 +307,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const savePersonalContext = (context: PersonalContext) =>
+  const savePersonalContext = (context: PersonalContext) => {
     setState(s => ({ ...s, personalSpace: { ...s.personalSpace, context } }))
+    void upsertPersonalContext(context).catch(err => console.error('[AppContext personal context]', err))
+  }
 
-  const setTodayMood = (mood: string, note?: string) =>
+  const setTodayMood = (mood: string, note?: string) => {
+    const today = toISODateKey()
     setState(s => ({
       ...s,
       personalSpace: {
         ...s.personalSpace,
         todayMood: mood,
         todayMoodNote: note,
-        todayMoodDate: new Date().toDateString(),
+        todayMoodDate: today,
       },
     }))
+    void upsertTodayMood(mood, note, today).catch(err => console.error('[AppContext today mood]', err))
+  }
 
-  const addJournalEntry = (entry: JournalEntry) =>
+  const addJournalEntry = (entry: JournalEntry) => {
     setState(s => ({
       ...s,
       personalSpace: { ...s.personalSpace, journal: [entry, ...s.personalSpace.journal] },
     }))
+    void createStoredJournalEntry(entry).catch(err => console.error('[AppContext add journal]', err))
+  }
 
-  const deleteJournalEntry = (id: string) =>
+  const deleteJournalEntry = (id: string) => {
     setState(s => ({
       ...s,
       personalSpace: {
@@ -299,14 +342,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
         journal: s.personalSpace.journal.filter(e => e.id !== id),
       },
     }))
+    void deleteStoredJournalEntry(id).catch(err => console.error('[AppContext delete journal]', err))
+  }
 
-  const addPersonalIdea = (idea: PersonalIdea) =>
+  const addPersonalIdea = (idea: PersonalIdea) => {
     setState(s => ({
       ...s,
       personalSpace: { ...s.personalSpace, ideas: [idea, ...s.personalSpace.ideas] },
     }))
+    void createStoredPersonalIdea(idea).catch(err => console.error('[AppContext add personal idea]', err))
+  }
 
-  const deletePersonalIdea = (id: string) =>
+  const deletePersonalIdea = (id: string) => {
     setState(s => ({
       ...s,
       personalSpace: {
@@ -314,6 +361,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ideas: s.personalSpace.ideas.filter(i => i.id !== id),
       },
     }))
+    void deleteStoredPersonalIdea(id).catch(err => console.error('[AppContext delete personal idea]', err))
+  }
 
   return (
     <AppContext.Provider value={{

@@ -113,3 +113,81 @@ export interface UsageLimits {
   created_at: string
   updated_at: string
 }
+
+export interface StoredMission {
+  id: string
+  user_id: string
+  title: string
+  description: string
+  type: 'story' | 'sequence' | 'reel'
+  status: 'pending' | 'done' | 'skipped'
+  mission_date: string
+  content: Record<string, unknown> | null
+  points: number
+  created_at: string
+  updated_at: string
+}
+
+export interface StoredProgress {
+  user_id: string
+  missions_completed: number
+  current_streak: number
+  weekly_missions: number
+  content_balance: Record<string, number>
+  last_activity: string
+  level: string
+  week_key: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DailyCheckin {
+  id: string
+  user_id: string
+  day_key: string
+  checkin_key: string
+  mission: Record<string, unknown> | null
+  extras: Record<string, unknown>[]
+  daily_status: 'idle' | 'attempted' | 'generated'
+  created_at: string
+  updated_at: string
+}
+
+export interface CalendarItem {
+  id: string
+  user_id: string
+  day_key: string
+  idea_id: string
+  idea_snapshot: Record<string, unknown>
+  status: 'planned' | 'recorded' | 'posted' | 'skipped'
+  created_at: string
+  updated_at: string
+}
+
+export interface PersonalSpaceRow {
+  user_id: string
+  context: Record<string, unknown>
+  today_mood: string | null
+  today_mood_note: string | null
+  today_mood_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface JournalEntryRow {
+  id: string
+  user_id: string
+  content: string
+  mood: string
+  entry_date: string
+  tags: string[]
+  created_at: string
+}
+
+export interface PersonalIdeaRow {
+  id: string
+  user_id: string
+  content: string
+  category: 'conteudo' | 'pessoal' | 'livre'
+  created_at: string
+}

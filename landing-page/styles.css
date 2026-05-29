@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   DBE Pulse — Landing Page
+   Destravaí — Landing Page
    Direção: editorial-tech noturno · Manrope + Instrument Serif
    ═══════════════════════════════════════════════════════════ */
 
@@ -128,11 +128,9 @@ header.scrolled {
   border-bottom: 1px solid var(--border);
 }
 .nav { display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; max-width: var(--maxw); margin: 0 auto; }
-.brand { display: flex; align-items: center; gap: 11px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
-.brand .logo {
-  width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center;
-  background: var(--grad); box-shadow: 0 0 18px rgba(109,93,246,0.5);
-}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; }
+.brand .brand-logo { width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 0 14px rgba(109,93,246,0.45)); }
+.foot-brand .brand-logo { width: 32px; height: 32px; }
 .nav-links { display: flex; align-items: center; gap: 32px; }
 .nav-links a { color: var(--ink-2); text-decoration: none; font-size: 15px; font-weight: 600; transition: color 0.2s; }
 .nav-links a:hover { color: var(--ink); }
@@ -186,6 +184,8 @@ header.scrolled {
 .ph-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .ph-chip { font-size: 9px; font-weight: 700; padding: 6px 10px; border-radius: 999px; background: var(--card); border: 1px solid var(--border); color: var(--ink-2); }
 .ph-chip.on { background: var(--grad); color: #fff; border-color: transparent; }
+.ph-nav { margin-top: 12px; display: flex; justify-content: space-around; align-items: center; padding-top: 12px; border-top: 1px solid var(--border); font-size: 15px; opacity: 0.5; }
+.ph-nav .on { opacity: 1; filter: drop-shadow(0 0 8px rgba(109,93,246,0.6)); }
 
 /* ── Dor ────────────────────────────────────────────────── */
 .pain { padding: 80px 0; }
@@ -217,8 +217,10 @@ header.scrolled {
 /* ── Como funciona ──────────────────────────────────────── */
 .how { padding: 80px 0; }
 .how h2 { font-size: clamp(30px, 4.4vw, 46px); max-width: 640px; margin-bottom: 48px; }
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
-.step { position: relative; padding: 32px 28px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--border); }
+.how-grid { display: grid; grid-template-columns: 1fr 320px; gap: 48px; align-items: center; }
+.steps { display: flex; flex-direction: column; gap: 18px; }
+.step { position: relative; padding: 28px 28px; border-radius: var(--radius); background: var(--card); border: 1px solid var(--border); transition: border-color 0.3s, background 0.3s; }
+.step:hover { border-color: rgba(109,93,246,0.4); background: var(--card-bright); }
 .step-num {
   font-family: 'Instrument Serif', serif; font-style: italic; font-size: 56px; line-height: 1;
   background: var(--grad); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
@@ -226,6 +228,37 @@ header.scrolled {
 }
 .step h3 { font-size: 21px; margin-bottom: 10px; }
 .step p { color: var(--ink-2); font-size: 15px; }
+.step-num { font-size: 44px; margin-bottom: 8px; }
+
+/* Teleprompter / Studio mockup */
+.phone-studio { transform: rotate(-2deg); justify-self: center; }
+.phone-studio:hover { transform: rotate(0deg) translateY(-6px); }
+.studio-screen {
+  width: 100%; height: 100%; border-radius: 32px; overflow: hidden; position: relative;
+  background: linear-gradient(165deg, #2a2730 0%, #15131c 55%, #0a0910 100%);
+  display: flex; flex-direction: column;
+}
+.studio-screen::after {
+  content: ""; position: absolute; inset: 0;
+  background: radial-gradient(circle at 50% 38%, rgba(255,255,255,0.08), transparent 60%);
+  pointer-events: none;
+}
+.st-script {
+  margin: 14px; padding: 14px 16px; border-radius: 16px;
+  background: rgba(20,18,26,0.82); border: 1px solid var(--border-bright);
+  backdrop-filter: blur(6px);
+}
+.st-script-label { font-size: 9px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--lilac); display: block; margin-bottom: 7px; }
+.st-script p { font-size: 13px; line-height: 1.5; color: #fff; font-weight: 600; }
+.st-rail { position: absolute; left: 12px; top: 44%; display: flex; flex-direction: column; gap: 18px; font-size: 15px; color: rgba(255,255,255,0.85); z-index: 2; }
+.st-rail .st-x { font-size: 13px; font-weight: 800; }
+.st-rail .st-t { color: var(--coral); font-weight: 800; font-family: Georgia, serif; }
+.st-bottom { margin-top: auto; padding: 14px 0 20px; position: relative; z-index: 2; }
+.st-zoom { display: flex; justify-content: center; gap: 14px; margin-bottom: 16px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.7); }
+.st-zoom .on { background: #fff; color: #111; padding: 4px 10px; border-radius: 999px; }
+.st-controls { display: flex; align-items: center; justify-content: space-around; font-size: 15px; color: rgba(255,255,255,0.85); }
+.st-rec { width: 46px; height: 46px; border-radius: 50%; background: #FF2D55; border: 3px solid #fff; box-shadow: 0 0 22px rgba(255,45,85,0.6); }
+.st-hd { font-size: 9px; font-weight: 800; line-height: 1.05; text-align: center; }
 
 /* ── Funcionalidades ────────────────────────────────────── */
 .features { padding: 80px 0; }
@@ -359,6 +392,28 @@ footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: re
 .foot-col a:hover { color: var(--ink); }
 .foot-bottom { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; color: var(--ink-3); font-size: 13px; }
 
+/* ── Exemplos ilustrativos (rotina) ─────────────────────── */
+.testi-note { margin-top: 26px; text-align: center; color: var(--ink-3); font-size: 13px; }
+
+/* ── WhatsApp ───────────────────────────────────────────── */
+.final-ctas { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
+.btn-whats { background: #25D366; color: #07241a; box-shadow: 0 0 30px rgba(37,211,102,0.4), 0 8px 24px rgba(0,0,0,0.35); }
+.btn-whats:hover { transform: translateY(-2px); box-shadow: 0 0 44px rgba(37,211,102,0.6), 0 12px 32px rgba(0,0,0,0.45); }
+.whats-float {
+  position: fixed; right: 20px; bottom: 20px; z-index: 60;
+  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
+  background: #25D366; color: #fff; text-decoration: none;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0.55);
+  animation: whatsPulse 2.6s var(--ease) infinite;
+  transition: transform 0.25s var(--ease);
+}
+.whats-float:hover { transform: scale(1.08); }
+@keyframes whatsPulse {
+  0% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0.5); }
+  70% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 16px rgba(37,211,102,0); }
+  100% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0); }
+}
+
 /* ── Animação de revelação ──────────────────────────────── */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
 .reveal.in { opacity: 1; transform: none; }
@@ -378,7 +433,9 @@ footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: re
 @media (max-width: 920px) {
   .hero-grid { grid-template-columns: 1fr; gap: 48px; }
   .phone { order: -1; }
-  .pain-grid, .steps, .testi-grid { grid-template-columns: 1fr; }
+  .how-grid { grid-template-columns: 1fr; gap: 40px; }
+  .phone-studio { order: -1; }
+  .pain-grid, .testi-grid { grid-template-columns: 1fr; }
   .feat-grid { grid-template-columns: repeat(2, 1fr); }
   .plans { grid-template-columns: 1fr; }
   .nav-links { display: none; }

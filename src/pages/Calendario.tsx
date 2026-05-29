@@ -1,14 +1,14 @@
-import { useState } from 'react'
-import { useApp } from '../context/AppContext'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, X, Sparkles, Clock, BookOpen } from 'lucide-react'
-import type { ContentIdea } from '../types'
-
-const STORAGE_KEY = 'destravai-calendar'
-type CalendarData = Record<string, string[]> // dateKey → ideaId[]
+import { BookOpen, ChevronLeft, ChevronRight, Clock, Plus, Sparkles, X } from 'lucide-react'
+import { useApp } from '../context/AppContext'
+import type { ContentIdea, ExposureLevel } from '../types'
+import type { CalendarItem, LibraryItem } from '../lib/supabase/types'
+import { getLibraryItems } from '../services/libraryService'
+import { addCalendarItem, loadCalendarItems, removeCalendarItem, toISODateKey } from '../services/userJourneyService'
 
 function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return toISODateKey(d)
 }
 
 function getWeekDays(ref: Date): Date[] {
@@ -30,18 +30,34 @@ const TYPE_META: Record<string, { icon: string; label: string }> = {
   reel: { icon: '🎬', label: 'Reels' },
 }
 
-function loadCalendar(): CalendarData {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
-  } catch { return {} }
+function ideaTypeFromLibrary(item: LibraryItem): ContentIdea['type'] {
+  if (item.type === 'reels_script') return 'reel'
+  if (item.type === 'story_sequence') return 'sequence'
+  return 'story'
 }
 
-function saveCalendar(data: CalendarData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+function libraryItemToIdea(item: LibraryItem): ContentIdea {
+  const metadata = item.metadata ?? {}
+  return {
+    id: item.id,
+    type: ideaTypeFromLibrary(item),
+    theme: item.title,
+    objective: item.category ?? item.format ?? 'Conteúdo salvo na biblioteca',
+    content: item.content,
+    cta: typeof metadata.cta === 'string' ? metadata.cta : '',
+    timeEstimate: typeof metadata.timeEstimate === 'string' ? metadata.timeEstimate : '5 min',
+    exposureLevel: (typeof metadata.exposureLevel === 'string' ? metadata.exposureLevel : 'short-videos') as ExposureLevel,
+    status: item.status === 'done' ? 'done' : 'saved',
+    favorite: item.is_favorite,
+    createdAt: item.created_at,
+    tags: item.tags ?? [],
+  }
 }
 
-// Sheet para selecionar ideia da biblioteca
+function calendarIdea(item: CalendarItem): ContentIdea {
+  return item.idea_snapshot as unknown as ContentIdea
+}
+
 function IdeaPickerSheet({ ideas, onPick, onClose }: {
   ideas: ContentIdea[]
   onPick: (id: string) => void
@@ -63,13 +79,11 @@ function IdeaPickerSheet({ ideas, onPick, onClose }: {
     >
       <div className="rounded-t-3xl flex flex-col max-h-[75vh]"
         style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}>
-        {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Adicionar ideia</p>
           <button onClick={onClose} style={{ color: 'var(--text-muted)' }}><X size={18} /></button>
         </div>
 
-        {/* Gerar nova */}
         <div className="px-5 pb-3">
           <button
             onClick={() => { navigate('/criar'); onClose() }}
@@ -80,7 +94,7 @@ function IdeaPickerSheet({ ideas, onPick, onClose }: {
           </button>
         </div>
 
-        {ideas.length > 0 && (
+        {ideas.length > 0 ? (
           <>
             <div className="px-5 pb-3">
               <input
@@ -120,9 +134,7 @@ function IdeaPickerSheet({ ideas, onPick, onClose }: {
               })}
             </div>
           </>
-        )}
-
-        {ideas.length === 0 && (
+        ) : (
           <div className="flex flex-col items-center gap-3 py-8 px-5">
             <BookOpen size={32} style={{ color: 'var(--text-muted)' }} />
             <p className="text-sm text-center" style={{ color: 'var(--text-secondary)' }}>
@@ -138,14 +150,49 @@ function IdeaPickerSheet({ ideas, onPick, onClose }: {
 export default function Calendario() {
   const { state } = useApp()
   const [weekRef, setWeekRef] = useState(new Date())
-  const [calendar, setCalendar] = useState<CalendarData>(loadCalendar)
+  const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([])
+  const [remoteIdeas, setRemoteIdeas] = useState<ContentIdea[]>([])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
 
   const weekDays = getWeekDays(weekRef)
   const today = dateKey(new Date())
+  const startDay = dateKey(weekDays[0])
+  const endDay = dateKey(weekDays[6])
 
-  // Ideias disponíveis para adicionar (salvas ou da biblioteca)
-  const libraryIdeas = state.ideas.filter(i => i.status !== 'done')
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const items = await loadCalendarItems(startDay, endDay)
+        if (!cancelled) setCalendarItems(items)
+      } catch (err) {
+        console.error('[Calendario items]', err)
+        if (!cancelled) setCalendarItems([])
+      }
+    })()
+    return () => { cancelled = true }
+  }, [startDay, endDay])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { items } = await getLibraryItems({ pageSize: 100 })
+        if (!cancelled) setRemoteIdeas(items.map(libraryItemToIdea))
+      } catch (err) {
+        console.error('[Calendario library]', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const libraryIdeas = useMemo(() => {
+    const byId = new Map<string, ContentIdea>()
+    ;[...remoteIdeas, ...state.ideas].forEach(idea => {
+      if (idea.status !== 'done') byId.set(idea.id, idea)
+    })
+    return Array.from(byId.values())
+  }, [remoteIdeas, state.ideas])
 
   const prevWeek = () => {
     const d = new Date(weekRef)
@@ -161,38 +208,41 @@ export default function Calendario() {
 
   const goToday = () => setWeekRef(new Date())
 
-  const addIdea = (dayKey: string, ideaId: string) => {
-    const updated = { ...calendar }
-    const existing = updated[dayKey] ?? []
-    if (!existing.includes(ideaId)) {
-      updated[dayKey] = [...existing, ideaId]
-      setCalendar(updated)
-      saveCalendar(updated)
+  const addIdea = async (dayKey: string, ideaId: string) => {
+    const idea = libraryIdeas.find(i => i.id === ideaId)
+    if (!idea) return
+
+    try {
+      const item = await addCalendarItem(dayKey, idea)
+      setCalendarItems(prev => [
+        ...prev.filter(i => !(i.day_key === dayKey && i.idea_id === ideaId)),
+        item,
+      ])
+    } catch (err) {
+      console.error('[Calendario add]', err)
+    } finally {
+      setPickerDate(null)
     }
-    setPickerDate(null)
   }
 
-  const removeIdea = (dayKey: string, ideaId: string) => {
-    const updated = { ...calendar }
-    updated[dayKey] = (updated[dayKey] ?? []).filter(id => id !== ideaId)
-    setCalendar(updated)
-    saveCalendar(updated)
+  const removeIdea = async (itemId: string) => {
+    setCalendarItems(prev => prev.filter(i => i.id !== itemId))
+    await removeCalendarItem(itemId).catch(err => console.error('[Calendario remove]', err))
   }
 
   const weekLabel = (() => {
     const first = weekDays[0]
     const last = weekDays[6]
     if (first.getMonth() === last.getMonth()) {
-      return `${first.getDate()}–${last.getDate()} de ${MONTH_NAMES[first.getMonth()]}`
+      return `${first.getDate()}-${last.getDate()} de ${MONTH_NAMES[first.getMonth()]}`
     }
-    return `${first.getDate()} ${MONTH_NAMES[first.getMonth()]} – ${last.getDate()} ${MONTH_NAMES[last.getMonth()]}`
+    return `${first.getDate()} ${MONTH_NAMES[first.getMonth()]} - ${last.getDate()} ${MONTH_NAMES[last.getMonth()]}`
   })()
 
-  const totalPlanned = weekDays.reduce((acc, d) => acc + (calendar[dateKey(d)]?.length ?? 0), 0)
+  const totalPlanned = calendarItems.length
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Header */}
       <div className="px-5 pt-8 pb-3 relative z-10">
         <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Calendário
@@ -201,7 +251,6 @@ export default function Calendario() {
           Planeje seu conteúdo da semana
         </p>
 
-        {/* Week nav */}
         <div className="flex items-center justify-between mt-4">
           <button
             onClick={prevWeek}
@@ -229,7 +278,6 @@ export default function Calendario() {
           </button>
         </div>
 
-        {/* Botão voltar para hoje */}
         {dateKey(weekRef) !== today && !weekDays.some(d => dateKey(d) === today) && (
           <button
             onClick={goToday}
@@ -241,16 +289,12 @@ export default function Calendario() {
         )}
       </div>
 
-      {/* Days list */}
       <div className="flex-1 px-5 pb-28 space-y-3 overflow-y-auto relative z-10">
         {weekDays.map((day, i) => {
           const key = dateKey(day)
           const isToday = key === today
           const isPast = day < new Date(today)
-          const assignedIds = calendar[key] ?? []
-          const assignedIdeas = assignedIds
-            .map(id => state.ideas.find(idea => idea.id === id))
-            .filter(Boolean) as ContentIdea[]
+          const assignedItems = calendarItems.filter(item => item.day_key === key)
 
           return (
             <div
@@ -262,11 +306,10 @@ export default function Calendario() {
                 boxShadow: '0 0 20px rgba(109,93,246,0.1)',
               } : {
                 background: 'var(--bg-card)',
-                border: `1px solid ${isPast ? 'var(--border-color)' : 'var(--border-color)'}`,
+                border: '1px solid var(--border-color)',
                 opacity: isPast && !isToday ? 0.65 : 1,
               }}
             >
-              {/* Day header */}
               <div className="flex items-center justify-between px-4 pt-4 pb-2">
                 <div className="flex items-center gap-2">
                   <div
@@ -302,14 +345,14 @@ export default function Calendario() {
                 </button>
               </div>
 
-              {/* Assigned ideas */}
-              {assignedIdeas.length > 0 ? (
+              {assignedItems.length > 0 ? (
                 <div className="px-4 pb-4 space-y-2">
-                  {assignedIdeas.map(idea => {
+                  {assignedItems.map(item => {
+                    const idea = calendarIdea(item)
                     const meta = TYPE_META[idea.type] ?? { icon: '📝', label: idea.type }
                     return (
                       <div
-                        key={idea.id}
+                        key={item.id}
                         className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5"
                         style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}
                       >
@@ -319,7 +362,7 @@ export default function Calendario() {
                           <p className="text-[9px] font-semibold" style={{ color: 'var(--text-muted)' }}>{meta.label} · {idea.timeEstimate}</p>
                         </div>
                         <button
-                          onClick={() => removeIdea(key, idea.id)}
+                          onClick={() => removeIdea(item.id)}
                           className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90"
                           style={{ background: 'rgba(255,59,48,0.1)' }}
                         >
@@ -346,7 +389,6 @@ export default function Calendario() {
         })}
       </div>
 
-      {/* Idea picker sheet */}
       {pickerDate && (
         <IdeaPickerSheet
           ideas={libraryIdeas}

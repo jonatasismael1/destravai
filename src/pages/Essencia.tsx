@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
-import { getBrandEssence, saveBrandEssence } from '../services/essenceService'
-import { saveEssenceAndGenerateSummary } from '../services/aiService'
+import { getBrandEssence, saveBrandEssence, updateEssenceSummary } from '../services/essenceService'
+import { generateEssenceSummary } from '../lib/ai'
 import type { BrandEssence } from '../lib/supabase/types'
 import { Save, Plus, X, User, MessageSquare, Layout, Briefcase, Shield, Clock, Sparkles, RefreshCw } from 'lucide-react'
 
@@ -159,29 +159,30 @@ export default function Essencia() {
     }
   }
 
-  // Salvar + gerar resumo com IA
+  // Salvar + gerar resumo com IA (client-side Gemini → salva direto no banco)
   const handleGenerateWithAI = async () => {
     if (!form.profession && !form.niche) { setError('Preencha ao menos a profissão ou nicho.'); return }
     setError('')
     setGenerating(true)
     try {
-      const result = await saveEssenceAndGenerateSummary(toAnswers())
+      const answers = toAnswers()
+      // 1) Salva os dados da essência primeiro (garante o registro)
+      const savedEssence = await saveBrandEssence(answers)
+      setEssence(savedEssence)
+      // 2) Gera resumo + posicionamento com a IA
+      const result = await generateEssenceSummary(answers)
+      // 3) Persiste o resultado da IA na essência
+      await updateEssenceSummary(savedEssence.id, result.aiSummary, result.aiPositioning)
       setAiSummary(result.aiSummary)
-      // Recarregar essência atualizada
+      // 4) Recarrega a essência atualizada
       const updated = await getBrandEssence()
       if (updated) { setEssence(updated); setForm(initForm(updated)) }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao gerar resumo.'
-      // Salvar dados mesmo se IA falhar
-      try {
-        const fallback = await saveBrandEssence(toAnswers())
-        setEssence(fallback)
-        setError(`Dados salvos, mas a IA não conseguiu gerar o resumo: ${msg}`)
-      } catch {
-        setError(msg)
-      }
+      // Os dados já foram salvos acima; aqui só informamos a falha da IA
+      setError(`Dados salvos, mas a IA não conseguiu gerar o resumo: ${msg}`)
     } finally {
       setGenerating(false)
     }

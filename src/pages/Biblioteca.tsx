@@ -7,8 +7,9 @@ import {
   deleteLibraryItem,
   duplicateLibraryItem,
   updateLibraryItem,
+  createLibraryItemsBatch,
 } from '../services/libraryService'
-import { generateInitialLibrary } from '../services/aiService'
+import { generateLibraryItems } from '../lib/ai'
 import { getBrandEssence } from '../services/essenceService'
 import type { LibraryItem, LibraryItemType } from '../lib/supabase/types'
 import {
@@ -258,12 +259,27 @@ export default function Biblioteca() {
         const { items: existingItems, total: existingTotal } = await getLibraryItems({ pageSize: 30 })
 
         if (existingItems.length === 0) {
-          // Gerar biblioteca inicial
+          // Gerar biblioteca inicial (IA client-side → salva no banco)
           setGenerating(true)
           try {
-            const { items: generated } = await generateInitialLibrary()
-            setItems(generated)
-            setTotal(generated.length)
+            const generated = await generateLibraryItems(essence)
+            const saved = await createLibraryItemsBatch(
+              generated.map(g => ({
+                essence_id: essence.id,
+                type: g.type,
+                title: g.title,
+                content: g.content,
+                category: g.category || null,
+                format: null,
+                status: 'saved' as const,
+                source: 'ai' as const,
+                tags: g.tags,
+                metadata: null,
+                is_favorite: false,
+              }))
+            )
+            setItems(saved)
+            setTotal(saved.length)
           } catch (genErr) {
             setError(genErr instanceof Error ? genErr.message : 'Erro ao gerar biblioteca.')
           } finally {

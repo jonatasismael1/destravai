@@ -50,18 +50,19 @@ Gere uma biblioteca inicial personalizada. Cada item deve:
 - Ser executável em stories, reels ou posts
 - Ter título claro, conteúdo completo e prático
 
-Gere EXATAMENTE os seguintes itens no JSON abaixo:
-- 10 ideias de stories (type: "content_idea", format: "story")
-- 10 ideias de reels curtos (type: "content_idea", format: "reels")
-- 10 ganchos de abertura (type: "hook")
-- 10 CTAs personalizados (type: "cta")
-- 5 sequências de stories completas (type: "story_sequence")
-- 5 ideias de carrossel (type: "carousel_idea")
-- 5 ideias de post estático (type: "static_post_idea")
-- 10 respostas para objeções/dúvidas comuns (type: "objection_answer")
-- 7 prompts de rotina diária (type: "routine_prompt")
+Gere EXATAMENTE os seguintes itens no JSON abaixo (conteúdo conciso e direto
+em cada um, para caber tudo na resposta):
+- 5 ideias de stories (type: "content_idea", format: "story")
+- 4 ideias de reels curtos (type: "content_idea", format: "reels")
+- 5 ganchos de abertura (type: "hook")
+- 5 CTAs personalizados (type: "cta")
+- 3 sequências de stories completas (type: "story_sequence")
+- 2 ideias de carrossel (type: "carousel_idea")
+- 2 ideias de post estático (type: "static_post_idea")
+- 4 respostas para objeções/dúvidas comuns (type: "objection_answer")
+- 3 prompts de rotina diária (type: "routine_prompt")
 
-Total: 72 itens.
+Total: 33 itens.
 
 Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem texto fora):
 {

@@ -1,5 +1,8 @@
 import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea } from '../types'
+import type { BrandEssence, LibraryItemType } from './supabase/types'
 import { generateText } from './ai/googleGemini'
+import { buildEssenceSummaryPrompt } from './ai/prompts/essenceSummary'
+import { buildInitialLibraryPrompt } from './ai/prompts/initialLibrary'
 
 const EXPOSURE_LABELS: Record<ExposureLevel, string> = {
   'no-appearance': 'não aparece no vídeo — usa só texto, imagem estática ou carrossel',
@@ -455,6 +458,53 @@ Responda SOMENTE com este JSON:
   } catch {
     return fallback
   }
+}
+
+// ── Essência: resumo + posicionamento gerados pela IA ──────────────
+export interface EssenceSummaryResult {
+  aiSummary: string
+  aiPositioning: string
+}
+
+export async function generateEssenceSummary(answers: Record<string, unknown>): Promise<EssenceSummaryResult> {
+  const raw = await callGemini(buildEssenceSummaryPrompt(answers))
+  const p = extractJSON(raw)
+  const positioning = p.ai_positioning
+  return {
+    aiSummary: String(p.ai_summary ?? ''),
+    aiPositioning: typeof positioning === 'string' ? positioning : JSON.stringify(positioning ?? {}),
+  }
+}
+
+// ── Biblioteca: itens de conteúdo gerados a partir da essência ──────
+const VALID_LIBRARY_TYPES: LibraryItemType[] = [
+  'story_sequence', 'reels_script', 'caption', 'hook', 'cta', 'content_idea',
+  'objection_answer', 'routine_prompt', 'daily_prompt', 'carousel_idea', 'static_post_idea',
+]
+
+export interface GeneratedLibraryItem {
+  type: LibraryItemType
+  title: string
+  content: string
+  category: string
+  tags: string[]
+}
+
+export async function generateLibraryItems(essence: BrandEssence): Promise<GeneratedLibraryItem[]> {
+  // Biblioteca tem muitos itens → precisa de mais tokens de saída.
+  const raw = await generateText(buildInitialLibraryPrompt(essence), { maxOutputTokens: 8192 })
+  const p = extractJSON(raw)
+  const items = Array.isArray(p.items) ? p.items : []
+  return items.map((i: Record<string, unknown>) => {
+    const t = String(i.type ?? 'content_idea') as LibraryItemType
+    return {
+      type: VALID_LIBRARY_TYPES.includes(t) ? t : 'content_idea',
+      title: String(i.title ?? 'Sem título'),
+      content: String(i.content ?? ''),
+      category: String(i.category ?? ''),
+      tags: Array.isArray(i.tags) ? i.tags.map(String) : [],
+    }
+  }).filter((i: GeneratedLibraryItem) => i.content.length > 0)
 }
 
 export async function generateContent(req: GenerateRequest): Promise<ContentIdea> {

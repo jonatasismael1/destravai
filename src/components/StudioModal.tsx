@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { X, FlipHorizontal2, Square, Download, Share2, RotateCcw, CameraOff, ChevronUp, ChevronDown } from 'lucide-react'
+import { X, FlipHorizontal2, Square, Download, Share2, RotateCcw, CameraOff, ChevronUp, ChevronDown, FileText, Clapperboard, Lightbulb } from 'lucide-react'
 import type { ContentIdea } from '../types'
 
 interface Props {
@@ -45,10 +45,13 @@ function getBestMimeType() {
 }
 
 const TABS = [
-  { key: 'roteiro' as const, label: '📜 Roteiro' },
-  { key: 'acao' as const, label: '🎬 Ação' },
-  { key: 'dica' as const, label: '💡 Dica' },
+  { key: 'roteiro' as const, label: 'Roteiro', Icon: FileText },
+  { key: 'acao' as const, label: 'Ação', Icon: Clapperboard },
+  { key: 'dica' as const, label: 'Dica', Icon: Lightbulb },
 ]
+
+const SAFE_TOP = 'max(env(safe-area-inset-top), 12px)'
+const SAFE_BOTTOM = 'max(env(safe-area-inset-bottom), 16px)'
 
 export default function StudioModal({ idea, onClose }: Props) {
   const [phase, setPhase] = useState<Phase>('setup')
@@ -80,15 +83,12 @@ export default function StudioModal({ idea, onClose }: Props) {
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
     stopStream()
     try {
-      // Não forçamos resolução fixa (1080x1920) — isso fazia a câmera recortar
-      // o sensor e aplicar zoom digital. Pedimos apenas o facingMode e uma
-      // proporção ideal de story (9:16); o navegador escolhe a melhor resolução
-      // nativa sem cropar, evitando o efeito de "zoom".
+      // Não forçamos resolução fixa — pedimos só o facingMode e proporção ideal
+      // de story (9:16); o navegador escolhe a melhor resolução nativa sem cropar.
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: mode, aspectRatio: { ideal: 9 / 16 } },
         audio: true,
       }).catch(() =>
-        // Fallback: se aspectRatio não for suportado, pede só o facingMode
         navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true })
       )
       streamRef.current = stream
@@ -168,7 +168,6 @@ export default function StudioModal({ idea, onClose }: Props) {
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
     const filename = `${idea.theme.replace(/\s+/g, '-').toLowerCase()}.${ext}`
 
-    // iOS/Android: Web Share API abre "Salvar nos Fotos" ou apps de galeria
     if (canShare) {
       try {
         const file = new File([blob], filename, { type: blob.type })
@@ -179,11 +178,9 @@ export default function StudioModal({ idea, onClose }: Props) {
         }
       } catch (err) {
         if ((err as Error).name === 'AbortError') return
-        // usuário cancelou ou share falhou → fallback abaixo
       }
     }
 
-    // Fallback: download direto
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
     a.download = filename
@@ -192,203 +189,143 @@ export default function StudioModal({ idea, onClose }: Props) {
     document.body.removeChild(a)
   }
 
+  const activeText = activeTab === 'roteiro'
+    ? (sections.roteiro || 'Sem roteiro definido — use o contexto da ideia para improvisar.')
+    : activeTab === 'acao'
+    ? (sections.acao || idea.content)
+    : (sections.dica || 'Seja você mesmo(a). Autenticidade converte mais do que perfeição.')
+
   return (
-    <div className="fixed inset-0 z-[100] bg-black flex flex-col" style={{ touchAction: 'none' }}>
-
-      {/* ── LIVE CAMERA (setup + recording) ───────────────────── */}
-      {phase !== 'preview' && (
-        <div className="relative flex-1 overflow-hidden">
-          {hasCamera ? (
-            <video
-              ref={liveVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ transform: facing === 'user' ? 'scaleX(-1)' : 'none' }}
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center flex-col gap-3" style={{ background: '#111' }}>
-              <CameraOff size={48} color="rgba(255,255,255,0.3)" />
-              <p className="text-white/40 text-sm text-center px-8">Câmera indisponível.<br />Leia as instruções abaixo.</p>
-            </div>
-          )}
-
-          {/* Top bar */}
-          <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between px-5 pt-12 pb-3"
-            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)' }}>
-            <button
-              onClick={handleClose}
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(0,0,0,0.4)' }}
-            >
-              <X size={18} color="#fff" />
-            </button>
-
-            {phase === 'recording' && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(0,0,0,0.5)' }}>
-                <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FF4444' }} />
-                <span className="text-white font-mono font-bold text-sm">{formatTimer(timer)}</span>
+    <div
+      className="fixed inset-0 z-[100] bg-black flex flex-col"
+      style={{ height: '100dvh', touchAction: 'none' }}
+    >
+      {phase !== 'preview' ? (
+        <>
+          {/* ── Área da câmera (cresce, sem empurrar os controles) ── */}
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            {hasCamera ? (
+              <video
+                ref={liveVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="absolute inset-0 w-full h-full object-contain"
+                style={{ transform: facing === 'user' ? 'scaleX(-1)' : 'none' }}
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center flex-col gap-3" style={{ background: '#111' }}>
+                <CameraOff size={48} color="rgba(255,255,255,0.3)" />
+                <p className="text-white/40 text-sm text-center px-8">Câmera indisponível.<br />Você ainda pode ler o roteiro abaixo.</p>
               </div>
             )}
 
-            <button
-              onClick={flipCamera}
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: 'rgba(0,0,0,0.4)' }}
-            >
-              <FlipHorizontal2 size={18} color="#fff" />
-            </button>
+            {/* Top bar */}
+            <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-5 pb-3"
+              style={{ paddingTop: SAFE_TOP, background: 'linear-gradient(to bottom, rgba(0,0,0,0.6), transparent)' }}>
+              <button onClick={handleClose} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} aria-label="Fechar">
+                <X size={18} color="#fff" />
+              </button>
+              {phase === 'recording' && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-full" style={{ background: 'rgba(0,0,0,0.6)' }}>
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#FF4444' }} />
+                  <span className="text-white font-mono font-bold text-sm">{formatTimer(timer)}</span>
+                </div>
+              )}
+              <button onClick={flipCamera} className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.5)' }} aria-label="Virar câmera">
+                <FlipHorizontal2 size={18} color="#fff" />
+              </button>
+            </div>
+
+            {/* Teleprompter (durante gravação) sobreposto na parte inferior da câmera */}
+            {phase === 'recording' && teleprompterText && (
+              <div className="absolute left-3 right-3 bottom-3 z-10 rounded-2xl overflow-hidden"
+                style={{ background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(8px)', maxHeight: '38%' }}>
+                <div style={{ transform: `translateY(-${scrollPx}px)` }}>
+                  <p className="text-center font-semibold px-5 py-4 leading-relaxed"
+                    style={{ color: 'rgba(255,255,255,0.96)', fontSize: 18, whiteSpace: 'pre-line' }}>
+                    {teleprompterText}
+                  </p>
+                  <div style={{ height: 220 }} />
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* ── SETUP: roteiro + ação + dica ── */}
-          {phase === 'setup' && (
-            <div className="absolute bottom-0 left-0 right-0 z-10">
-              <div
-                className="rounded-t-3xl px-5 pt-4 pb-8 space-y-4"
-                style={{ background: 'rgba(0,0,0,0.82)', backdropFilter: 'blur(20px)' }}
-              >
-                <div className="w-10 h-1 rounded-full mx-auto" style={{ background: 'rgba(255,255,255,0.3)' }} />
-
+          {/* ── Barra de controles (sempre visível) ── */}
+          <div className="flex-shrink-0 px-5 pt-4" style={{ background: 'rgba(0,0,0,0.92)', paddingBottom: SAFE_BOTTOM }}>
+            {phase === 'setup' ? (
+              <div className="space-y-3">
                 {/* Tabs */}
                 <div className="flex gap-2">
-                  {TABS.map(tab => (
-                    <button
-                      key={tab.key}
-                      onClick={() => setActiveTab(tab.key)}
-                      className="flex-1 py-1.5 rounded-xl text-xs font-bold transition-all"
-                      style={activeTab === tab.key
+                  {TABS.map(({ key, label, Icon }) => (
+                    <button key={key} onClick={() => setActiveTab(key)}
+                      className="flex-1 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all"
+                      style={activeTab === key
                         ? { background: '#6D5DF6', color: '#fff' }
-                        : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }}
-                    >
-                      {tab.label}
+                        : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}>
+                      <Icon size={13} /> {label}
                     </button>
                   ))}
                 </div>
-
-                {/* Content */}
-                <div className="max-h-40 overflow-y-auto rounded-2xl p-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.88)', whiteSpace: 'pre-line' }}>
-                    {activeTab === 'roteiro'
-                      ? (sections.roteiro || 'Sem roteiro definido — use o contexto da ideia para improvisar.')
-                      : activeTab === 'acao'
-                      ? (sections.acao || idea.content)
-                      : (sections.dica || 'Seja você mesmo(a). Autenticidade converte mais do que perfeição.')}
+                {/* Conteúdo do roteiro */}
+                <div className="rounded-2xl p-3 overflow-y-auto" style={{ background: 'rgba(255,255,255,0.06)', maxHeight: '22vh' }}>
+                  <p className="text-sm leading-relaxed" style={{ color: 'rgba(255,255,255,0.9)', whiteSpace: 'pre-line' }}>
+                    {activeText}
                   </p>
                 </div>
-
-                {/* Record button */}
-                <button
-                  onClick={startRecording}
-                  className="w-full py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-3 transition-all active:scale-[0.98]"
-                  style={{
-                    background: 'linear-gradient(135deg, #FF3B30, #CC2222)',
-                    boxShadow: '0 0 28px rgba(255,59,48,0.45)',
-                  }}
-                >
+                {/* Botão gravar */}
+                <button onClick={startRecording} disabled={!hasCamera}
+                  className="w-full py-4 rounded-2xl font-extrabold text-white text-base flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-40"
+                  style={{ background: 'linear-gradient(135deg, #FF3B30, #CC2222)', boxShadow: '0 0 28px rgba(255,59,48,0.45)' }}>
                   <span className="w-4 h-4 rounded-full bg-white/90" />
                   Começar a gravar
                 </button>
               </div>
-            </div>
-          )}
-
-          {/* ── RECORDING: teleprompter + controls ── */}
-          {phase === 'recording' && (
-            <div className="absolute bottom-0 left-0 right-0 z-10">
-              {/* Teleprompter */}
-              {teleprompterText && (
-                <div
-                  className="mx-4 mb-3 rounded-2xl overflow-hidden"
-                  style={{
-                    background: 'rgba(0,0,0,0.55)',
-                    backdropFilter: 'blur(8px)',
-                    maxHeight: 180,
-                  }}
-                >
-                  <div style={{ transform: `translateY(-${scrollPx}px)` }}>
-                    <p
-                      className="text-center font-semibold px-5 py-4 leading-relaxed"
-                      style={{ color: 'rgba(255,255,255,0.95)', fontSize: 17, whiteSpace: 'pre-line' }}
-                    >
-                      {teleprompterText}
-                    </p>
-                    {/* Extra padding so last line still shows */}
-                    <div style={{ height: 200 }} />
-                  </div>
-                </div>
-              )}
-
-              {/* Controls row */}
-              <div
-                className="flex items-center justify-between px-8 pb-12 pt-3"
-                style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(16px)' }}
-              >
-                {/* Scroll speed */}
-                <div className="flex flex-col items-center gap-2">
-                  <button
-                    onClick={() => setScrollSpeed(s => Math.max(0, parseFloat((s + 0.5).toFixed(1))))}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
-                    style={{ background: 'rgba(255,255,255,0.15)' }}
-                  >
+            ) : (
+              /* Controles de gravação */
+              <div className="flex items-center justify-between">
+                {/* Velocidade do teleprompter */}
+                <div className="flex flex-col items-center gap-1.5 w-16">
+                  <button onClick={() => setScrollSpeed(s => parseFloat((s + 0.5).toFixed(1)))}
+                    className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90" style={{ background: 'rgba(255,255,255,0.15)' }} aria-label="Aumentar velocidade">
                     <ChevronUp size={16} color="#fff" />
                   </button>
-                  <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.45)' }}>Velocidade</span>
-                  <button
-                    onClick={() => setScrollSpeed(s => Math.max(0, parseFloat((s - 0.5).toFixed(1))))}
-                    className="w-9 h-9 rounded-full flex items-center justify-center transition-all active:scale-90"
-                    style={{ background: 'rgba(255,255,255,0.15)' }}
-                  >
+                  <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.45)' }}>Veloc.</span>
+                  <button onClick={() => setScrollSpeed(s => Math.max(0, parseFloat((s - 0.5).toFixed(1))))}
+                    className="w-9 h-9 rounded-full flex items-center justify-center active:scale-90" style={{ background: 'rgba(255,255,255,0.15)' }} aria-label="Diminuir velocidade">
                     <ChevronDown size={16} color="#fff" />
                   </button>
                 </div>
-
-                {/* Stop button */}
-                <button
-                  onClick={stopRecording}
-                  className="w-20 h-20 rounded-full flex items-center justify-center transition-all active:scale-95"
-                  style={{
-                    background: 'rgba(255,59,48,0.85)',
-                    border: '4px solid rgba(255,255,255,0.9)',
-                    boxShadow: '0 0 32px rgba(255,59,48,0.5)',
-                  }}
-                >
+                {/* Parar */}
+                <button onClick={stopRecording}
+                  className="w-20 h-20 rounded-full flex items-center justify-center active:scale-95"
+                  style={{ background: 'rgba(255,59,48,0.9)', border: '4px solid rgba(255,255,255,0.9)', boxShadow: '0 0 32px rgba(255,59,48,0.5)' }}
+                  aria-label="Parar gravação">
                   <Square size={26} fill="#fff" color="#fff" />
                 </button>
-
-                <div className="w-12" />
+                <div className="w-16" />
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── PREVIEW ─────────────────────────────────────────────── */}
-      {phase === 'preview' && (
+            )}
+          </div>
+        </>
+      ) : (
+        /* ── PREVIEW ── */
         <>
-          <video
-            ref={reviewVideoRef}
-            src={recordedUrl}
-            controls
-            playsInline
-            className="flex-1 w-full"
-            style={{ background: '#000', objectFit: 'contain' }}
-          />
-          <div className="px-5 pt-4 pb-10 space-y-3" style={{ background: '#111' }}>
+          <div className="flex-1 min-h-0 flex items-center justify-center" style={{ background: '#000' }}>
+            <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-contain" />
+          </div>
+          <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
             <p className="text-white/80 text-sm font-semibold text-center truncate">{idea.theme}</p>
             <div className="flex gap-3">
-              <button
-                onClick={retake}
-                className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}
-              >
-                <RotateCcw size={15} /> Gravar novamente
+              <button onClick={retake}
+                className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
+                style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}>
+                <RotateCcw size={15} /> Gravar de novo
               </button>
-              <button
-                onClick={downloadVideo}
-                className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-                style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff', boxShadow: '0 4px 20px rgba(109,93,246,0.4)' }}
-              >
+              <button onClick={downloadVideo}
+                className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff', boxShadow: '0 4px 20px rgba(109,93,246,0.4)' }}>
                 {canShare ? <><Share2 size={15} /> Salvar na galeria</> : <><Download size={15} /> Salvar no dispositivo</>}
               </button>
             </div>

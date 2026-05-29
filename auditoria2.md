@@ -2,56 +2,76 @@
 
 **Data:** 29/05/2026  
 **Branch auditada no GitHub:** `origin/master`  
-**Commit auditado:** `9e1276eff36bc2081436a65324a5220efa876311`  
+**Commit auditado:** `ed89d6a` (estado atual em produção)  
 **Repositório remoto:** `https://github.com/jonatasismael1/destravai.git`
 
 ---
 
-## 0. Atualização de implementação (29/05/2026)
+## 0. Auditoria completa — estado atual (29/05/2026)
 
-> Esta seção registra o que já foi **resolvido** depois da auditoria original. O restante do documento permanece como o diagnóstico histórico.
+> Auditoria de verificação do que está **em produção**. Métodos: leitura do código, `tsc`/build, suíte de RLS própria e os **Security/Performance Advisors do Supabase** (via Management API). As seções 1+ abaixo são o diagnóstico histórico original (mantido como registro).
 
-### 🟢 RESUMO — Feito vs. Falta
+### Verificações executadas
+- `npx tsc --noEmit` → **sem erros**.
+- `npm run build` (Vite) → **sucesso**.
+- `npm run test:rls` → **✅ verde** (toda tabela com RLS + policies; anônimo não lê dados protegidos).
+- Supabase **Security Advisors** → 0 ERROR · 8 WARN · 1 INFO (detalhe em 0.4).
+- Supabase **Performance Advisors** → 65 itens, todos não-bloqueantes (detalhe em 0.5).
 
-**JÁ FEITO:** IA no servidor (Edge Function) · limite mensal · log de gerações · migrations versionadas · jornada do usuário no Supabase · checkout próprio (Pix/cartão) · webhook libera acesso + e-mail · CORS restrito nas funções Asaas · landing publicada · progresso dentro de Meu Espaço · frase do dia · checkout rolável + upsell por plano · **eventos de execução (teleprompter/gravou/postei/planejou/voltou) + régua de ativação + modo postei** · **admin cria testadores grátis** · **status de assinatura claros (inclui trialing) e cancelamento com estorno automático dentro da garantia** · **webhook reaproveita assinatura pendente** · **biblioteca (busca com escape, confirmação inline, editar título/categoria/tags, mover p/ calendário)** · **calendário (status planejado/gravado/postado + visão mensal)** · **Criar salva tudo na biblioteca** · **teleprompter (metadados, renomear vídeo, modo postei)**.
+### 0.1 Arquitetura no ar
+- **Frontend:** React + Vite (PWA) no Netlify — `destravai.dbe.digital`.
+- **Landing:** site estático separado — `lpdestravai.netlify.app`.
+- **Supabase:** projeto `fddxaozosrlqddthvqhn` (compartilhado com outro app) — Postgres + Auth + Storage (bucket `avatars`).
+- **IA:** Netlify Function `destravai-gemini` (mesma origem do app; chave do Gemini só no Netlify; força JSON; limite mensal + log).
+- **Pagamento:** Asaas via Netlify Functions (checkout Pix/cartão, webhook, cancelamento/estorno, criação de testador pelo admin).
 
-**AINDA FALTA:** limite **por plano** (hoje 1.000/mês p/ todos) · CORS `*` na Edge `destravai-gemini` · gerar os **types automáticos** do Supabase (hoje manuais) · **suíte de testes** de RLS · ligar o **paywall** em produção · revisar textos de privacidade/legais · rodar o SQL de `destravai_execution_events` no projeto certo · régua D0/D1/D3/D7 como **mensageria/notificação** (hoje é indicador visual) · campanhas semanais, WhatsApp de missão e área agência/multi-cliente (novas oportunidades).
+### 0.2 ✅ Concluído (funciona em produção)
+- **IA fora do frontend** via `destravai-gemini` (Netlify) — fim da chave no bundle; força `responseMimeType: JSON` quando o prompt pede JSON; parser tolerante.
+- **Limite mensal** de 1.000 gerações/usuário + **log** de toda geração em `destravai_ai_generations`.
+- **Jornada no Supabase**: missões, progresso, check-ins, calendário, Meu Espaço, diário, humor, ideias (só preferências de UI ficam locais).
+- **Checkout próprio** (`/checkout`, público): Pix in-app (QR + copia e cola) e cartão via Asaas, **fundo branco**, preço revalidado no servidor (`destravai_plans`), rolável no PC e mobile, upsell por plano (parabeniza no topo).
+- **Webhook**: libera acesso, cria conta + e-mail de definição de senha, **reaproveita assinatura pendente**.
+- **Assinatura**: status claros (active, **trialing**, pending, past_due, canceled, refunded, failed); **cancelamento estorna automaticamente dentro da garantia (≤7 dias)** e só marca "reembolsada" se o Asaas confirmar.
+- **Admin/testadores**: `assessoriadbe@gmail.com` cria testadores com acesso de cortesia (function `admin-create-tester`).
+- **Métrica de execução** (`destravai_execution_events`): teleprompter, gravação, **postei/vou postar/só gravei**, planejado, retorno → **régua de ativação** na Home.
+- **Notificações locais** (sem WhatsApp): lembrete diário + marcos D1/D3/D7, com toggle em Configurações.
+- **Biblioteca**: busca com escape, confirmação inline, editar título/categoria/tags, mover p/ calendário, gravar no teleprompter.
+- **Calendário**: status planejado→gravado→postado + **visão mensal**.
+- **Criar**: toda geração salva na biblioteca com feedback.
+- **Teleprompter**: metadados, **renomear vídeo** e **modo postei**.
+- **Meu Espaço**: progresso unificado + **score de constância**.
+- **Foto de perfil**: upload do dispositivo → Storage (`avatars`) → sincronizado.
+- **Landing**: menu lateral mobile (Entrar dentro), mockup após o hero, FAQs corrigidos, CTAs → `/checkout`.
+- **Textos legais**: Privacidade e Termos revisados (data, foto/uso, armazenamento local, elegibilidade 18+).
+- **Qualidade**: `database.types.ts` gerado (`npm run gen:types`) e **suíte de RLS** (`npm run test:rls`).
 
-### ✅ Concluído
+### 0.3 🔒 Segurança — veredito
+**Sem ERROR.** Service role/chaves só em ambiente de servidor; RLS ativo e testado; anônimo bloqueado; não há senha padrão (acesso por link de e-mail). CORS das funções (IA e Asaas) restrito à origem do app via `_shared.mjs`.
 
-- **IA fora do frontend.** A geração agora passa pela Edge Function `destravai-gemini` (deployada no Supabase). `src/lib/ai/googleGemini.ts` chama essa função com o JWT do usuário; a chave do Gemini não vai mais no bundle. *(Resolve 6.2 e parte de 8 / 9.)*
-- **Limite de uso.** A Edge Function aplica limite mensal de **1000 gerações por usuário**, contando `destravai_ai_generations` no mês corrente, com mensagem amigável ao atingir. *(Resolve a base de 6.4.)*
-- **Registro de gerações.** Toda geração (sucesso e erro) é registrada em `destravai_ai_generations`, inclusive o modelo usado. *(Resolve parte de 6.5.)*
-- **Migrations versionadas.** Criada a pasta `supabase/migrations/` com: `202605290001_user_journey.sql`, `202605290002_base_schema.sql` e `202605290003_checkout_plans.sql`. *(Resolve a falta de migrations citada em 8.)*
-- **Jornada do usuário no Supabase.** Missões, progresso, check-ins diários, calendário, Meu Espaço, diário, humor e ideias pessoais passaram a ser persistidos no banco (migration `user_journey` + serviços). A maior parte do item 3 (dados no aparelho) está superada — sobram apenas preferências locais aceitáveis (tema, dismiss de PWA). *(Resolve o núcleo de 3 e 6.1.)*
-- **Checkout próprio (Asaas + Supabase).** Tela `/checkout` pública (vinda da landing), com Pix in-app (QR + copia e cola) e cartão via Asaas. Preço sempre revalidado no servidor a partir da tabela `destravai_plans` (fonte da verdade dos planos). Pagamento confirmado pelo webhook cria/garante a conta no Supabase Auth, libera acesso e envia e-mail nativo para o usuário definir a senha (`/definir-senha`). Modelo "paga primeiro, acesso depois".
-- **CORS restrito nas funções Asaas.** `netlify/functions/_shared.mjs` usa a origem do app (`APP_URL`) em vez de `*`. *(Resolve parte de 8 / Netlify.)*
-- **Landing alinhada e publicada.** Os CTAs de plano apontam para `/checkout?plan=...` (não mais `href="#"` nem links crus do Asaas). Planos espelham `destravai_plans`. Landing publicada em **https://lpdestravai.netlify.app**. *(Resolve parte de 10.)*
-- **Progresso reposicionado.** A antiga página `Progresso` virou um painel dentro de **Meu Espaço** (abas "Meu espaço" / "Meu progresso"), num lugar único e sincronizado. Rota `/progresso` removida.
-- **Configurações.** Removido o número de versão; adicionados "Alterar senha", "Gerenciar assinatura" e "Falar com o suporte".
-- **Home.** Frase motivacional do dia restaurada (troca automaticamente a cada dia).
-- **Biblioteca.** Cada item tem botão de câmera para gravar a ideia direto no teleprompter; busca com escape de caracteres, confirmação inline (sem `confirm()` nativo), edição de título/categoria/tags e botão "mover para o calendário".
-- **Métrica de execução.** Tabela `destravai_execution_events` + serviço tolerante; registra abrir teleprompter, iniciar/salvar gravação, **postei / vou postar / só gravei**, planejar no calendário e retorno. Régua de ativação (1/3/7 dias + nº de postados) na Home.
-- **Admin / testadores.** O admin (`assessoriadbe@gmail.com`) tem seção em Configurações para criar testadores com **acesso de cortesia** (function `admin-create-tester`: valida o admin, cria conta + assinatura ativa grátis + e-mail de senha). Não usa senha padrão.
-- **Assinatura.** Status claros (active, **trialing**, pending, past_due, canceled, refunded, failed). **Cancelamento: dentro da garantia (≤ 7 dias e pago) estorna automaticamente; fora da garantia apenas cancela.** Só marca "reembolsada" se o Asaas confirmar o estorno. Copy "ilimitada" → "ampliada".
-- **Checkout/webhook.** Reaproveita a assinatura **pendente** do usuário em vez de criar uma nova linha a cada tentativa.
-- **Calendário.** Status planejado → gravado → postado (toque pra alternar; "postado" registra evento) e **visão mensal** com indicadores por dia.
-- **Criar.** Toda ideia gerada é **salva automaticamente na biblioteca** (Supabase), com feedback "salvo".
-- **Teleprompter.** Registra metadados (formato + duração), permite **renomear o vídeo** antes de salvar e abre o **modo postei**.
+### 0.4 ⚠️ Hardening recomendado (WARN dos advisors)
+- **`function_search_path_mutable`** em `destravai_set_updated_at` e `destravai_touch_updated_at` → adicionar `set search_path = ''` na definição das funções.
+- **SECURITY DEFINER executável por anon/authenticated**: `handle_destravai_new_user`, `rls_auto_enable` → `revoke execute ... from anon, authenticated`.
+- **`public_bucket_allows_listing`** no bucket `avatars` → bucket público permite listar arquivos. Risco baixo (avatares são públicos), mas dá para restringir listagem.
+- **`auth_leaked_password_protection` desativado** → ligar no painel (Auth → Password Protection) para bloquear senhas vazadas.
+- ℹ️ **`rls_enabled_no_policy`** em `asaas_webhook_events` → **proposital** (tabela só de backend = deny-all). Não é problema.
 
-### ⏳ Pendências / a confirmar
+### 0.5 ⚙️ Performance (não urgente)
+- **`auth_rls_initplan`** (54 policies) → trocar `auth.uid()` por `(select auth.uid())` nas policies para não reavaliar por linha (ganho quando a base crescer).
+- **`unindexed_foreign_keys`** (4) e **`unused_index`** (7) → revisar índices ao escalar.
 
-- **Rodar o SQL de `destravai_execution_events`** no projeto certo (`fddxaozosrlqddthvqhn`). O MCP estava preso no projeto da clínica e não criou a tabela; o código já tolera a ausência. SQL em `supabase/migrations/202605290004_execution_events.sql`. **Sem isso, os eventos/régua/modo postei não gravam.**
-- **Limite por plano.** Hoje o limite é único (1.000/mês para todos). Ainda falta diferenciar Starter / Pro / Expert. *(6.4.)*
-- **CORS da Edge Function de IA.** `destravai-gemini` ainda responde com `Access-Control-Allow-Origin: *`; restringir ao domínio do app.
-- **Types do Supabase automáticos.** Ainda são interfaces manuais (a geração via MCP ficou bloqueada pelo projeto errado). *(8.)*
-- **Suíte de testes de RLS.** As policies existem nas migrations, mas não há testes automatizados (o projeto não tem runner de testes). *(8.)*
-- **Régua D0/D1/D3/D7 como mensageria.** Hoje é um indicador visual de constância; falta a régua de ativação por notificação/WhatsApp. *(13 / 14.)*
-- **Paywall** (`VITE_PAYWALL_ENABLED`) precisa ser ligado em produção quando o fluxo for validado ponta a ponta.
-- **Textos legais/privacidade.** Revisar a Política de Privacidade e Termos (linguagem e consentimento) antes de tráfego pago. *(9 / 11.)*
-- **Novas oportunidades** (não obrigatórias): campanhas semanais, WhatsApp de missão, área agência/multi-cliente, biblioteca por nicho, score de constância. *(13.)*
+### 0.6 🧹 Manutenção / dívidas técnicas
+- **Duas tabelas de assinatura**: `subscriptions` (usada) e `destravai_subscriptions` (legada/órfã). Padronizar/remover a não usada.
+- **Edge Functions `destravai-*` no Supabase ficaram órfãs** (o app usa as Netlify Functions). Podem ser removidas para evitar confusão.
+- **Types**: o app ainda usa as interfaces manuais de `src/lib/supabase/types.ts`; migrar gradualmente para o `database.types.ts` gerado.
 
-> **Já confirmado pelo usuário:** Supabase Auth (Redirect URL `/definir-senha`), webhook do Asaas e o secret do Gemini já estão configurados.
+### 0.7 ⏳ Pendências priorizadas
+1. **Ligar o paywall** (`VITE_PAYWALL_ENABLED=true`) após validar o fluxo de pagamento ponta a ponta.
+2. **Limite por plano** (hoje 1.000/mês igual para todos) — diferenciar Starter/Pro/Expert.
+3. **Hardening** dos itens 0.4 (search_path, revoke execute, leaked password protection).
+4. **Performance RLS** (0.5) quando o volume crescer.
+5. **Oportunidades** (não obrigatórias): biblioteca por nicho, campanhas semanais, WhatsApp de missão, área agência/multi-cliente, push agendado de verdade (Web Push) para a régua.
+
+> **Confirmado pelo usuário:** Supabase Auth (Redirect URL `/definir-senha`), webhook do Asaas, secret do Gemini e a tabela `destravai_execution_events` já estão configurados/aplicados.
 
 ---
 

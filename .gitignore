@@ -29,5 +29,9 @@ ui-ux-pro-max-skill/
 .DS_Store
 Thumbs.db
 
+# Logs gerados (ferramentas locais)
+*.log
+.codex-vite.log
+
 # Logs
 *.log

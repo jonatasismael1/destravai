@@ -11,6 +11,7 @@ import type { ContentIdea } from '../types'
 import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
+import { trackEvent, loadActivationStatus, type ActivationStatus } from '../services/eventsService'
 import StudioModal from '../components/StudioModal'
 
 // Check-ins com ícones vetoriais (sem emojis estruturais)
@@ -267,6 +268,7 @@ export default function Home() {
   const [dayLoaded, setDayLoaded] = useState(false)
 
   const [loading, setLoading] = useState(false)
+  const [activation, setActivation] = useState<ActivationStatus | null>(null)
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
   const [captionIdea, setCaptionIdea] = useState<ContentIdea | null>(null)
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
@@ -342,6 +344,13 @@ export default function Home() {
       generateDailyMission()
     }
   }, [dayLoaded, profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Registra o retorno do usuário e carrega a régua de ativação (D1/D3/D7).
+  useEffect(() => {
+    if (!state.supabaseUser) return
+    void trackEvent('returned')
+    loadActivationStatus().then(setActivation)
+  }, [state.supabaseUser?.id])
 
   const generateDailyMission = async () => {
     if (!profile) return
@@ -615,6 +624,35 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* ── Régua de ativação (constância) ──────────── */}
+      {activation && activation.activeDays > 0 && (
+        <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Sua constância</p>
+            <span className="text-xs font-bold" style={{ color: '#9B8CFF' }}>{activation.activeDays} {activation.activeDays === 1 ? 'dia ativo' : 'dias ativos'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {[1, 3, 7].map(milestone => {
+              const reached = activation.activeDays >= milestone
+              return (
+                <div key={milestone} className="flex-1 text-center">
+                  <div className="h-1.5 rounded-full mb-1.5"
+                    style={{ background: reached ? 'linear-gradient(90deg, #6D5DF6, #9B8CFF)' : 'var(--bg-card-bright)' }} />
+                  <span className="text-[10px] font-bold" style={{ color: reached ? '#9B8CFF' : 'var(--text-muted)' }}>
+                    {milestone}d
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          {activation.postedCount > 0 && (
+            <p className="text-[11px] mt-2.5" style={{ color: 'var(--text-secondary)' }}>
+              🎉 {activation.postedCount} {activation.postedCount === 1 ? 'conteúdo postado' : 'conteúdos postados'} até agora. Continue aparecendo!
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Check-in / conteúdo ─────────────────────── */}
       {!checkin ? (

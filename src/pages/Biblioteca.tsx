@@ -11,13 +11,16 @@ import {
 } from '../services/libraryService'
 import { generateLibraryItems } from '../lib/ai'
 import { getBrandEssence } from '../services/essenceService'
+import { addCalendarItem, toISODateKey } from '../services/userJourneyService'
 import type { LibraryItem, LibraryItemType } from '../lib/supabase/types'
 import type { ContentIdea } from '../types'
 import StudioModal from '../components/StudioModal'
 import {
   Bookmark, Check, Filter, Search, Copy, ChevronRight,
-  Star, Trash2, Edit3, RefreshCw, Sparkles, Lock, X, Camera
+  Star, Trash2, Edit3, RefreshCw, Sparkles, Lock, X, Camera, CalendarPlus, AlertCircle
 } from 'lucide-react'
+
+type LibraryEdits = Partial<Pick<LibraryItem, 'title' | 'content' | 'category' | 'tags'>>
 
 // Converte um item da biblioteca no formato que o teleprompter (StudioModal) espera.
 function libraryItemToIdea(item: LibraryItem): ContentIdea {
@@ -64,15 +67,20 @@ interface ItemCardProps {
   onFavorite: () => void
   onDelete: () => void
   onDuplicate: () => void
-  onEdit: (content: string) => void
+  onEdit: (updates: LibraryEdits) => void
   onRecord: () => void
+  onAddToCalendar: () => void
 }
 
-function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }: ItemCardProps) {
+function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, onAddToCalendar }: ItemCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editContent, setEditContent] = useState(item.content)
+  const [editTitle, setEditTitle] = useState(item.title)
+  const [editCategory, setEditCategory] = useState(item.category ?? '')
+  const [editTags, setEditTags] = useState((item.tags ?? []).join(', '))
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const meta = TYPE_META[item.type] ?? { label: item.type, icon: '📝', color: 'tag-purple', section: '' }
 
@@ -82,8 +90,21 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }:
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const startEdit = () => {
+    setEditTitle(item.title)
+    setEditContent(item.content)
+    setEditCategory(item.category ?? '')
+    setEditTags((item.tags ?? []).join(', '))
+    setEditing(true)
+  }
+
   const handleSaveEdit = () => {
-    onEdit(editContent)
+    onEdit({
+      title: editTitle.trim() || item.title,
+      content: editContent,
+      category: editCategory.trim() || null,
+      tags: editTags.split(',').map(t => t.trim()).filter(Boolean),
+    })
     setEditing(false)
   }
 
@@ -134,24 +155,55 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }:
 
         {editing && (
           <div className="mt-3 animate-fade-up space-y-2">
-            <textarea
-              className="input resize-none w-full text-xs"
-              rows={6}
-              value={editContent}
-              onChange={e => setEditContent(e.target.value)}
-            />
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Título</label>
+              <input className="input text-xs" value={editTitle} onChange={e => setEditTitle(e.target.value)} placeholder="Título" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Categoria</label>
+              <input className="input text-xs" value={editCategory} onChange={e => setEditCategory(e.target.value)} placeholder="Categoria (opcional)" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Tags (separadas por vírgula)</label>
+              <input className="input text-xs" value={editTags} onChange={e => setEditTags(e.target.value)} placeholder="ex.: venda, bastidor" />
+            </div>
+            <div>
+              <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Conteúdo</label>
+              <textarea
+                className="input resize-none w-full text-xs"
+                rows={6}
+                value={editContent}
+                onChange={e => setEditContent(e.target.value)}
+              />
+            </div>
             <div className="flex gap-2">
               <button onClick={handleSaveEdit}
                 className="flex-1 py-2 rounded-xl text-xs font-bold"
                 style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: 'white' }}>
                 Salvar
               </button>
-              <button onClick={() => { setEditing(false); setEditContent(item.content) }}
+              <button onClick={() => setEditing(false)}
                 className="px-4 py-2 rounded-xl text-xs font-bold"
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border-bright)', color: 'var(--text-secondary)' }}>
                 <X size={14} />
               </button>
             </div>
+          </div>
+        )}
+
+        {confirmingDelete && (
+          <div className="mt-3 rounded-xl p-3 flex items-center gap-2 animate-fade-up"
+            style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.25)' }}>
+            <AlertCircle size={15} style={{ color: '#FF7A6B', flexShrink: 0 }} />
+            <p className="text-xs flex-1" style={{ color: 'var(--text-primary)' }}>Excluir este item?</p>
+            <button onClick={() => setConfirmingDelete(false)}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold" style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)' }}>
+              Não
+            </button>
+            <button onClick={() => { setConfirmingDelete(false); onDelete() }}
+              className="px-3 py-1.5 rounded-lg text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg,#FF7A6B,#E85D4E)' }}>
+              Excluir
+            </button>
           </div>
         )}
 
@@ -175,9 +227,10 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }:
                   }}>
                   {copied ? <Check size={11} /> : <Copy size={11} />}
                 </button>
-                <button onClick={() => setEditing(!editing)}
+                <button onClick={() => (editing ? setEditing(false) : startEdit())}
                   className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
-                  style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}>
+                  style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}
+                  title="Editar">
                   <Edit3 size={11} />
                 </button>
               </>
@@ -188,13 +241,19 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }:
               title="Gravar com teleprompter" aria-label="Gravar com teleprompter">
               <Camera size={11} />
             </button>
+            <button onClick={onAddToCalendar}
+              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+              style={{ background: 'rgba(83,214,161,0.1)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.25)' }}
+              title="Adicionar ao calendário (hoje)" aria-label="Adicionar ao calendário">
+              <CalendarPlus size={11} />
+            </button>
             <button onClick={onDuplicate}
               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
               style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}
               title="Duplicar">
               <RefreshCw size={11} />
             </button>
-            <button onClick={onDelete}
+            <button onClick={() => setConfirmingDelete(true)}
               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
               style={{ background: 'rgba(255,122,107,0.08)', color: '#FF7A6B', border: '1px solid rgba(255,122,107,0.2)' }}
               title="Excluir">
@@ -248,6 +307,7 @@ export default function Biblioteca() {
   const [generating, setGenerating] = useState(false)
   const [hasEssence, setHasEssence] = useState<boolean | null>(null)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState<ActiveFilter>('all')
   const [showFavOnly, setShowFavOnly] = useState(false)
@@ -348,13 +408,23 @@ export default function Biblioteca() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este item da biblioteca?')) return
     try {
       await deleteLibraryItem(id)
       setItems(prev => prev.filter(i => i.id !== id))
       setTotal(t => t - 1)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao excluir.')
+    }
+  }
+
+  const handleAddToCalendar = async (item: LibraryItem) => {
+    try {
+      await addCalendarItem(toISODateKey(), libraryItemToIdea(item))
+      setError('')
+      setNotice('Adicionado ao calendário de hoje.')
+      setTimeout(() => setNotice(''), 2500)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao adicionar ao calendário.')
     }
   }
 
@@ -368,9 +438,9 @@ export default function Biblioteca() {
     }
   }
 
-  const handleEdit = async (id: string, content: string) => {
+  const handleEdit = async (id: string, updates: LibraryEdits) => {
     try {
-      const updated = await updateLibraryItem(id, { content })
+      const updated = await updateLibraryItem(id, updates)
       setItems(prev => prev.map(i => i.id === id ? updated : i))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao editar.')
@@ -459,6 +529,13 @@ export default function Biblioteca() {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-xl px-4 py-3 text-sm font-semibold"
+          style={{ background: 'rgba(83,214,161,0.1)', border: '1px solid rgba(83,214,161,0.25)', color: '#53D6A1' }}>
+          {notice}
+        </div>
+      )}
+
       {/* Busca */}
       <div className="relative">
         <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
@@ -512,8 +589,9 @@ export default function Biblioteca() {
                     onFavorite={() => handleFavorite(item)}
                     onDelete={() => handleDelete(item.id)}
                     onDuplicate={() => handleDuplicate(item.id)}
-                    onEdit={(content) => handleEdit(item.id, content)}
+                    onEdit={(updates) => handleEdit(item.id, updates)}
                     onRecord={() => setStudioItem(item)}
+                    onAddToCalendar={() => handleAddToCalendar(item)}
                   />
                 ))}
               </div>

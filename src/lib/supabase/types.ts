@@ -191,3 +191,26 @@ export interface PersonalIdeaRow {
   category: 'conteudo' | 'pessoal' | 'livre'
   created_at: string
 }
+
+export interface ExecutionEvent {
+  id: string
+  user_id: string
+  event_type: string
+  ref_id: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
+export interface PlanRow {
+  id: string
+  name: string
+  short_description: string
+  monthly_price: number
+  benefits: string[]
+  is_active: boolean
+  highlight: boolean
+  sort_order: number
+  asaas_identifier: string | null
+  created_at: string
+  updated_at: string
+}

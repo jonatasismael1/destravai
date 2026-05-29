@@ -42,7 +42,7 @@ export const PLANS: Plan[] = [
     tagline: 'Para escalar sua presença digital.',
     features: [
       'Tudo do Pro',
-      'Geração ilimitada de ideias',
+      'Geração ampliada de ideias',
       'Prioridade nas novidades',
     ],
   },

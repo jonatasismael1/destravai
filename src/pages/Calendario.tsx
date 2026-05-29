@@ -5,7 +5,16 @@ import { useApp } from '../context/AppContext'
 import type { ContentIdea, ExposureLevel } from '../types'
 import type { CalendarItem, LibraryItem } from '../lib/supabase/types'
 import { getLibraryItems } from '../services/libraryService'
-import { addCalendarItem, loadCalendarItems, removeCalendarItem, toISODateKey } from '../services/userJourneyService'
+import { addCalendarItem, loadCalendarItems, removeCalendarItem, updateCalendarItemStatus, toISODateKey } from '../services/userJourneyService'
+import { trackEvent } from '../services/eventsService'
+
+const STATUS_META: Record<CalendarItem['status'], { label: string; color: string; bg: string }> = {
+  planned:  { label: 'Planejado', color: '#9B8CFF', bg: 'rgba(124,92,255,0.15)' },
+  recorded: { label: 'Gravado',   color: '#F7B955', bg: 'rgba(247,185,85,0.15)' },
+  posted:   { label: 'Postado',   color: '#53D6A1', bg: 'rgba(83,214,161,0.15)' },
+  skipped:  { label: 'Pulado',    color: 'var(--text-muted)', bg: 'var(--bg-input)' },
+}
+const STATUS_CYCLE: CalendarItem['status'][] = ['planned', 'recorded', 'posted']
 
 function dateKey(d: Date): string {
   return toISODateKey(d)
@@ -153,6 +162,8 @@ export default function Calendario() {
   const [calendarItems, setCalendarItems] = useState<CalendarItem[]>([])
   const [remoteIdeas, setRemoteIdeas] = useState<ContentIdea[]>([])
   const [pickerDate, setPickerDate] = useState<string | null>(null)
+  const [view, setView] = useState<'week' | 'month'>('week')
+  const [monthItems, setMonthItems] = useState<CalendarItem[]>([])
 
   const weekDays = getWeekDays(weekRef)
   const today = dateKey(new Date())
@@ -196,17 +207,29 @@ export default function Calendario() {
 
   const prevWeek = () => {
     const d = new Date(weekRef)
-    d.setDate(d.getDate() - 7)
+    if (view === 'month') d.setMonth(d.getMonth() - 1)
+    else d.setDate(d.getDate() - 7)
     setWeekRef(d)
   }
 
   const nextWeek = () => {
     const d = new Date(weekRef)
-    d.setDate(d.getDate() + 7)
+    if (view === 'month') d.setMonth(d.getMonth() + 1)
+    else d.setDate(d.getDate() + 7)
     setWeekRef(d)
   }
 
   const goToday = () => setWeekRef(new Date())
+
+  // Dias do mês de weekRef (para a visão mensal).
+  const monthGridDays = useMemo(() => {
+    const first = new Date(weekRef.getFullYear(), weekRef.getMonth(), 1)
+    const total = new Date(weekRef.getFullYear(), weekRef.getMonth() + 1, 0).getDate()
+    const pad = (first.getDay() + 6) % 7 // segunda-feira como início
+    const cells: (Date | null)[] = Array.from({ length: pad }, () => null)
+    for (let i = 1; i <= total; i++) cells.push(new Date(weekRef.getFullYear(), weekRef.getMonth(), i))
+    return cells
+  }, [weekRef])
 
   const addIdea = async (dayKey: string, ideaId: string) => {
     const idea = libraryIdeas.find(i => i.id === ideaId)
@@ -230,7 +253,36 @@ export default function Calendario() {
     await removeCalendarItem(itemId).catch(err => console.error('[Calendario remove]', err))
   }
 
+  // Avança o status: planejado → gravado → postado (e volta ao começo).
+  const cycleStatus = async (item: CalendarItem) => {
+    const idx = STATUS_CYCLE.indexOf(item.status)
+    const next = STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length]
+    setCalendarItems(prev => prev.map(i => i.id === item.id ? { ...i, status: next } : i))
+    await updateCalendarItemStatus(item.id, next).catch(err => console.error('[Calendario status]', err))
+    if (next === 'posted') void trackEvent('posted', item.idea_id)
+  }
+
+  // Carrega os itens do mês inteiro para a visão mensal.
+  useEffect(() => {
+    if (view !== 'month') return
+    let cancelled = false
+    const first = new Date(weekRef.getFullYear(), weekRef.getMonth(), 1)
+    const last = new Date(weekRef.getFullYear(), weekRef.getMonth() + 1, 0)
+    ;(async () => {
+      try {
+        const items = await loadCalendarItems(dateKey(first), dateKey(last))
+        if (!cancelled) setMonthItems(items)
+      } catch (err) {
+        console.error('[Calendario month]', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [view, weekRef])
+
   const weekLabel = (() => {
+    if (view === 'month') {
+      return `${MONTH_NAMES[weekRef.getMonth()]} de ${weekRef.getFullYear()}`
+    }
     const first = weekDays[0]
     const last = weekDays[6]
     if (first.getMonth() === last.getMonth()) {
@@ -248,8 +300,18 @@ export default function Calendario() {
           Calendário
         </h1>
         <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Planeje seu conteúdo da semana
+          Planeje seu conteúdo
         </p>
+
+        <div className="flex p-1 mt-3 rounded-2xl gap-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          {(['week', 'month'] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
+              style={view === v ? { background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))', color: '#A78BFA' } : { color: 'var(--text-muted)' }}>
+              {v === 'week' ? 'Semana' : 'Mês'}
+            </button>
+          ))}
+        </div>
 
         <div className="flex items-center justify-between mt-4">
           <button
@@ -290,7 +352,7 @@ export default function Calendario() {
       </div>
 
       <div className="flex-1 px-5 pb-28 space-y-3 overflow-y-auto relative z-10">
-        {weekDays.map((day, i) => {
+        {view === 'week' && weekDays.map((day, i) => {
           const key = dateKey(day)
           const isToday = key === today
           const isPast = day < new Date(today)
@@ -362,6 +424,14 @@ export default function Calendario() {
                           <p className="text-[9px] font-semibold" style={{ color: 'var(--text-muted)' }}>{meta.label} · {idea.timeEstimate}</p>
                         </div>
                         <button
+                          onClick={() => cycleStatus(item)}
+                          className="text-[9px] font-bold px-2 py-1 rounded-full flex-shrink-0 transition-all active:scale-95"
+                          style={{ background: STATUS_META[item.status].bg, color: STATUS_META[item.status].color }}
+                          title="Tocar para mudar: Planejado → Gravado → Postado"
+                        >
+                          {STATUS_META[item.status].label}
+                        </button>
+                        <button
                           onClick={() => removeIdea(item.id)}
                           className="w-5 h-5 rounded-lg flex items-center justify-center flex-shrink-0 transition-all active:scale-90"
                           style={{ background: 'rgba(255,59,48,0.1)' }}
@@ -387,6 +457,48 @@ export default function Calendario() {
             </div>
           )
         })}
+
+        {view === 'month' && (
+          <div>
+            <div className="grid grid-cols-7 gap-1 mb-1">
+              {DAY_LABELS.map(d => (
+                <span key={d} className="text-center text-[9px] font-bold uppercase" style={{ color: 'var(--text-muted)' }}>{d}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {monthGridDays.map((day, idx) => {
+                if (!day) return <div key={`pad-${idx}`} />
+                const key = dateKey(day)
+                const count = monthItems.filter(it => it.day_key === key).length
+                const isToday = key === today
+                const posted = monthItems.some(it => it.day_key === key && it.status === 'posted')
+                return (
+                  <button
+                    key={key}
+                    onClick={() => { setWeekRef(day); setView('week') }}
+                    className="aspect-square rounded-xl flex flex-col items-center justify-center transition-all active:scale-95"
+                    style={isToday ? {
+                      background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.12))',
+                      border: '1px solid rgba(109,93,246,0.4)',
+                    } : {
+                      background: count > 0 ? 'var(--bg-card)' : 'transparent',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <span className="text-xs font-bold" style={{ color: isToday ? '#9B8CFF' : 'var(--text-primary)' }}>{day.getDate()}</span>
+                    {count > 0 && (
+                      <span className="mt-0.5 w-1.5 h-1.5 rounded-full"
+                        style={{ background: posted ? '#53D6A1' : '#9B8CFF' }} />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-[10px] text-center mt-3" style={{ color: 'var(--text-muted)' }}>
+              Toque em um dia para planejar a semana dele.
+            </p>
+          </div>
+        )}
       </div>
 
       {pickerDate && (

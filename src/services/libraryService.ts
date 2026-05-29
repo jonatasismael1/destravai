@@ -31,7 +31,11 @@ export async function getLibraryItems(
   if (category) query = query.eq('category', category)
   if (isFavorite) query = query.eq('is_favorite', true)
   if (search) {
-    query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`)
+    // Escapa caracteres que têm significado no filtro PostgREST (`,` separa
+    // condições no .or(), `%`/`_` são curingas do ILIKE, `(` `)` agrupam, `\`
+    // é escape). Sem isso, uma busca com vírgula/parêntese quebra a query.
+    const safe = search.replace(/[\\%_,()]/g, m => `\\${m}`)
+    query = query.or(`title.ilike.%${safe}%,content.ilike.%${safe}%`)
   }
 
   const { data, error, count } = await query

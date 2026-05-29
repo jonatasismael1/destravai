@@ -5,6 +5,7 @@ import {
   Zap, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check,
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
+import { trackEvent } from '../services/eventsService'
 
 interface Props {
   idea: ContentIdea
@@ -239,6 +240,14 @@ export default function StudioModal({ idea, onClose }: Props) {
     }
   }, [facing, hasCamera, phase, zoom])
 
+  // "Modo postei": prompt pós-gravação para registrar execução real.
+  const [postPrompt, setPostPrompt] = useState(false)
+
+  // Registra a abertura do teleprompter (métrica de execução).
+  useEffect(() => {
+    void trackEvent('teleprompter_open', idea.id)
+  }, [idea.id])
+
   const applyZoom = async (z: number) => {
     setZoom(z)
     const track = streamRef.current?.getVideoTracks()[0]
@@ -326,6 +335,7 @@ export default function StudioModal({ idea, onClose }: Props) {
     }
     recorder.start(100)
     recorderRef.current = recorder
+    void trackEvent('recording_start', idea.id)
     setPhase('recording')
     setTimer(0)
     setScrollPx(0)
@@ -367,17 +377,30 @@ export default function StudioModal({ idea, onClose }: Props) {
   const downloadVideo = async () => {
     const blob = blobRef.current
     if (!blob) return
+    // Registra a gravação salva (formato + duração) e abre o "modo postei".
+    void trackEvent('recording_save', idea.id, { mimeType: blob.type, durationSec: timer })
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
     const filename = `${idea.theme.replace(/\s+/g, '-').toLowerCase() || 'destravai-video'}.${ext}`
     if (canShare) {
       try {
         const file = new File([blob], filename, { type: blob.type })
-        if (navigator.canShare?.({ files: [file] })) { await navigator.share({ files: [file], title: idea.theme }); return }
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file], title: idea.theme })
+          setPostPrompt(true)
+          return
+        }
       } catch (err) { if ((err as Error).name === 'AbortError') return }
     }
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob); a.download = filename
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setPostPrompt(true)
+  }
+
+  const markPosted = (type: 'posted' | 'will_post_later' | 'only_recorded') => {
+    void trackEvent(type, idea.id)
+    setPostPrompt(false)
+    handleClose()
   }
 
   // ── PREVIEW ───────────────────────────────────────────────
@@ -403,6 +426,32 @@ export default function StudioModal({ idea, onClose }: Props) {
             Fechar sem salvar
           </button>
         </div>
+
+        {/* Modo "postei": registra a execução real depois de salvar */}
+        {postPrompt && (
+          <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+            <div className="rounded-t-3xl p-5 space-y-3" style={{ background: '#16151c', borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: SAFE_BOTTOM }}>
+              <div className="flex items-center gap-2">
+                <Check size={18} style={{ color: '#53D6A1' }} />
+                <p className="font-extrabold text-base text-white">Vídeo salvo! E agora?</p>
+              </div>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                Conta pra gente o que você fez — isso ajuda a acompanhar sua constância.
+              </p>
+              <button onClick={() => markPosted('posted')} className="w-full py-3.5 rounded-2xl text-sm font-bold text-white active:scale-[0.98]"
+                style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)' }}>
+                Postei agora ✅
+              </button>
+              <button onClick={() => markPosted('will_post_later')} className="w-full py-3.5 rounded-2xl text-sm font-bold active:scale-[0.98]"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>
+                Vou postar depois
+              </button>
+              <button onClick={() => markPosted('only_recorded')} className="w-full py-2 text-xs text-center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                Só gravei por enquanto
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     ), document.body)
   }

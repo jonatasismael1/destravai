@@ -276,6 +276,18 @@ export async function addCalendarItem(dayKey: string, idea: ContentIdea): Promis
   return data as CalendarItem
 }
 
+export async function updateCalendarItemStatus(
+  id: string,
+  status: CalendarItem['status'],
+): Promise<void> {
+  const { error } = await supabase
+    .from('destravai_calendar_items')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw new Error(`Erro ao atualizar status: ${error.message}`)
+}
+
 export async function removeCalendarItem(id: string): Promise<void> {
   const { error } = await supabase
     .from('destravai_calendar_items')

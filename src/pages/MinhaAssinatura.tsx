@@ -7,6 +7,7 @@ import { ArrowLeft, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   active:   { label: 'Ativa', color: '#53D6A1' },
+  trialing: { label: 'Período de teste', color: '#9B8CFF' },
   pending:  { label: 'Aguardando pagamento', color: '#FFB547' },
   past_due: { label: 'Pagamento atrasado', color: '#FF7A6B' },
   canceled: { label: 'Cancelada', color: 'var(--text-muted)' },

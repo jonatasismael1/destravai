@@ -16,6 +16,14 @@ const FALLBACK_PLANS = {
 
 export const GUARANTEE_DAYS = 7
 
+// Admin do produto: único que pode liberar acesso grátis (testadores).
+// Pode ser sobrescrito por env (ADMIN_EMAIL) sem mexer no código.
+export const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'assessoriadbe@gmail.com').toLowerCase()
+
+export function isAdminUser(user) {
+  return !!user?.email && user.email.toLowerCase() === ADMIN_EMAIL
+}
+
 // CORS: o checkout é público (vem da landing), mas só liberamos a origem do app.
 // Como a tela de checkout vive no mesmo domínio (destravai.dbe.digital), isso
 // não afeta o uso normal — apenas impede que outros sites disparem requisições.

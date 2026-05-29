@@ -96,6 +96,24 @@ export interface CheckoutStatus {
   email?: string | null
 }
 
+// Admin: cria um usuário testador com acesso de cortesia (só o admin consegue).
+export async function createTester(
+  name: string,
+  email: string,
+  planId = 'pro',
+): Promise<{ ok: boolean; emailSent: boolean }> {
+  const res = await fetch(`${FN}/admin-create-tester`, {
+    method: 'POST',
+    headers: await authHeaders(),
+    body: JSON.stringify({ name, email, planId }),
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(e.error || `Erro ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function getCheckoutStatus(paymentId: string): Promise<CheckoutStatus> {
   const res = await fetch(`${FN}/asaas-checkout-status?paymentId=${encodeURIComponent(paymentId)}`)
   if (!res.ok) throw new Error(`Erro ${res.status}`)

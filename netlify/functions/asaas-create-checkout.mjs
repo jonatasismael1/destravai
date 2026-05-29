@@ -115,8 +115,10 @@ export const handler = async (event) => {
       }
     }
 
-    // ── 5) Salva o registro inicial (pending) ─────────────────────────────
-    await admin.from('subscriptions').insert({
+    // ── 5) Salva o registro (pending) ─────────────────────────────────────
+    // Reaproveita uma assinatura pendente do mesmo usuário (evita acumular
+    // várias linhas pendentes a cada tentativa). Só cria nova se não houver.
+    const subRecord = {
       user_id: userId,
       asaas_customer_id: customerId,
       asaas_subscription_id: subscription.id,
@@ -135,7 +137,24 @@ export const handler = async (event) => {
       pix_qr_code: pix?.qrCodeImage ?? null,
       pix_copy_paste: pix?.copyPaste ?? null,
       pix_expiration: pix?.expiration ?? null,
-    })
+    }
+
+    const { data: pendingRow } = await admin
+      .from('subscriptions')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (pendingRow?.id) {
+      await admin.from('subscriptions')
+        .update({ ...subRecord, updated_at: new Date().toISOString() })
+        .eq('id', pendingRow.id)
+    } else {
+      await admin.from('subscriptions').insert(subRecord)
+    }
 
     return json(200, {
       method: billingType === 'PIX' ? 'pix' : 'card',

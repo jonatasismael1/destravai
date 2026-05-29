@@ -9,9 +9,11 @@ import {
   KeyRound, CreditCard, LifeBuoy, Loader2,
 } from 'lucide-react'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
+import { createTester } from '../services/subscriptionService'
 import { supabase } from '../lib/supabase/client'
 
 const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
+const ADMIN_EMAIL = 'assessoriadbe@gmail.com'
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -91,6 +93,31 @@ export default function Configuracoes() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+
+  // Admin (assessoriadbe): cria testadores com acesso grátis.
+  const isAdmin = (state.supabaseUser?.email ?? '').toLowerCase() === ADMIN_EMAIL
+  const [testerName, setTesterName] = useState('')
+  const [testerEmail, setTesterEmail] = useState('')
+  const [testerPlan, setTesterPlan] = useState('pro')
+  const [creatingTester, setCreatingTester] = useState(false)
+
+  const handleCreateTester = async () => {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testerEmail.trim())) {
+      addToast('Informe um e-mail válido.', 'error'); return
+    }
+    setCreatingTester(true)
+    try {
+      const res = await createTester(testerName.trim(), testerEmail.trim().toLowerCase(), testerPlan)
+      addToast(res.emailSent
+        ? 'Testador criado! E-mail de acesso enviado.'
+        : 'Testador criado! (Falha ao enviar e-mail — reenvie pelo "Esqueci a senha".)', 'success')
+      setTesterName(''); setTesterEmail('')
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao criar testador.', 'error')
+    } finally {
+      setCreatingTester(false)
+    }
+  }
 
   const handleChangePassword = async () => {
     if (newPassword.length < 6) { addToast('A senha deve ter ao menos 6 caracteres.', 'error'); return }
@@ -224,6 +251,38 @@ export default function Configuracoes() {
           />
         </div>
       </div>
+
+      {/* Admin — só para o administrador (assessoriadbe) */}
+      {isAdmin && (
+        <div className="space-y-2">
+          <SectionHeader title="Administração" />
+          <div className="rounded-2xl p-4 space-y-3"
+            style={{ background: 'rgba(83,214,161,0.06)', border: '1px solid rgba(83,214,161,0.2)' }}>
+            <div className="flex items-center gap-2">
+              <Shield size={15} style={{ color: '#53D6A1' }} />
+              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Liberar acesso de teste</p>
+            </div>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              Cria um usuário testador com acesso grátis. Ele recebe um e-mail para definir a senha.
+            </p>
+            <input className="input" placeholder="Nome (opcional)" value={testerName}
+              onChange={e => setTesterName(e.target.value)} />
+            <input className="input" type="email" placeholder="E-mail do testador" value={testerEmail}
+              onChange={e => setTesterEmail(e.target.value)} />
+            <div className="relative">
+              <select className="input appearance-none" value={testerPlan} onChange={e => setTesterPlan(e.target.value)}>
+                <option value="starter">Starter</option>
+                <option value="pro">Pro</option>
+                <option value="expert">Expert</option>
+              </select>
+            </div>
+            <button onClick={handleCreateTester} disabled={creatingTester}
+              className="btn-primary w-full py-2.5 text-sm disabled:opacity-50">
+              {creatingTester ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Criar acesso de teste'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Segurança */}
       <div className="space-y-2">

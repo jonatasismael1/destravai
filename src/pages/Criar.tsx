@@ -3,9 +3,39 @@ import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList } from 'lucide-react'
 import type { ContentIdea } from '../types'
+import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs } from '../lib/ai'
+import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
+
+// Toda ideia gerada é salva na biblioteca do Supabase (não só no estado local).
+function ideaToLibraryType(type: ContentIdea['type']): LibraryItemType {
+  if (type === 'reel') return 'reels_script'
+  if (type === 'sequence') return 'story_sequence'
+  return 'content_idea'
+}
+
+async function persistIdeaToLibrary(idea: ContentIdea): Promise<string | null> {
+  try {
+    const item = await createLibraryItem({
+      essence_id: null,
+      type: ideaToLibraryType(idea.type),
+      title: idea.theme,
+      content: idea.content,
+      category: idea.objective || null,
+      format: null,
+      status: 'saved',
+      source: 'ai',
+      tags: idea.tags ?? [],
+      metadata: { cta: idea.cta, timeEstimate: idea.timeEstimate, exposureLevel: idea.exposureLevel },
+      is_favorite: false,
+    })
+    return item.id
+  } catch {
+    return null
+  }
+}
 
 const CONTENT_TYPES = [
   { value: 'story', label: 'Story', Icon: Smartphone, desc: 'Direto ao ponto' },
@@ -308,6 +338,8 @@ export default function Criar() {
   const [showVoice, setShowVoice] = useState(false)
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
+  const [libraryItemId, setLibraryItemId] = useState<string | null>(null)
+  const [savedNotice, setSavedNotice] = useState(false)
 
   const profile = state.localProfile
   const themeOptions = [
@@ -331,6 +363,10 @@ export default function Criar() {
         profile,
       })
       setResult(idea); addIdea(idea)
+      // Persiste automaticamente na biblioteca e sinaliza "salvo".
+      const id = await persistIdeaToLibrary(idea)
+      setLibraryItemId(id)
+      if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[Criar generateContent]', msg)
@@ -350,6 +386,9 @@ export default function Criar() {
         tone: profile.voiceTone, profile,
       })
       setResult(idea); addIdea(idea)
+      const id = await persistIdeaToLibrary(idea)
+      setLibraryItemId(id)
+      if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
     } finally { setLoading(false) }
   }
 
@@ -495,11 +534,21 @@ export default function Criar() {
           </div>
         )}
 
+        {result && !loading && result.id !== 'error' && (
+          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold -mb-1"
+            style={{ color: savedNotice ? '#53D6A1' : 'var(--text-muted)' }}>
+            <Check size={12} /> {savedNotice ? 'Salvo na biblioteca!' : 'Salvo automaticamente na biblioteca'}
+          </div>
+        )}
+
         {result && !loading && (
           <ResultCard
             idea={result}
             onVariation={handleVariation}
-            onSave={() => updateIdea(result.id, { favorite: true })}
+            onSave={() => {
+              updateIdea(result.id, { favorite: true })
+              if (libraryItemId) updateLibraryItem(libraryItemId, { is_favorite: true }).catch(() => {})
+            }}
             onCopy={() => {}}
             onRecord={() => setShowStudio(true)}
             onCaption={handleCaption}

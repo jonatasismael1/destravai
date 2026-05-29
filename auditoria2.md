@@ -5,6 +5,40 @@
 **Commit auditado:** `9e1276eff36bc2081436a65324a5220efa876311`  
 **Repositório remoto:** `https://github.com/jonatasismael1/destravai.git`
 
+---
+
+## 0. Atualização de implementação (29/05/2026)
+
+> Esta seção registra o que já foi **resolvido** depois da auditoria original. O restante do documento permanece como o diagnóstico histórico.
+
+### ✅ Concluído
+
+- **IA fora do frontend.** A geração agora passa pela Edge Function `destravai-gemini` (deployada no Supabase). `src/lib/ai/googleGemini.ts` chama essa função com o JWT do usuário; a chave do Gemini não vai mais no bundle. *(Resolve 6.2 e parte de 8 / 9.)*
+- **Limite de uso.** A Edge Function aplica limite mensal de **1000 gerações por usuário**, contando `destravai_ai_generations` no mês corrente, com mensagem amigável ao atingir. *(Resolve a base de 6.4.)*
+- **Registro de gerações.** Toda geração (sucesso e erro) é registrada em `destravai_ai_generations`, inclusive o modelo usado. *(Resolve parte de 6.5.)*
+- **Migrations versionadas.** Criada a pasta `supabase/migrations/` com: `202605290001_user_journey.sql`, `202605290002_base_schema.sql` e `202605290003_checkout_plans.sql`. *(Resolve a falta de migrations citada em 8.)*
+- **Jornada do usuário no Supabase.** Missões, progresso, check-ins diários, calendário, Meu Espaço, diário, humor e ideias pessoais passaram a ser persistidos no banco (migration `user_journey` + serviços). A maior parte do item 3 (dados no aparelho) está superada — sobram apenas preferências locais aceitáveis (tema, dismiss de PWA). *(Resolve o núcleo de 3 e 6.1.)*
+- **Checkout próprio (Asaas + Supabase).** Tela `/checkout` pública (vinda da landing), com Pix in-app (QR + copia e cola) e cartão via Asaas. Preço sempre revalidado no servidor a partir da tabela `destravai_plans` (fonte da verdade dos planos). Pagamento confirmado pelo webhook cria/garante a conta no Supabase Auth, libera acesso e envia e-mail nativo para o usuário definir a senha (`/definir-senha`). Modelo "paga primeiro, acesso depois".
+- **CORS restrito nas funções Asaas.** `netlify/functions/_shared.mjs` usa a origem do app (`APP_URL`) em vez de `*`. *(Resolve parte de 8 / Netlify.)*
+- **Landing alinhada e publicada.** Os CTAs de plano apontam para `/checkout?plan=...` (não mais `href="#"` nem links crus do Asaas). Planos espelham `destravai_plans`. Landing publicada em **https://lpdestravai.netlify.app**. *(Resolve parte de 10.)*
+- **Progresso reposicionado.** A antiga página `Progresso` virou um painel dentro de **Meu Espaço** (abas "Meu espaço" / "Meu progresso"), num lugar único e sincronizado. Rota `/progresso` removida.
+- **Configurações.** Removido o número de versão; adicionados "Alterar senha", "Gerenciar assinatura" e "Falar com o suporte".
+- **Home.** Frase motivacional do dia restaurada (troca automaticamente a cada dia).
+- **Biblioteca.** Cada item tem botão de câmera para gravar a ideia direto no teleprompter.
+
+### ⏳ Pendências / a confirmar
+
+- **Limite por plano.** Hoje o limite é único (1000/mês para todos). Ainda falta diferenciar Starter / Pro / Expert. *(6.4.)*
+- **CORS da Edge Function de IA.** `destravai-gemini` ainda responde com `Access-Control-Allow-Origin: *`; restringir ao domínio do app.
+- **Eventos de execução granulares** (abriu teleprompter, gravou, "postei", planejou) ainda não existem — só há o log de geração. *(6.5 / 13.1.)*
+- **Types do Supabase** ainda são interfaces manuais; falta gerar os tipos do banco. *(8.)*
+- **Paywall** (`VITE_PAYWALL_ENABLED`) precisa ser ligado em produção quando o fluxo for validado ponta a ponta.
+- **Textos de Configurações/privacidade** e remoção de referências antigas (Anthropic/Stripe/"dados no dispositivo") ainda devem ser revisados. *(7 / 9 / 11.)*
+- **Secret `GOOGLE_GENERATIVE_AI_API_KEY`** deve estar configurado no Supabase para a IA funcionar.
+- **Redirect URL** `/definir-senha` precisa estar na lista de URLs permitidas do Supabase Auth, e o webhook do Asaas apontando para `/.netlify/functions/asaas-webhook`.
+
+---
+
 ## 1. Escopo da auditoria
 
 Analisei a estrutura principal do projeto, incluindo:

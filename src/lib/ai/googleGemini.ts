@@ -10,12 +10,12 @@ import { GoogleGenAI } from '@google/genai'
 
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
 
-// Modelo configurável. Default num modelo estável e gratuito; pode trocar via
-// VITE_GEMINI_MODEL (ex.: gemini-2.5-flash) sem mexer no código.
-const PRIMARY_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string) || 'gemini-2.0-flash'
+// Modelo configurável. Default no alias "latest" (sempre o flash mais recente
+// disponível); pode trocar via VITE_GEMINI_MODEL sem mexer no código.
+const PRIMARY_MODEL = (import.meta.env.VITE_GEMINI_MODEL as string) || 'gemini-flash-latest'
 
-// Fallbacks caso o modelo configurado não exista para a chave (evita quebrar a IA).
-const FALLBACK_MODELS = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
+// Fallbacks caso o modelo configurado não exista/sem cota para a chave.
+const FALLBACK_MODELS = ['gemini-flash-latest', 'gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash']
 
 let client: GoogleGenAI | null = null
 function getClient(): GoogleGenAI {

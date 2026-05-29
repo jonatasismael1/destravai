@@ -1,40 +1,16 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { useToast } from '../context/ToastContext'
 import { PLANS, GUARANTEE_DAYS } from '../lib/plans'
-import { createCheckout } from '../services/subscriptionService'
-import { Check, ShieldCheck, ArrowRight, Loader2 } from 'lucide-react'
+import { Check, ShieldCheck, ArrowRight } from 'lucide-react'
 
+// Tela de assinatura dentro do app (usuário logado sem acesso ativo).
+// O pagamento em si acontece no checkout público (/checkout) — aqui o usuário
+// apenas escolhe o plano e é levado para lá.
 export default function Assinatura() {
   const { state } = useApp()
-  const { addToast } = useToast()
   const navigate = useNavigate()
-
   const [selected, setSelected] = useState<'starter' | 'pro' | 'expert'>('pro')
-  const [cpf, setCpf] = useState('')
-  const [name, setName] = useState(
-    state.profile?.name ?? state.localProfile?.professionalName ?? ''
-  )
-  const [loading, setLoading] = useState(false)
-
-  const handleSubscribe = async () => {
-    if (!name.trim()) { addToast('Informe seu nome completo.', 'error'); return }
-    const cleanCpf = cpf.replace(/\D/g, '')
-    if (cleanCpf.length !== 11 && cleanCpf.length !== 14) {
-      addToast('Informe um CPF ou CNPJ válido.', 'error'); return
-    }
-    setLoading(true)
-    try {
-      const { checkoutUrl } = await createCheckout(selected, cleanCpf, name.trim())
-      // Redireciona para a página de pagamento hospedada do Asaas
-      window.location.href = checkoutUrl
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao iniciar pagamento'
-      addToast(msg, 'error')
-      setLoading(false)
-    }
-  }
 
   return (
     <div className="min-h-[100svh] overflow-y-auto" style={{ background: '#0B0B12' }}>
@@ -104,31 +80,13 @@ export default function Assinatura() {
           })}
         </div>
 
-        {/* Dados para a cobrança */}
-        <div className="space-y-3 mb-5">
-          <div>
-            <label className="label">Nome completo</label>
-            <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome completo" />
-          </div>
-          <div>
-            <label className="label">CPF ou CNPJ</label>
-            <input className="input" value={cpf} onChange={e => setCpf(e.target.value)}
-              inputMode="numeric" placeholder="Somente números" />
-            <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
-              Exigido pelo provedor de pagamento (Asaas) para emitir a cobrança.
-            </p>
-          </div>
-        </div>
-
-        <button onClick={handleSubscribe} disabled={loading} className="btn-primary w-full py-4 text-base disabled:opacity-50">
-          {loading
-            ? <><Loader2 size={18} className="animate-spin" /> Gerando pagamento...</>
-            : <>Assinar {PLANS.find(p => p.id === selected)?.name} <ArrowRight size={18} /></>}
+        <button onClick={() => navigate(`/checkout?plan=${selected}`)} className="btn-primary w-full py-4 text-base">
+          Continuar para o pagamento <ArrowRight size={18} />
         </button>
 
         <div className="flex items-center justify-center gap-2 mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ color: '#53D6A1' }} />
-          Pagamento seguro via Asaas · Garantia de {GUARANTEE_DAYS} dias
+          Pagamento seguro · Garantia de {GUARANTEE_DAYS} dias
         </div>
 
         <button onClick={() => navigate('/minha-assinatura')}

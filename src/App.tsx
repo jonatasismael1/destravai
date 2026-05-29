@@ -19,6 +19,8 @@ const MeuEspaco = lazy(() => import('./pages/MeuEspaco'))
 const TermosDeUso = lazy(() => import('./pages/TermosDeUso'))
 const PoliticaPrivacidade = lazy(() => import('./pages/PoliticaPrivacidade'))
 const Assinatura = lazy(() => import('./pages/Assinatura'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const DefinirSenha = lazy(() => import('./pages/DefinirSenha'))
 const MinhaAssinatura = lazy(() => import('./pages/MinhaAssinatura'))
 const PagamentoSucesso = lazy(() => import('./pages/PagamentoSucesso'))
 const PagamentoErro = lazy(() => import('./pages/PagamentoErro'))
@@ -99,6 +101,11 @@ function AppRoutes() {
         />
         <Route path="/termos" element={<TermosDeUso />} />
         <Route path="/privacidade" element={<PoliticaPrivacidade />} />
+
+        {/* Checkout público (vem da landing, sem login). Pague primeiro, acesso depois. */}
+        <Route path="/checkout" element={<Checkout />} />
+        {/* Destino do link de e-mail para criar/redefinir a senha. */}
+        <Route path="/definir-senha" element={<DefinirSenha />} />
 
         <Route
           path="/onboarding"

@@ -4,7 +4,7 @@
 // URL para cadastrar no painel do Asaas:
 //   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
 
-import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS } from './_shared.mjs'
+import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
@@ -78,6 +78,9 @@ export const handler = async (event) => {
     const mapped = eventType.startsWith('PAYMENT_') ? mapPaymentEvent(eventType) : null
     const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
 
+    // Indica que, ao confirmar o pagamento, precisamos liberar acesso + e-mail.
+    let shouldGrantAccess = false
+
     if (mapped) {
       updates.status = mapped.status
       updates.payment_status = mapped.payment_status
@@ -90,6 +93,13 @@ export const handler = async (event) => {
         const deadline = new Date(startedAt)
         deadline.setDate(deadline.getDate() + GUARANTEE_DAYS)
         updates.refund_deadline = deadline.toISOString()
+
+        // Libera o acesso apenas se ainda não foi liberado (idempotente).
+        if (subRow && !subRow.access_granted) {
+          updates.access_granted = true
+          updates.access_granted_at = new Date().toISOString()
+          shouldGrantAccess = true
+        }
       }
       if (mapped.status === 'refunded') updates.refunded_at = new Date().toISOString()
     } else if (eventType === 'SUBSCRIPTION_DELETED' || eventType === 'SUBSCRIPTION_INACTIVATED') {
@@ -100,6 +110,12 @@ export const handler = async (event) => {
 
     if (subRow) {
       await admin.from('subscriptions').update(updates).eq('id', subRow.id)
+
+      // Liberação de acesso: cria/atualiza o profile e envia o e-mail de acesso.
+      if (shouldGrantAccess && subRow.user_id) {
+        await grantAccess(admin, subRow)
+      }
+
       // Marca o evento como processado e vincula o user_id.
       await admin.from('asaas_webhook_events')
         .update({ processed_at: new Date().toISOString(), user_id: subRow.user_id })
@@ -114,5 +130,36 @@ export const handler = async (event) => {
     // Responde 200 para o Asaas não reenviar infinitamente em erro nosso não-crítico;
     // o evento fica registrado e pode ser reprocessado manualmente se necessário.
     return json(200, { ok: false, error: err?.message })
+  }
+}
+
+// Libera o acesso após pagamento confirmado: garante o perfil no Supabase e
+// dispara o e-mail nativo com o link para o usuário definir a senha.
+// Idempotente: só é chamado quando access_granted estava false.
+async function grantAccess(admin, subRow) {
+  // 1) Cria/atualiza o destravai_profiles (não há trigger automático para ele).
+  try {
+    const profilePatch = {
+      id: subRow.user_id,
+      plan: subRow.plan_id || 'starter',
+    }
+    if (subRow.customer_name) profilePatch.name = subRow.customer_name
+    if (subRow.customer_email) profilePatch.email = subRow.customer_email
+    await admin.from('destravai_profiles').upsert(profilePatch, { onConflict: 'id' })
+  } catch (e) {
+    console.error('[asaas-webhook] erro ao salvar profile', e?.message)
+  }
+
+  // 2) Envia o e-mail de acesso (link para definir a senha) uma única vez.
+  if (subRow.customer_email && !subRow.access_email_sent) {
+    try {
+      await sendAccessEmail(subRow.customer_email)
+      await admin.from('subscriptions')
+        .update({ access_email_sent: true })
+        .eq('id', subRow.id)
+    } catch (e) {
+      console.error('[asaas-webhook] erro ao enviar e-mail de acesso', e?.message)
+      // Não bloqueia: o acesso já está liberado; o e-mail pode ser reenviado depois.
+    }
   }
 }

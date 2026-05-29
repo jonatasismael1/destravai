@@ -1,55 +1,58 @@
-import { GoogleGenAI } from '@google/genai'
+import { supabase } from '../supabase/client'
 
-// Serviço centralizado de IA (Google Gemini).
+// Serviço centralizado de IA.
 //
-// SEGURANÇA: a chave usada aqui (VITE_GEMINI_API_KEY) é injetada no frontend,
-// então DEVE ser uma chave restrita por referrer HTTP no Google Cloud Console
-// (Credenciais → chave → Restrições de aplicativo → Referenciadores HTTP),
-// liberando os domínios: destravai.dbe.digital/*, *.netlify.app/*, localhost.
-// Assim a chave exposta no bundle não funciona fora do seu site.
+// SEGURANÇA: a chave do Gemini NÃO fica mais no frontend. Toda geração passa
+// pela Edge Function `destravai-gemini` do Supabase, que valida o usuário
+// logado, aplica o limite mensal de uso e chama o Gemini no servidor (a chave
+// vive apenas no secret GOOGLE_GENERATIVE_AI_API_KEY do projeto Supabase).
 
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY as string | undefined
-
-const GEMINI_MODEL = 'gemini-flash-latest'
-
-let client: GoogleGenAI | null = null
-function getClient(): GoogleGenAI {
-  if (!API_KEY) throw new Error('VITE_GEMINI_API_KEY não configurada.')
-  if (!client) client = new GoogleGenAI({ apiKey: API_KEY })
-  return client
-}
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
+const GEMINI_FN = `${SUPABASE_URL}/functions/v1/destravai-gemini`
 
 export interface GenerateOptions {
   temperature?: number
   maxOutputTokens?: number
+  /** Rótulo opcional do tipo de geração, registrado no log de uso. */
+  promptType?: string
 }
 
 export async function generateText(prompt: string, opts: GenerateOptions = {}): Promise<string> {
-  const ai = getClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('Sessão expirada. Faça login novamente.')
+
+  let res: Response
   try {
-    const res = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        temperature: opts.temperature ?? 0.9,
-        maxOutputTokens: opts.maxOutputTokens ?? 2048,
+    res = await fetch(GEMINI_FN, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
+        Authorization: `Bearer ${session.access_token}`,
       },
+      body: JSON.stringify({
+        prompt,
+        temperature: opts.temperature,
+        maxOutputTokens: opts.maxOutputTokens,
+        promptType: opts.promptType,
+      }),
     })
-    const text = res.text ?? ''
-    if (!text) throw new Error('A IA retornou vazio.')
-    return text
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Erro desconhecido na IA'
-    if (/referer|referrer|blocked|api key|forbidden|permission/i.test(msg)) {
-      throw new Error('A IA não está autorizada para este domínio. Verifique as restrições da chave no Google Cloud.')
-    }
-    if (/quota|rate|resource_exhausted|429/i.test(msg)) {
-      throw new Error('A IA retornou limite temporário ou cota indisponível. Isso pode acontecer por limite da chave/API, não necessariamente porque você tentou muitas vezes. Espere alguns minutos e tente novamente.')
-    }
-    throw new Error(msg)
+  } catch {
+    throw new Error('Não foi possível falar com o servidor de IA. Verifique sua conexão.')
   }
+
+  const json = await res.json().catch(() => ({})) as { text?: string; error?: string }
+
+  if (!res.ok) {
+    throw new Error(json?.error ?? `Erro ${res.status} ao gerar conteúdo.`)
+  }
+
+  const text = json?.text ?? ''
+  if (!text) throw new Error('A IA retornou vazio.')
+  return text
 }
 
+// A IA agora é sempre configurada no servidor; mantido por compatibilidade.
 export function isAIConfigured(): boolean {
-  return !!API_KEY
+  return true
 }

@@ -1,8 +1,7 @@
 import { supabase } from '../lib/supabase/client'
-import type { LibraryItem, BrandEssence } from '../lib/supabase/types'
+import type { LibraryItem } from '../lib/supabase/types'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const GEMINI_MODEL = 'gemini-flash-latest'
 
 interface EdgeFunctionError {
   error?: string
@@ -148,41 +147,3 @@ export async function logGeneration(params: {
   })
 }
 
-// ────────────────────────────────────────────
-// Chamada Gemini direta (fallback para funções que ainda usam frontend)
-// Mantida durante a migração — REMOVER após mover tudo para Edge Functions
-// ────────────────────────────────────────────
-
-export async function callGeminiDirect(
-  prompt: string,
-  essence: BrandEssence | null
-): Promise<string> {
-  // Essa função é apenas um bridge temporário.
-  // As chamadas reais de IA devem ir para Edge Functions.
-  // Durante o período de migração, o frontend ainda pode chamar Gemini
-  // enquanto as Edge Functions não estão todas prontas.
-  void essence
-
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('Chave da IA não configurada.')
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, maxOutputTokens: 2048 },
-      }),
-    }
-  )
-
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(err?.error?.message ?? `Erro ${response.status}`)
-  }
-
-  const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }
-  return data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-}

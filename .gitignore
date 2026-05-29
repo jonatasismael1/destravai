@@ -28,3 +28,6 @@ ui-ux-pro-max-skill/
 # OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log

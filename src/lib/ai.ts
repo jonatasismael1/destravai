@@ -94,7 +94,7 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
 }`
 }
 
-// Chama a IA via serviço centralizado (Google Gemini @google/genai).
+// Chama a IA via Edge Function destravai-gemini (chave fica no servidor).
 async function callGemini(prompt: string): Promise<string> {
   return generateText(prompt)
 }

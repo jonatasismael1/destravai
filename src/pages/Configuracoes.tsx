@@ -6,8 +6,12 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
+  KeyRound, CreditCard, LifeBuoy, Loader2,
 } from 'lucide-react'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
+import { supabase } from '../lib/supabase/client'
+
+const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -81,6 +85,28 @@ export default function Configuracoes() {
   const [notifTips, setNotifTips] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showResetDayConfirm, setShowResetDayConfirm] = useState(false)
+
+  // Alterar senha (usuário logado: o Supabase não exige a senha atual).
+  const [showPasswordForm, setShowPasswordForm] = useState(false)
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [savingPassword, setSavingPassword] = useState(false)
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) { addToast('A senha deve ter ao menos 6 caracteres.', 'error'); return }
+    if (newPassword !== confirmPassword) { addToast('As senhas não conferem.', 'error'); return }
+    setSavingPassword(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) throw error
+      addToast('Senha alterada com sucesso!', 'success')
+      setNewPassword(''); setConfirmPassword(''); setShowPasswordForm(false)
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao alterar a senha.', 'error')
+    } finally {
+      setSavingPassword(false)
+    }
+  }
 
   const profile = state.profile
   const supabaseUser = state.supabaseUser
@@ -188,6 +214,63 @@ export default function Configuracoes() {
             </p>
           </div>
         </div>
+
+        <div className="mt-2">
+          <MenuItem
+            icon={CreditCard}
+            label="Gerenciar assinatura"
+            sublabel="Ver status, garantia e cancelar"
+            onClick={() => navigate('/minha-assinatura')}
+          />
+        </div>
+      </div>
+
+      {/* Segurança */}
+      <div className="space-y-2">
+        <SectionHeader title="Segurança" />
+        {!showPasswordForm ? (
+          <MenuItem
+            icon={KeyRound}
+            label="Alterar senha"
+            sublabel="Defina uma nova senha de acesso"
+            onClick={() => setShowPasswordForm(true)}
+          />
+        ) : (
+          <div className="rounded-2xl p-4 space-y-3"
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <div>
+              <label className="label">Nova senha</label>
+              <input type="password" className="input" placeholder="Mínimo 6 caracteres"
+                value={newPassword} onChange={e => setNewPassword(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Confirmar nova senha</label>
+              <input type="password" className="input" placeholder="Repita a senha"
+                value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => { setShowPasswordForm(false); setNewPassword(''); setConfirmPassword('') }}
+                disabled={savingPassword} className="btn-secondary flex-1 py-2.5 text-sm">
+                Cancelar
+              </button>
+              <button onClick={handleChangePassword} disabled={savingPassword}
+                className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50">
+                {savingPassword ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Salvar senha'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Suporte */}
+      <div className="space-y-2">
+        <SectionHeader title="Suporte" />
+        <MenuItem
+          icon={LifeBuoy}
+          label="Falar com o suporte"
+          sublabel={SUPPORT_EMAIL}
+          onClick={() => { window.location.href = `mailto:${SUPPORT_EMAIL}?subject=Suporte%20Destrava%C3%AD` }}
+        />
       </div>
 
       {/* Perfil */}

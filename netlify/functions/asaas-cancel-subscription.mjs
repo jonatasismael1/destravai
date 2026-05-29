@@ -38,18 +38,27 @@ export const handler = async (event) => {
     }
 
     const updates = { canceled_at: now.toISOString() }
+    let refunded = false
+    let refundFailed = false
 
     if (withinGuarantee && sub.asaas_payment_id) {
-      // Dentro da garantia: solicita estorno da cobrança paga.
-      await asaas(`/payments/${sub.asaas_payment_id}/refund`, { method: 'POST' }).catch((e) => {
+      // Dentro da garantia (≤ 7 dias e pagamento confirmado): estorna a cobrança.
+      // Só marca como "reembolsada" se o Asaas confirmar o estorno — assim o
+      // status nunca diverge do dinheiro de verdade.
+      try {
+        await asaas(`/payments/${sub.asaas_payment_id}/refund`, { method: 'POST' })
+        refunded = true
+        updates.status = 'refunded'
+        updates.payment_status = 'refunded'
+        updates.refunded_at = now.toISOString()
+      } catch (e) {
         console.error('[cancel] erro ao estornar no Asaas', e?.message)
-      })
-      updates.status = 'refunded'
-      updates.payment_status = 'refunded'
-      updates.refunded_at = now.toISOString()
+        refundFailed = true
+        // Cancela mesmo assim (interrompe cobranças); o estorno é tratado manualmente.
+        updates.status = 'canceled'
+      }
     } else {
-      // Fora da garantia: apenas cancela. MVP bloqueia o acesso imediatamente
-      // (não mantém até o fim do ciclo, para simplificar).
+      // Fora da garantia: apenas cancela. Bloqueia o acesso imediatamente.
       updates.status = 'canceled'
     }
 
@@ -57,11 +66,14 @@ export const handler = async (event) => {
 
     return json(200, {
       ok: true,
-      refunded: withinGuarantee,
+      refunded,
+      withinGuarantee,
       status: updates.status,
-      message: withinGuarantee
-        ? 'Assinatura cancelada e reembolso solicitado.'
-        : 'Assinatura cancelada. Você não será cobrado novamente.',
+      message: refunded
+        ? 'Assinatura cancelada e reembolso solicitado. O valor volta pelo mesmo meio de pagamento.'
+        : refundFailed
+          ? 'Assinatura cancelada. Houve um problema ao solicitar o reembolso automático — nosso suporte vai concluir o estorno.'
+          : 'Assinatura cancelada. Você não será cobrado novamente.',
     })
   } catch (err) {
     console.error('[asaas-cancel-subscription]', err?.message, err?.body || '')

@@ -242,6 +242,8 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   // "Modo postei": prompt pós-gravação para registrar execução real.
   const [postPrompt, setPostPrompt] = useState(false)
+  // Nome do vídeo (editável antes de salvar). Default = tema da ideia.
+  const [videoName, setVideoName] = useState(idea.theme)
 
   // Registra a abertura do teleprompter (métrica de execução).
   useEffect(() => {
@@ -378,9 +380,14 @@ export default function StudioModal({ idea, onClose }: Props) {
     const blob = blobRef.current
     if (!blob) return
     // Registra a gravação salva (formato + duração) e abre o "modo postei".
-    void trackEvent('recording_save', idea.id, { mimeType: blob.type, durationSec: timer })
+    void trackEvent('recording_save', idea.id, { mimeType: blob.type, durationSec: timer, name: videoName })
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
-    const filename = `${idea.theme.replace(/\s+/g, '-').toLowerCase() || 'destravai-video'}.${ext}`
+    const safeName = (videoName || idea.theme)
+      .trim()
+      .replace(/[\\/:*?"<>|]+/g, '')   // remove caracteres inválidos em nome de arquivo
+      .replace(/\s+/g, '-')
+      .toLowerCase()
+    const filename = `${safeName || 'destravai-video'}.${ext}`
     if (canShare) {
       try {
         const file = new File([blob], filename, { type: blob.type })
@@ -411,7 +418,18 @@ export default function StudioModal({ idea, onClose }: Props) {
           <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-cover" />
         </div>
         <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
-          <p className="text-white/80 text-sm font-semibold text-center truncate">{idea.theme}</p>
+          <div>
+            <label className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Nome do vídeo
+            </label>
+            <input
+              value={videoName}
+              onChange={e => setVideoName(e.target.value)}
+              placeholder="Nome do vídeo"
+              className="w-full mt-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}
+            />
+          </div>
           <div className="flex gap-3">
             <button onClick={retake} className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
               style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}>

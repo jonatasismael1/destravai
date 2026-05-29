@@ -11,6 +11,12 @@
 
 > Esta seção registra o que já foi **resolvido** depois da auditoria original. O restante do documento permanece como o diagnóstico histórico.
 
+### 🟢 RESUMO — Feito vs. Falta
+
+**JÁ FEITO:** IA no servidor (Edge Function) · limite mensal · log de gerações · migrations versionadas · jornada do usuário no Supabase · checkout próprio (Pix/cartão) · webhook libera acesso + e-mail · CORS restrito nas funções Asaas · landing publicada · progresso dentro de Meu Espaço · frase do dia · checkout rolável + upsell por plano · **eventos de execução (teleprompter/gravou/postei/planejou/voltou) + régua de ativação + modo postei** · **admin cria testadores grátis** · **status de assinatura claros (inclui trialing) e cancelamento com estorno automático dentro da garantia** · **webhook reaproveita assinatura pendente** · **biblioteca (busca com escape, confirmação inline, editar título/categoria/tags, mover p/ calendário)** · **calendário (status planejado/gravado/postado + visão mensal)** · **Criar salva tudo na biblioteca** · **teleprompter (metadados, renomear vídeo, modo postei)**.
+
+**AINDA FALTA:** limite **por plano** (hoje 1.000/mês p/ todos) · CORS `*` na Edge `destravai-gemini` · gerar os **types automáticos** do Supabase (hoje manuais) · **suíte de testes** de RLS · ligar o **paywall** em produção · revisar textos de privacidade/legais · rodar o SQL de `destravai_execution_events` no projeto certo · régua D0/D1/D3/D7 como **mensageria/notificação** (hoje é indicador visual) · campanhas semanais, WhatsApp de missão e área agência/multi-cliente (novas oportunidades).
+
 ### ✅ Concluído
 
 - **IA fora do frontend.** A geração agora passa pela Edge Function `destravai-gemini` (deployada no Supabase). `src/lib/ai/googleGemini.ts` chama essa função com o JWT do usuário; a chave do Gemini não vai mais no bundle. *(Resolve 6.2 e parte de 8 / 9.)*
@@ -24,18 +30,28 @@
 - **Progresso reposicionado.** A antiga página `Progresso` virou um painel dentro de **Meu Espaço** (abas "Meu espaço" / "Meu progresso"), num lugar único e sincronizado. Rota `/progresso` removida.
 - **Configurações.** Removido o número de versão; adicionados "Alterar senha", "Gerenciar assinatura" e "Falar com o suporte".
 - **Home.** Frase motivacional do dia restaurada (troca automaticamente a cada dia).
-- **Biblioteca.** Cada item tem botão de câmera para gravar a ideia direto no teleprompter.
+- **Biblioteca.** Cada item tem botão de câmera para gravar a ideia direto no teleprompter; busca com escape de caracteres, confirmação inline (sem `confirm()` nativo), edição de título/categoria/tags e botão "mover para o calendário".
+- **Métrica de execução.** Tabela `destravai_execution_events` + serviço tolerante; registra abrir teleprompter, iniciar/salvar gravação, **postei / vou postar / só gravei**, planejar no calendário e retorno. Régua de ativação (1/3/7 dias + nº de postados) na Home.
+- **Admin / testadores.** O admin (`assessoriadbe@gmail.com`) tem seção em Configurações para criar testadores com **acesso de cortesia** (function `admin-create-tester`: valida o admin, cria conta + assinatura ativa grátis + e-mail de senha). Não usa senha padrão.
+- **Assinatura.** Status claros (active, **trialing**, pending, past_due, canceled, refunded, failed). **Cancelamento: dentro da garantia (≤ 7 dias e pago) estorna automaticamente; fora da garantia apenas cancela.** Só marca "reembolsada" se o Asaas confirmar o estorno. Copy "ilimitada" → "ampliada".
+- **Checkout/webhook.** Reaproveita a assinatura **pendente** do usuário em vez de criar uma nova linha a cada tentativa.
+- **Calendário.** Status planejado → gravado → postado (toque pra alternar; "postado" registra evento) e **visão mensal** com indicadores por dia.
+- **Criar.** Toda ideia gerada é **salva automaticamente na biblioteca** (Supabase), com feedback "salvo".
+- **Teleprompter.** Registra metadados (formato + duração), permite **renomear o vídeo** antes de salvar e abre o **modo postei**.
 
 ### ⏳ Pendências / a confirmar
 
-- **Limite por plano.** Hoje o limite é único (1000/mês para todos). Ainda falta diferenciar Starter / Pro / Expert. *(6.4.)*
+- **Rodar o SQL de `destravai_execution_events`** no projeto certo (`fddxaozosrlqddthvqhn`). O MCP estava preso no projeto da clínica e não criou a tabela; o código já tolera a ausência. SQL em `supabase/migrations/202605290004_execution_events.sql`. **Sem isso, os eventos/régua/modo postei não gravam.**
+- **Limite por plano.** Hoje o limite é único (1.000/mês para todos). Ainda falta diferenciar Starter / Pro / Expert. *(6.4.)*
 - **CORS da Edge Function de IA.** `destravai-gemini` ainda responde com `Access-Control-Allow-Origin: *`; restringir ao domínio do app.
-- **Eventos de execução granulares** (abriu teleprompter, gravou, "postei", planejou) ainda não existem — só há o log de geração. *(6.5 / 13.1.)*
-- **Types do Supabase** ainda são interfaces manuais; falta gerar os tipos do banco. *(8.)*
+- **Types do Supabase automáticos.** Ainda são interfaces manuais (a geração via MCP ficou bloqueada pelo projeto errado). *(8.)*
+- **Suíte de testes de RLS.** As policies existem nas migrations, mas não há testes automatizados (o projeto não tem runner de testes). *(8.)*
+- **Régua D0/D1/D3/D7 como mensageria.** Hoje é um indicador visual de constância; falta a régua de ativação por notificação/WhatsApp. *(13 / 14.)*
 - **Paywall** (`VITE_PAYWALL_ENABLED`) precisa ser ligado em produção quando o fluxo for validado ponta a ponta.
-- **Textos de Configurações/privacidade** e remoção de referências antigas (Anthropic/Stripe/"dados no dispositivo") ainda devem ser revisados. *(7 / 9 / 11.)*
-- **Secret `GOOGLE_GENERATIVE_AI_API_KEY`** deve estar configurado no Supabase para a IA funcionar.
-- **Redirect URL** `/definir-senha` precisa estar na lista de URLs permitidas do Supabase Auth, e o webhook do Asaas apontando para `/.netlify/functions/asaas-webhook`.
+- **Textos legais/privacidade.** Revisar a Política de Privacidade e Termos (linguagem e consentimento) antes de tráfego pago. *(9 / 11.)*
+- **Novas oportunidades** (não obrigatórias): campanhas semanais, WhatsApp de missão, área agência/multi-cliente, biblioteca por nicho, score de constância. *(13.)*
+
+> **Já confirmado pelo usuário:** Supabase Auth (Redirect URL `/definir-senha`), webhook do Asaas e o secret do Gemini já estão configurados.
 
 ---
 

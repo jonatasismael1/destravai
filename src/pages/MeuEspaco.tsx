@@ -3,6 +3,7 @@ import { Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Settings2, X }
 import { useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import PersonalSetupModal from '../components/PersonalSetupModal'
+import ProgressoPanel from '../components/ProgressoPanel'
 import type { JournalEntry, PersonalIdea } from '../types'
 import { generatePersonalSuggestions } from '../lib/ai'
 import { toISODateKey } from '../services/userJourneyService'
@@ -44,6 +45,7 @@ export default function MeuEspaco() {
   const today = toISODateKey()
 
   const [showSetup, setShowSetup] = useState(false)
+  const [tab, setTab] = useState<'espaco' | 'progresso'>('espaco')
   const [selectedMood, setSelectedMood] = useState(
     todayMoodDate === today ? (todayMood ?? '') : ''
   )
@@ -157,6 +159,29 @@ export default function MeuEspaco() {
           </button>
         </div>
 
+        {/* Abas: Espaço pessoal e Progresso (lugar único e organizado) */}
+        <div className="flex p-1 mb-5 rounded-2xl gap-1"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          {([['espaco', 'Meu espaço'], ['progresso', 'Meu progresso']] as const).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300"
+              style={tab === key ? {
+                background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))',
+                color: '#A78BFA',
+                border: '1px solid rgba(124,92,255,0.3)',
+              } : { color: 'var(--text-muted)' }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'progresso' && <ProgressoPanel />}
+
+        {tab === 'espaco' && (
+        <>
         {/* Banner de setup */}
         {showSetupBanner && (
           <div
@@ -669,6 +694,8 @@ export default function MeuEspaco() {
             )}
           </div>
         </section>
+        </>
+        )}
 
       </div>
 

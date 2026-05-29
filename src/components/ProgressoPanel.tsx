@@ -1,6 +1,8 @@
-import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Flame, Check, TrendingUp, Award, Target, Settings, Zap } from 'lucide-react'
+import { Flame, Check, TrendingUp, Award, Target, Zap } from 'lucide-react'
+
+// Painel de progresso reutilizável (sem cabeçalho de página). Usado dentro de
+// "Meu Espaço" para deixar o progresso visível e motivar o usuário.
 
 const CONTENT_LABELS: Record<string, string> = {
   authority: 'Autoridade', backstage: 'Bastidor', connection: 'Conexão',
@@ -31,9 +33,8 @@ function getLevelProgress(completed: number) {
   return { level, nextLevel, progress: Math.min(100, pct) }
 }
 
-export default function Progresso() {
+export default function ProgressoPanel() {
   const { state } = useApp()
-  const navigate = useNavigate()
   const { progress, missions } = state
 
   const doneMissions = missions.filter(m => m.status === 'done')
@@ -56,20 +57,7 @@ export default function Progresso() {
   if (balance.authority < 3) tips.push('Reforce autoridade com uma sequência técnica.')
 
   return (
-    <div className="p-5 space-y-5 pb-28">
-      {/* Header */}
-      <div className="pt-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Progresso</h1>
-          <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>Sua consistência de presença</p>
-        </div>
-        <button onClick={() => navigate('/configuracoes')}
-          className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-bright)', color: 'var(--text-secondary)' }}>
-          <Settings size={13} /> Configurações
-        </button>
-      </div>
-
+    <div className="space-y-5">
       {/* Level card */}
       <div
         className="relative rounded-3xl p-5 overflow-hidden"

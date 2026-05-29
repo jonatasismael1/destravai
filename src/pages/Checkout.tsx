@@ -77,7 +77,11 @@ export default function Checkout() {
     [plans, selectedId],
   )
   const pro = useMemo(() => plans.find(p => p.id === 'pro'), [plans])
-  const showUpsell = !!pro && selectedId !== 'pro'
+  const maxPrice = useMemo(() => plans.reduce((m, p) => Math.max(m, p.price), 0), [plans])
+  // Só oferece upgrade para o Pro quando o plano escolhido é MAIS BARATO que ele
+  // (ex.: Starter). Se já escolheu o plano mais alto (Expert), parabeniza.
+  const showProUpsell = !!pro && !!selected && selected.price < pro.price
+  const isTopPlan = !!selected && plans.length > 1 && selected.price >= maxPrice
 
   // Polling do Pix: confirma o pagamento e avança para a tela de sucesso.
   useEffect(() => {
@@ -262,8 +266,8 @@ export default function Checkout() {
         </div>
       )}
 
-      {/* Upsell discreto para o Pro */}
-      {showUpsell && pro && (
+      {/* Upsell discreto para o Pro (só quando o plano é mais barato que ele) */}
+      {showProUpsell && pro && (
         <button onClick={() => setSelectedId('pro')}
           className="w-full text-left rounded-2xl p-4 mb-4 transition-all duration-200"
           style={{ background: 'var(--bg-card)', border: '1px dashed rgba(124,92,255,0.4)' }}>
@@ -281,6 +285,23 @@ export default function Checkout() {
             Mudar para o Pro <ArrowUpRight size={13} />
           </span>
         </button>
+      )}
+
+      {/* Já escolheu o plano mais completo: parabeniza em vez de oferecer upgrade */}
+      {!showProUpsell && isTopPlan && (
+        <div className="rounded-2xl p-4 mb-4"
+          style={{ background: 'rgba(83,214,161,0.08)', border: '1px solid rgba(83,214,161,0.25)' }}>
+          <div className="flex items-center gap-2 mb-1.5">
+            <Sparkles size={14} style={{ color: '#53D6A1' }} />
+            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
+              Excelente escolha! Você foi no plano mais completo.
+            </span>
+          </div>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            Com o <strong>{selected?.name}</strong> você tem tudo para manter constância de verdade
+            e escalar sua presença — sem limites te travando.
+          </p>
+        </div>
       )}
 
       {/* Outros planos (trocar) */}
@@ -358,9 +379,11 @@ export default function Checkout() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
+  // min-h + rolagem natural do documento: garante que o formulário inteiro
+  // seja alcançável no mobile (sem ficar preso num container de altura fixa).
   return (
-    <div className="min-h-[100svh] overflow-y-auto" style={{ background: '#0B0B12' }}>
-      <div className="max-w-md mx-auto px-5 py-8">{children}</div>
+    <div className="min-h-[100svh] w-full" style={{ background: '#0B0B12' }}>
+      <div className="max-w-md mx-auto px-5 py-8 pb-20">{children}</div>
     </div>
   )
 }

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
+import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
 import StudioModal from '../components/StudioModal'
 
@@ -513,6 +514,7 @@ export default function Home() {
 
   const dayOfWeek = new Date().toLocaleDateString('pt-BR', { weekday: 'long' })
   const dayNum = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
+  const quote = getQuoteOfDay() // frase do dia (muda automaticamente a cada dia)
   const { checkin, mission, extras } = dayState
 
   return (
@@ -539,6 +541,21 @@ export default function Home() {
         >
           <Settings size={16} style={{ color: 'var(--text-muted)' }} />
         </button>
+      </div>
+
+      {/* ── Frase motivacional do dia ──────────────── */}
+      <div className="relative rounded-2xl p-4 overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, rgba(124,92,255,0.12), rgba(155,140,255,0.05))', border: '1px solid rgba(124,92,255,0.25)' }}>
+        <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: 'linear-gradient(180deg, #7C5CFF, #A78BFA)' }} />
+        <div className="flex items-start gap-3 pl-2">
+          <Sparkles size={16} style={{ color: '#A78BFA', flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <p className="text-sm leading-relaxed italic" style={{ color: 'var(--text-primary)' }}>
+              "{quote.text}"
+            </p>
+            <p className="text-xs font-bold mt-1.5" style={{ color: '#9B8CFF' }}>— {quote.author}</p>
+          </div>
+        </div>
       </div>
 
       {/* ── Gamification strip melhorado ───────────── */}

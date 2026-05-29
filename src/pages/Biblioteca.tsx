@@ -12,10 +12,34 @@ import {
 import { generateLibraryItems } from '../lib/ai'
 import { getBrandEssence } from '../services/essenceService'
 import type { LibraryItem, LibraryItemType } from '../lib/supabase/types'
+import type { ContentIdea } from '../types'
+import StudioModal from '../components/StudioModal'
 import {
   Bookmark, Check, Filter, Search, Copy, ChevronRight,
-  Star, Trash2, Edit3, RefreshCw, Sparkles, Lock, X
+  Star, Trash2, Edit3, RefreshCw, Sparkles, Lock, X, Camera
 } from 'lucide-react'
+
+// Converte um item da biblioteca no formato que o teleprompter (StudioModal) espera.
+function libraryItemToIdea(item: LibraryItem): ContentIdea {
+  const typeMap: Record<string, ContentIdea['type']> = {
+    reels_script: 'reel',
+    story_sequence: 'sequence',
+  }
+  return {
+    id: item.id,
+    type: typeMap[item.type] ?? 'story',
+    theme: item.title,
+    objective: item.category ?? '',
+    content: item.content,
+    cta: '',
+    timeEstimate: '',
+    exposureLevel: 'comfortable-talking',
+    status: 'saved',
+    favorite: item.is_favorite,
+    createdAt: item.created_at,
+    tags: item.tags ?? [],
+  }
+}
 
 // ─── Metadados visuais por tipo ───────────────────────────
 
@@ -41,9 +65,10 @@ interface ItemCardProps {
   onDelete: () => void
   onDuplicate: () => void
   onEdit: (content: string) => void
+  onRecord: () => void
 }
 
-function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit }: ItemCardProps) {
+function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord }: ItemCardProps) {
   const [expanded, setExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -157,6 +182,12 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit }: ItemCardP
                 </button>
               </>
             )}
+            <button onClick={onRecord}
+              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+              style={{ background: 'rgba(124,92,255,0.12)', color: '#9B8CFF', border: '1px solid rgba(124,92,255,0.3)' }}
+              title="Gravar com teleprompter" aria-label="Gravar com teleprompter">
+              <Camera size={11} />
+            </button>
             <button onClick={onDuplicate}
               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
               style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}
@@ -222,6 +253,7 @@ export default function Biblioteca() {
   const [showFavOnly, setShowFavOnly] = useState(false)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
+  const [studioItem, setStudioItem] = useState<LibraryItem | null>(null)
 
   const loadItems = useCallback(async (reset = false) => {
     try {
@@ -481,6 +513,7 @@ export default function Biblioteca() {
                     onDelete={() => handleDelete(item.id)}
                     onDuplicate={() => handleDuplicate(item.id)}
                     onEdit={(content) => handleEdit(item.id, content)}
+                    onRecord={() => setStudioItem(item)}
                   />
                 ))}
               </div>
@@ -497,6 +530,10 @@ export default function Biblioteca() {
             </button>
           )}
         </div>
+      )}
+
+      {studioItem && (
+        <StudioModal idea={libraryItemToIdea(studioItem)} onClose={() => setStudioItem(null)} />
       )}
     </div>
   )

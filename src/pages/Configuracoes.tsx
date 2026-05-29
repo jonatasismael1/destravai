@@ -286,7 +286,7 @@ export default function Configuracoes() {
           icon={TrendingUp}
           label="Meu progresso"
           sublabel="Consistência, níveis e equilíbrio de conteúdo"
-          onClick={() => navigate('/progresso')}
+          onClick={() => navigate('/espaco')}
         />
       </div>
 
@@ -468,7 +468,7 @@ export default function Configuracoes() {
       </div>
 
       <p className="text-center text-[10px] pb-4" style={{ color: 'var(--text-muted)' }}>
-        Destravaí v2.0 · Feito com ✦ para profissionais que querem aparecer
+        Destravaí · Feito com ✦ para profissionais que querem aparecer
       </p>
     </div>
   )

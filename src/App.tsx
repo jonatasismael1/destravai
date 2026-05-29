@@ -12,7 +12,6 @@ const Home = lazy(() => import('./pages/Home'))
 const Criar = lazy(() => import('./pages/Criar'))
 const Essencia = lazy(() => import('./pages/Essencia'))
 const Biblioteca = lazy(() => import('./pages/Biblioteca'))
-const Progresso = lazy(() => import('./pages/Progresso'))
 const Calendario = lazy(() => import('./pages/Calendario'))
 const Configuracoes = lazy(() => import('./pages/Configuracoes'))
 const MeuEspaco = lazy(() => import('./pages/MeuEspaco'))
@@ -66,7 +65,6 @@ function ProtectedRoutes() {
           <Route path="/criar" element={<Criar />} />
           <Route path="/essencia" element={<Essencia />} />
           <Route path="/biblioteca" element={<Biblioteca />} />
-          <Route path="/progresso" element={<Progresso />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/espaco" element={<MeuEspaco />} />
           <Route path="/configuracoes" element={<Configuracoes />} />

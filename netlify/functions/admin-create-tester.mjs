@@ -29,13 +29,18 @@ export const handler = async (event) => {
     // 1) Garante a conta no Supabase Auth (idempotente por e-mail).
     const userId = await getOrCreateAuthUser(email, name)
 
-    // 2) Cria/atualiza o perfil.
-    await admin.from('destravai_profiles').upsert({
-      id: userId,
-      ...(name ? { name } : {}),
-      email,
-      plan: plan.id,
-    }, { onConflict: 'id' }).catch(() => {})
+    // 2) Cria/atualiza o perfil. (O query builder do supabase-js não tem .catch,
+    // por isso usamos try/catch.)
+    try {
+      await admin.from('destravai_profiles').upsert({
+        id: userId,
+        ...(name ? { name } : {}),
+        email,
+        plan: plan.id,
+      }, { onConflict: 'id' })
+    } catch (e) {
+      console.error('[admin-create-tester] perfil', e?.message)
+    }
 
     // 3) Assinatura de cortesia ativa (acesso liberado sem pagamento).
     const { data: existing } = await admin

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, SlidersHorizontal, Pencil, Scan, Timer, Type,
-  Zap, Sparkles, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check,
+  Zap, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check,
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 
@@ -13,6 +13,7 @@ interface Props {
 
 type Phase = 'setup' | 'recording' | 'preview'
 const ZOOM_LEVELS = [1, 2, 3, 5] as const
+type RecordingSize = { width: number; height: number; videoBitsPerSecond: number }
 
 function parseContent(raw: string) {
   const result = { acao: '', roteiro: '', dica: '' }
@@ -31,8 +32,63 @@ function formatTimer(s: number) {
 }
 
 function getBestMimeType() {
-  const candidates = ['video/mp4;codecs=h264,aac', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm']
+  const candidates = [
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ]
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
+}
+
+const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
+  echoCancellation: true,
+  noiseSuppression: true,
+  sampleRate: { ideal: 48000 },
+  channelCount: { ideal: 1 },
+}
+
+function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints[] {
+  const facingMode = { ideal: mode }
+  return [
+    {
+      video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30, max: 30 } },
+      audio: AUDIO_CONSTRAINTS,
+    },
+    {
+      video: { facingMode, width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30, max: 30 } },
+      audio: AUDIO_CONSTRAINTS,
+    },
+    {
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } },
+      audio: AUDIO_CONSTRAINTS,
+    },
+    { video: { facingMode, frameRate: { ideal: 30, max: 30 } }, audio: AUDIO_CONSTRAINTS },
+    { video: { facingMode, frameRate: { ideal: 30, max: 30 } }, audio: false },
+  ]
+}
+
+async function getCameraStream(mode: 'user' | 'environment') {
+  let lastError: unknown
+  for (const constraints of getCameraAttempts(mode)) {
+    try {
+      return await navigator.mediaDevices.getUserMedia(constraints)
+    } catch (err) {
+      lastError = err
+    }
+  }
+  throw lastError
+}
+
+function getRecordingSize(stream: MediaStream): RecordingSize {
+  const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
+  const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
+  const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
+  if (sourceMin >= 900 && sourceMax >= 1600) {
+    return { width: 1080, height: 1920, videoBitsPerSecond: 6_000_000 }
+  }
+  return { width: 720, height: 1280, videoBitsPerSecond: 3_500_000 }
 }
 
 const SAFE_TOP = 'max(env(safe-area-inset-top), 16px)'
@@ -65,16 +121,22 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [flashOn, setFlashOn] = useState(false)
 
   const liveVideoRef = useRef<HTMLVideoElement>(null)
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const reviewVideoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
+  const recordingStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const blobRef = useRef<Blob | null>(null)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const drawFrameRef = useRef<number | null>(null)
   const zoomSupportedRef = useRef(false)
+  const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 6_000_000 })
 
   const stopStream = useCallback(() => {
+    recordingStreamRef.current?.getTracks().forEach(t => t.stop())
+    recordingStreamRef.current = null
     streamRef.current?.getTracks().forEach(t => t.stop())
     streamRef.current = null
   }, [])
@@ -82,11 +144,9 @@ export default function StudioModal({ idea, onClose }: Props) {
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
     stopStream()
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: mode, aspectRatio: { ideal: 9 / 16 } },
-        audio: true,
-      }).catch(() => navigator.mediaDevices.getUserMedia({ video: { facingMode: mode }, audio: true }))
+      const stream = await getCameraStream(mode)
       streamRef.current = stream
+      recordingSizeRef.current = getRecordingSize(stream)
       if (liveVideoRef.current) { liveVideoRef.current.srcObject = stream; liveVideoRef.current.muted = true }
       // Detecta suporte a zoom real da câmera
       const track = stream.getVideoTracks()[0]
@@ -94,8 +154,10 @@ export default function StudioModal({ idea, onClose }: Props) {
       const caps = (track?.getCapabilities?.() ?? {}) as { zoom?: { min: number; max: number } }
       zoomSupportedRef.current = !!caps.zoom
       setHasCamera(true)
+      return stream
     } catch {
       setHasCamera(false)
+      return null
     }
   }, [stopStream])
 
@@ -103,12 +165,60 @@ export default function StudioModal({ idea, onClose }: Props) {
     startCamera('user')
     return () => {
       stopStream()
+      if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current)
     }
   }, []) // eslint-disable-line
 
-  // ── Zoom da câmera: tenta zoom real, senão fallback visual (CSS) ──
+  // Draws the real 9:16 frame used by both preview and MediaRecorder.
+  useEffect(() => {
+    const video = liveVideoRef.current
+    if (!video || !streamRef.current || phase === 'preview') return
+    video.srcObject = streamRef.current
+    video.muted = true
+    video.play().catch(() => undefined)
+  }, [hasCamera, phase])
+
+  useEffect(() => {
+    if (!hasCamera || phase === 'preview') return
+    const draw = () => {
+      const video = liveVideoRef.current
+      const canvas = previewCanvasRef.current
+      const ctx = canvas?.getContext('2d', { alpha: false })
+      if (video && canvas && ctx) {
+        const size = recordingSizeRef.current
+        if (canvas.width !== size.width || canvas.height !== size.height) {
+          canvas.width = size.width
+          canvas.height = size.height
+        }
+        const vw = video.videoWidth
+        const vh = video.videoHeight
+        if (vw > 0 && vh > 0) {
+          const cw = canvas.width
+          const ch = canvas.height
+          const visualZoom = zoomSupportedRef.current ? 1 : zoom
+          const scale = Math.max(cw / vw, ch / vh) * visualZoom
+          const dw = vw * scale
+          const dh = vh * scale
+          ctx.save()
+          ctx.fillStyle = '#000'
+          ctx.fillRect(0, 0, cw, ch)
+          ctx.translate(cw / 2, ch / 2)
+          if (facing === 'user') ctx.scale(-1, 1)
+          ctx.drawImage(video, -dw / 2, -dh / 2, dw, dh)
+          ctx.restore()
+        }
+      }
+      drawFrameRef.current = requestAnimationFrame(draw)
+    }
+    drawFrameRef.current = requestAnimationFrame(draw)
+    return () => {
+      if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
+      drawFrameRef.current = null
+    }
+  }, [facing, hasCamera, phase, zoom])
+
   const applyZoom = async (z: number) => {
     setZoom(z)
     const track = streamRef.current?.getVideoTracks()[0]
@@ -119,33 +229,74 @@ export default function StudioModal({ idea, onClose }: Props) {
         try { await track.applyConstraints({ advanced: [{ zoom: target }] } as unknown as MediaTrackConstraints) } catch { /* ignore */ }
       }
     }
-    // Se não houver zoom real, o transform CSS abaixo aplica o zoom visual.
+    // If hardware zoom is unavailable, the canvas draw loop applies visual zoom.
+  }
+
+  const applyTorch = async (next: boolean, stream = streamRef.current) => {
+    const track = stream?.getVideoTracks()[0]
+    const caps = (track?.getCapabilities?.() ?? {}) as { torch?: boolean }
+    if (!track || !caps.torch) return false
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next }] } as unknown as MediaTrackConstraints)
+      return true
+    } catch {
+      return false
+    }
   }
 
   const toggleFlash = async () => {
     const next = !flashOn
-    setFlashOn(next)
-    const track = streamRef.current?.getVideoTracks()[0]
-    const caps = (track?.getCapabilities?.() ?? {}) as { torch?: boolean }
-    if (track && caps.torch) {
-      try { await track.applyConstraints({ advanced: [{ torch: next }] } as unknown as MediaTrackConstraints) } catch { /* ignore */ }
+    if (!next) {
+      await applyTorch(false)
+      setFlashOn(false)
+      return
     }
+    let applied = await applyTorch(true)
+    if (!applied && facing !== 'environment') {
+      setFacing('environment')
+      const stream = await startCamera('environment')
+      applied = await applyTorch(true, stream)
+    }
+    setFlashOn(applied)
   }
 
-  const flipCamera = () => {
+  const flipCamera = async () => {
+    if (flashOn) await applyTorch(false)
+    setFlashOn(false)
     const next = facing === 'user' ? 'environment' : 'user'
     setFacing(next)
     startCamera(next)
   }
 
   const beginRecording = () => {
-    if (!streamRef.current) return
+    if (!streamRef.current || !previewCanvasRef.current) return
     chunksRef.current = []
+    const canvas = previewCanvasRef.current
     const mimeType = getBestMimeType()
-    const recorder = new MediaRecorder(streamRef.current, mimeType ? { mimeType } : undefined)
+    const canvasStream = canvas.captureStream(30)
+    const audioTracks = streamRef.current.getAudioTracks()
+    const finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks])
+    recordingStreamRef.current = finalStream
+    const options: MediaRecorderOptions = {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: recordingSizeRef.current.videoBitsPerSecond,
+      ...(audioTracks.length ? { audioBitsPerSecond: 128_000 } : {}),
+    }
+    let recorder: MediaRecorder
+    try {
+      recorder = new MediaRecorder(finalStream, options)
+    } catch {
+      // If the browser cannot encode MP4/H.264/AAC here, keep the best WebM
+      // fallback. Backend ffmpeg conversion can create final MP4/AAC later.
+      try {
+        recorder = new MediaRecorder(finalStream, mimeType ? { mimeType } : undefined)
+      } catch {
+        recorder = new MediaRecorder(finalStream)
+      }
+    }
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = () => {
-      const type = chunksRef.current[0]?.type || 'video/webm'
+      const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
       const blob = new Blob(chunksRef.current, { type })
       blobRef.current = blob
       setRecordedUrl(URL.createObjectURL(blob))
@@ -196,7 +347,7 @@ export default function StudioModal({ idea, onClose }: Props) {
     const blob = blobRef.current
     if (!blob) return
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
-    const filename = `${idea.theme.replace(/\s+/g, '-').toLowerCase()}.${ext}`
+    const filename = `${idea.theme.replace(/\s+/g, '-').toLowerCase() || 'destravai-video'}.${ext}`
     if (canShare) {
       try {
         const file = new File([blob], filename, { type: blob.type })
@@ -208,17 +359,12 @@ export default function StudioModal({ idea, onClose }: Props) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
   }
 
-  // Transform do vídeo: espelho (frontal) + zoom visual (fallback se não houver zoom real)
-  const mirror = facing === 'user' ? -1 : 1
-  const cssScale = zoomSupportedRef.current ? 1 : zoom
-  const videoTransform = `scaleX(${mirror * cssScale}) scaleY(${cssScale})`
-
   // ── PREVIEW ───────────────────────────────────────────────
   if (phase === 'preview') {
     return createPortal((
       <div className="fixed inset-0 z-[100] bg-black flex flex-col" style={{ height: '100dvh' }}>
         <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
-          <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-contain" />
+          <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-cover" />
         </div>
         <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
           <p className="text-white/80 text-sm font-semibold text-center truncate">{idea.theme}</p>
@@ -247,9 +393,10 @@ export default function StudioModal({ idea, onClose }: Props) {
     <div className="fixed inset-0 z-[100] bg-black overflow-hidden" style={{ height: '100dvh', touchAction: 'none' }}>
       {/* Câmera tela cheia */}
       {hasCamera ? (
-        <video ref={liveVideoRef} autoPlay playsInline muted
-          className="absolute inset-0 w-full h-full object-contain"
-          style={{ transform: videoTransform, transition: 'transform 0.25s ease' }} />
+        <>
+          <video ref={liveVideoRef} autoPlay playsInline muted className="absolute w-px h-px opacity-0 pointer-events-none" />
+          <canvas ref={previewCanvasRef} className="absolute inset-0 w-full h-full object-cover" />
+        </>
       ) : (
         <div className="absolute inset-0 flex items-center justify-center flex-col gap-3" style={{ background: '#111' }}>
           <CameraOff size={48} color="rgba(255,255,255,0.3)" />
@@ -325,7 +472,6 @@ export default function StudioModal({ idea, onClose }: Props) {
           <button onClick={() => setCountdownEnabled(c => !c)} aria-label="Timer de contagem">
             <Timer size={24} color={countdownEnabled ? BRAND_REC : 'rgba(255,255,255,0.85)'} />
           </button>
-          <span className="text-white font-extrabold text-base">{zoom}x</span>
           <button onClick={() => setShowTeleprompter(s => !s)} aria-label="Mostrar/ocultar roteiro">
             <Type size={24} color={showTeleprompter ? BRAND_REC : 'rgba(255,255,255,0.85)'} />
           </button>
@@ -359,13 +505,10 @@ export default function StudioModal({ idea, onClose }: Props) {
 
         {/* Linha do botão de gravar */}
         <div className="w-full flex items-center justify-between px-7">
-          {/* Esquerda: flash + filtros */}
-          <div className="flex items-center gap-5">
+          {/* Esquerda: flash */}
+          <div className="flex items-center gap-5 w-14">
             <button onClick={toggleFlash} aria-label="Flash">
               <Zap size={24} color={flashOn ? '#FFB547' : '#fff'} fill={flashOn ? '#FFB547' : 'none'} />
-            </button>
-            <button aria-label="Filtros (em breve)" className="opacity-90">
-              <Sparkles size={24} color="#fff" />
             </button>
           </div>
 
@@ -378,12 +521,11 @@ export default function StudioModal({ idea, onClose }: Props) {
               : { width: 60, height: 60, borderRadius: 999, background: BRAND_REC }} />
           </button>
 
-          {/* Direita: flip + HD */}
-          <div className="flex items-center gap-5">
+          {/* Direita: flip */}
+          <div className="flex items-center justify-end gap-5 w-14">
             <button onClick={flipCamera} aria-label="Alternar câmera">
               <SwitchCamera size={24} color="#fff" />
             </button>
-            <span className="text-white font-extrabold text-xs leading-none text-center">HD<br />30</span>
           </div>
         </div>
       </div>

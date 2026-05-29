@@ -16,16 +16,62 @@ type Phase = 'setup' | 'recording' | 'preview'
 const ZOOM_LEVELS = [1, 2, 3, 5] as const
 type RecordingSize = { width: number; height: number; videoBitsPerSecond: number }
 
-function parseContent(raw: string) {
-  const result = { acao: '', roteiro: '', dica: '' }
-  raw.split(/\n\n+/).forEach(block => {
-    const t = block.trim()
-    if (/^AÇ[AÃ]O\s*:/i.test(t)) result.acao = t.replace(/^AÇ[AÃ]O\s*:\s*/i, '').trim()
-    else if (/^ROTEIRO|^FRASE/i.test(t)) result.roteiro = t.replace(/^[^:]+:\s*/i, '').trim()
-    else if (/^DICA/i.test(t)) result.dica = t.replace(/^DICA[^:]*:\s*/i, '').trim()
-  })
-  if (!result.acao && !result.roteiro) result.roteiro = raw
-  return result
+// Classifica um rótulo (o texto antes do primeiro ":") como FALA (o que dizer)
+// ou INSTRUÇÃO (ação, visual, câmera, dica…). Retorna null se não for um rótulo
+// reconhecido — aí o trecho é tratado como texto neutro.
+function labelKind(label: string): 'speech' | 'instruction' | null {
+  const l = label.toUpperCase().trim()
+  if (l.length > 40) return null // texto comum com ":", não é um rótulo
+  // "TEXTO NA TELA" é legenda (aparece escrito), não é fala → cai em instrução.
+  if (/\b(FALA|ROTEIRO|FRASE|NARRA[ÇC]|TEXTO FALADO|O QUE (FALAR|DIZER))\b/.test(l) && !/TELA/.test(l)) return 'speech'
+  if (/\b(A[ÇC][ÃA]O|VISUAL|CENA|C[ÂA]MERA|ENQUADRAMENTO|POSI[ÇC]|TELA|LEGENDA|TRANSI[ÇC]|EDI[ÇC]|SUGEST|DICA|OBSERVA[ÇC]|HASHTAG|TAGS?|GANCHO|CORPO|FECHAMENTO|STORY)\b/.test(l)) return 'instruction'
+  return null
+}
+
+// Extrai do conteúdo gerado pela IA APENAS o que a pessoa deve falar.
+// Descarta ação, visual, câmera, texto na tela, dica, etc.
+// Funciona tanto no formato estruturado (AÇÃO/ROTEIRO/DICA) quanto em roteiros
+// de Reels com cena/fala misturados.
+function extractSpeech(raw: string): string {
+  const speechSegments: string[] = []
+  const neutral: string[] = []
+  let current: string[] | null = null   // bloco de fala em construção (p/ continuação)
+  let hasSpeechLabel = false
+
+  const flush = () => {
+    if (current && current.length) speechSegments.push(current.join('\n').trim())
+    current = null
+  }
+
+  for (const rawLine of raw.split(/\r?\n/)) {
+    const line = rawLine.trim()
+    if (!line) { flush(); continue }       // linha em branco encerra o bloco atual
+    const colon = line.indexOf(':')
+    const kind = colon > 0 && colon <= 40 ? labelKind(line.slice(0, colon)) : null
+
+    if (kind === 'speech') {
+      flush()
+      hasSpeechLabel = true
+      current = []
+      const body = line.slice(colon + 1).trim()
+      if (body) current.push(body)
+    } else if (kind === 'instruction') {
+      flush()                              // ignora a instrução e o que vier depois dela
+    } else if (current) {
+      current.push(line)                   // continuação de uma fala multi-linha
+    } else {
+      neutral.push(line)                   // texto sem rótulo (fallback)
+    }
+  }
+  flush()
+
+  // Se a IA marcou falas explicitamente, usa só elas.
+  if (hasSpeechLabel) {
+    const out = speechSegments.filter(Boolean).join('\n\n').trim()
+    if (out) return out
+  }
+  // Senão, usa o texto neutro (já sem as instruções rotuladas) ou o bruto.
+  return neutral.join('\n').trim() || raw.trim()
 }
 
 function formatTimer(s: number) {
@@ -43,14 +89,21 @@ function getBestMimeType() {
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
 }
 
-const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
-  echoCancellation: true,
-  noiseSuppression: true,
-  sampleRate: { ideal: 48000 },
-  channelCount: { ideal: 1 },
+// Constraints de áudio. Quando reduceNoise=false, desligamos o processamento de
+// voz do navegador (eco/ruído/ganho) — esses filtros são pensados para CHAMADA,
+// não para gravar conteúdo. Voz fica mais natural e encorpada (ideal em ambiente
+// silencioso). Quando true, mantém o comportamento de redução de ruído.
+function buildAudioConstraints(reduceNoise: boolean): MediaTrackConstraints {
+  return {
+    echoCancellation: reduceNoise,
+    noiseSuppression: reduceNoise,
+    autoGainControl: reduceNoise,
+    sampleRate: { ideal: 48000 },
+    channelCount: { ideal: 1 },
+  }
 }
 
-function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints[] {
+function getCameraAttempts(mode: 'user' | 'environment', audio: MediaTrackConstraints): MediaStreamConstraints[] {
   const facingMode = { ideal: mode }
   const withNoBrowserCrop = (constraints: MediaTrackConstraints) => ({
     ...constraints,
@@ -59,28 +112,28 @@ function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints
   return [
     {
       video: withNoBrowserCrop({ facingMode, width: { ideal: 1440 }, height: { ideal: 1920 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
-      audio: AUDIO_CONSTRAINTS,
+      audio,
     },
     {
       video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1440 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
-      audio: AUDIO_CONSTRAINTS,
+      audio,
     },
     {
       video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } }),
-      audio: AUDIO_CONSTRAINTS,
+      audio,
     },
     {
       video: withNoBrowserCrop({ facingMode, width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30, max: 30 } }),
-      audio: AUDIO_CONSTRAINTS,
+      audio,
     },
-    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio: AUDIO_CONSTRAINTS },
+    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio },
     { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio: false },
   ]
 }
 
-async function getCameraStream(mode: 'user' | 'environment') {
+async function getCameraStream(mode: 'user' | 'environment', audio: MediaTrackConstraints) {
   let lastError: unknown
-  for (const constraints of getCameraAttempts(mode)) {
+  for (const constraints of getCameraAttempts(mode, audio)) {
     try {
       return await navigator.mediaDevices.getUserMedia(constraints)
     } catch (err) {
@@ -94,10 +147,12 @@ function getRecordingSize(stream: MediaStream): RecordingSize {
   const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
   const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
   const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
+  // Bitrate generoso para 1080p re-codificado via canvas: 6 Mbps borrava cenas
+  // com movimento; 9 Mbps fica próximo da gravação nativa do celular.
   if (sourceMin >= 900 && sourceMax >= 1200) {
-    return { width: 1080, height: 1920, videoBitsPerSecond: 6_000_000 }
+    return { width: 1080, height: 1920, videoBitsPerSecond: 9_000_000 }
   }
-  return { width: 720, height: 1280, videoBitsPerSecond: 3_500_000 }
+  return { width: 720, height: 1280, videoBitsPerSecond: 5_000_000 }
 }
 
 function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, requestedZoom: number) {
@@ -119,15 +174,17 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [scrollPx, setScrollPx] = useState(0)
   const [recordedUrl, setRecordedUrl] = useState('')
 
-  // Teleprompter
-  const initial = parseContent(idea.content)
-  const [script, setScript] = useState(initial.roteiro || initial.acao || '')
+  // Teleprompter — recebe SOMENTE as falas (sem ação/visual/câmera/dica).
+  const [script, setScript] = useState(() => extractSpeech(idea.content))
   const [showTeleprompter, setShowTeleprompter] = useState(true)
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [fontSize, setFontSize] = useState(22)
   const [scrollSpeed, setScrollSpeed] = useState(1.2)   // px por tick (config do TEXTO)
   const [cardOpacity, setCardOpacity] = useState(0.9)
+  // Redução de ruído do navegador. Ligada por padrão (seguro em qualquer ambiente);
+  // o usuário pode desligar nos ajustes para uma voz mais natural/encorpada.
+  const [reduceNoise, setReduceNoise] = useState(true)
 
   // Câmera
   const [zoom, setZoom] = useState<number>(1)            // 1x/2x/3x/5x = ZOOM
@@ -148,7 +205,10 @@ export default function StudioModal({ idea, onClose }: Props) {
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const drawFrameRef = useRef<number | null>(null)
   const zoomSupportedRef = useRef(false)
-  const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 6_000_000 })
+  const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 9_000_000 })
+  // Sempre lê o valor atual de reduceNoise dentro de startCamera (que é memoizado).
+  const reduceNoiseRef = useRef(reduceNoise)
+  reduceNoiseRef.current = reduceNoise
 
   const stopStream = useCallback(() => {
     recordingStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -160,7 +220,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
     stopStream()
     try {
-      const stream = await getCameraStream(mode)
+      const stream = await getCameraStream(mode, buildAudioConstraints(reduceNoiseRef.current))
       streamRef.current = stream
       recordingSizeRef.current = getRecordingSize(stream)
       if (liveVideoRef.current) { liveVideoRef.current.srcObject = stream; liveVideoRef.current.muted = true }
@@ -191,6 +251,14 @@ export default function StudioModal({ idea, onClose }: Props) {
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current)
     }
   }, []) // eslint-disable-line
+
+  // Reaplica o áudio quando o usuário troca a redução de ruído (só fora de
+  // gravação). Pula a 1ª execução para não recriar o stream logo após o mount.
+  const skipNoiseEffect = useRef(true)
+  useEffect(() => {
+    if (skipNoiseEffect.current) { skipNoiseEffect.current = false; return }
+    if (phase === 'setup') startCamera(facing)
+  }, [reduceNoise]) // eslint-disable-line
 
   // Draws the real 9:16 frame used by both preview and MediaRecorder.
   useEffect(() => {
@@ -312,7 +380,7 @@ export default function StudioModal({ idea, onClose }: Props) {
     const options: MediaRecorderOptions = {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: recordingSizeRef.current.videoBitsPerSecond,
-      ...(audioTracks.length ? { audioBitsPerSecond: 128_000 } : {}),
+      ...(audioTracks.length ? { audioBitsPerSecond: 192_000 } : {}),
     }
     let recorder: MediaRecorder
     try {
@@ -676,6 +744,25 @@ export default function StudioModal({ idea, onClose }: Props) {
               </div>
               <input type="range" min={0.3} max={1} step={0.05} value={cardOpacity}
                 onChange={e => setCardOpacity(Number(e.target.value))} className="w-full" style={{ accentColor: '#7C5CFF' }} />
+            </div>
+
+            {/* Áudio: redução de ruído (filtros de chamada) — desligar = voz mais natural */}
+            <div className="flex items-center justify-between gap-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex-1 pt-3">
+                <span className="text-sm font-semibold text-white/80">Reduzir ruído de fundo</span>
+                <p className="text-[11px] mt-0.5 text-white/40">
+                  Desligue para uma voz mais natural e encorpada (recomendado em ambiente silencioso).
+                </p>
+              </div>
+              <button
+                onClick={() => setReduceNoise(v => !v)}
+                role="switch"
+                aria-checked={reduceNoise}
+                aria-label="Reduzir ruído de fundo"
+                className="relative flex-shrink-0 rounded-full transition-colors"
+                style={{ width: 48, height: 28, background: reduceNoise ? '#7C5CFF' : 'rgba(255,255,255,0.15)' }}>
+                <span className="absolute rounded-full bg-white transition-all" style={{ top: 4, width: 20, height: 20, left: reduceNoise ? 24 : 4 }} />
+              </button>
             </div>
 
             <button onClick={() => setShowSettings(false)}

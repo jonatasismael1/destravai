@@ -103,6 +103,7 @@ export default function Essencia() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [aiSummary, setAiSummary] = useState(state.essence?.ai_summary ?? '')
+  const [summaryExpanded, setSummaryExpanded] = useState(false)
 
   useEffect(() => {
     if (!state.essence) {
@@ -400,14 +401,25 @@ export default function Essencia() {
           </div>
         </div>
 
-        {/* Resumo IA */}
+        {/* Resumo IA — clicável para expandir e ler tudo */}
         {aiSummary && (
           <div className="mb-3 rounded-2xl p-4"
             style={{ background: 'rgba(109,93,246,0.08)', border: '1px solid rgba(109,93,246,0.2)' }}>
             <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#9B8CFF' }}>Resumo gerado pela IA</p>
-            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-              {aiSummary.slice(0, 200)}{aiSummary.length > 200 ? '...' : ''}
+            <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
+              {summaryExpanded || aiSummary.length <= 200
+                ? aiSummary
+                : `${aiSummary.slice(0, 200)}…`}
             </p>
+            {aiSummary.length > 200 && (
+              <button
+                onClick={() => setSummaryExpanded(v => !v)}
+                className="mt-2 text-xs font-bold"
+                style={{ color: '#9B8CFF' }}
+              >
+                {summaryExpanded ? 'Ver menos' : 'Ver tudo'}
+              </button>
+            )}
           </div>
         )}
 

@@ -105,17 +105,30 @@ function extractJSON(raw: string): Record<string, unknown> {
     .replace(/```\s*/g, '')
     .trim()
 
+  // 1) Tenta o texto inteiro.
   try {
     return JSON.parse(cleaned)
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/)
-    if (!match) throw new Error(`JSON_NOT_FOUND — modelo retornou: "${cleaned.slice(0, 200)}"`)
+  } catch { /* segue para tentativas tolerantes */ }
+
+  // 2) Recorta do primeiro { (ou [) até o último } (ou ]) — ignora texto ao redor.
+  const firstObj = cleaned.indexOf('{')
+  const lastObj = cleaned.lastIndexOf('}')
+  const firstArr = cleaned.indexOf('[')
+  const lastArr = cleaned.lastIndexOf(']')
+
+  const candidates: string[] = []
+  if (firstObj !== -1 && lastObj > firstObj) candidates.push(cleaned.slice(firstObj, lastObj + 1))
+  if (firstArr !== -1 && lastArr > firstArr) candidates.push(cleaned.slice(firstArr, lastArr + 1))
+
+  for (const c of candidates) {
     try {
-      return JSON.parse(match[0])
-    } catch {
-      throw new Error(`JSON_PARSE_ERROR — trecho: "${match[0].slice(0, 200)}"`)
-    }
+      const parsed = JSON.parse(c)
+      // Se vier um array, embrulha para manter o contrato Record<string, unknown>.
+      return Array.isArray(parsed) ? { items: parsed } : parsed
+    } catch { /* tenta o próximo */ }
   }
+
+  throw new Error(`JSON_NOT_FOUND — modelo retornou: "${cleaned.slice(0, 200)}"`)
 }
 
 function buildPersonalSuggestionsPrompt(

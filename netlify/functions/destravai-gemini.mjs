@@ -44,15 +44,20 @@ export const handler = async (event) => {
     const promptType = body.promptType || 'generic_gemini'
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
 
+    // Se o prompt pede JSON, força o Gemini a responder JSON válido — isso elimina
+    // o erro "JSON_NOT_FOUND" quando o modelo às vezes devolve texto/markdown.
+    const generationConfig = {
+      temperature: body.temperature ?? 0.9,
+      maxOutputTokens: body.maxOutputTokens ?? 2048,
+    }
+    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: body.temperature ?? 0.9,
-          maxOutputTokens: body.maxOutputTokens ?? 2048,
-        },
+        generationConfig,
       }),
     })
 

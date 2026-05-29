@@ -79,8 +79,13 @@ function formatTimer(s: number) {
 }
 
 function getBestMimeType() {
+  // Ordem do melhor → mais compatível. avc1.640028 = H.264 HIGH profile (nível 4.0,
+  // cobre 1080p): imagem mais limpa no mesmo bitrate que o Baseline (42E01E) usado
+  // antes. Se o aparelho não suportar, cai para Main, depois Baseline, depois WebM.
   const candidates = [
-    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',  // H.264 High Profile + AAC
+    'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',  // H.264 Main Profile
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',  // H.264 Baseline (fallback)
     'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
@@ -135,12 +140,12 @@ function getRecordingSize(stream: MediaStream): RecordingSize {
   const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
   const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
   const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
-  // Bitrate generoso para 1080p re-codificado via canvas: 6 Mbps borrava cenas
-  // com movimento; 9 Mbps fica próximo da gravação nativa do celular.
+  // Bitrate alto para compensar o re-encode via canvas. 14 Mbps em 1080p se
+  // aproxima da gravação nativa (~17 Mbps) e reduz blocos/borrão em movimento.
   if (sourceMin >= 900 && sourceMax >= 1200) {
-    return { width: 1080, height: 1920, videoBitsPerSecond: 9_000_000 }
+    return { width: 1080, height: 1920, videoBitsPerSecond: 14_000_000 }
   }
-  return { width: 720, height: 1280, videoBitsPerSecond: 5_000_000 }
+  return { width: 720, height: 1280, videoBitsPerSecond: 7_000_000 }
 }
 
 function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, requestedZoom: number) {
@@ -193,7 +198,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const drawFrameRef = useRef<number | null>(null)
   const zoomSupportedRef = useRef(false)
-  const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 9_000_000 })
+  const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 14_000_000 })
   // Sempre lê o valor atual de reduceNoise dentro de startCamera (que é memoizado).
   const reduceNoiseRef = useRef(reduceNoise)
   reduceNoiseRef.current = reduceNoise
@@ -268,6 +273,10 @@ export default function StudioModal({ idea, onClose }: Props) {
         if (canvas.width !== size.width || canvas.height !== size.height) {
           canvas.width = size.width
           canvas.height = size.height
+          // Redefinir width/height reseta o estado do contexto → reativar a
+          // suavização em ALTA qualidade para o reescalonamento do vídeo.
+          ctx.imageSmoothingEnabled = true
+          ctx.imageSmoothingQuality = 'high'
         }
         const vw = video.videoWidth
         const vh = video.videoHeight

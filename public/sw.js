@@ -4,7 +4,7 @@
 // mais nova; só usa cache quando está offline). Requisições para outros domínios
 // (Supabase, Gemini, fontes) passam direto, sem interferência.
 
-const CACHE = 'destravai-v5'
+const CACHE = 'destravai-v6'
 const SHELL = ['/', '/index.html', '/manifest.json']
 
 self.addEventListener('install', (event) => {

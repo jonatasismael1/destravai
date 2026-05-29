@@ -51,21 +51,29 @@ const AUDIO_CONSTRAINTS: MediaTrackConstraints = {
 
 function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints[] {
   const facingMode = { ideal: mode }
+  const withNoBrowserCrop = (constraints: MediaTrackConstraints) => ({
+    ...constraints,
+    resizeMode: { ideal: 'none' },
+  }) as MediaTrackConstraints
   return [
     {
-      video: { facingMode, width: { ideal: 1080 }, height: { ideal: 1920 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30, max: 30 } },
+      video: withNoBrowserCrop({ facingMode, width: { ideal: 1440 }, height: { ideal: 1920 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
       audio: AUDIO_CONSTRAINTS,
     },
     {
-      video: { facingMode, width: { ideal: 720 }, height: { ideal: 1280 }, aspectRatio: { ideal: 9 / 16 }, frameRate: { ideal: 30, max: 30 } },
+      video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1440 }, aspectRatio: { ideal: 3 / 4 }, frameRate: { ideal: 30, max: 30 } }),
       audio: AUDIO_CONSTRAINTS,
     },
     {
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30, max: 30 } },
+      video: withNoBrowserCrop({ facingMode, width: { ideal: 1080 }, height: { ideal: 1920 }, frameRate: { ideal: 30, max: 30 } }),
       audio: AUDIO_CONSTRAINTS,
     },
-    { video: { facingMode, frameRate: { ideal: 30, max: 30 } }, audio: AUDIO_CONSTRAINTS },
-    { video: { facingMode, frameRate: { ideal: 30, max: 30 } }, audio: false },
+    {
+      video: withNoBrowserCrop({ facingMode, width: { ideal: 720 }, height: { ideal: 1280 }, frameRate: { ideal: 30, max: 30 } }),
+      audio: AUDIO_CONSTRAINTS,
+    },
+    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio: AUDIO_CONSTRAINTS },
+    { video: withNoBrowserCrop({ facingMode, frameRate: { ideal: 30, max: 30 } }), audio: false },
   ]
 }
 
@@ -85,10 +93,17 @@ function getRecordingSize(stream: MediaStream): RecordingSize {
   const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
   const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
   const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
-  if (sourceMin >= 900 && sourceMax >= 1600) {
+  if (sourceMin >= 900 && sourceMax >= 1200) {
     return { width: 1080, height: 1920, videoBitsPerSecond: 6_000_000 }
   }
   return { width: 720, height: 1280, videoBitsPerSecond: 3_500_000 }
+}
+
+function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, requestedZoom: number) {
+  if (!caps.zoom) return null
+  const normalZoom = 1 >= caps.zoom.min && 1 <= caps.zoom.max ? 1 : caps.zoom.min
+  const target = requestedZoom === 1 ? normalZoom : requestedZoom
+  return Math.min(caps.zoom.max, Math.max(caps.zoom.min, target))
 }
 
 const SAFE_TOP = 'max(env(safe-area-inset-top), 16px)'
@@ -153,6 +168,11 @@ export default function StudioModal({ idea, onClose }: Props) {
       // getCapabilities/zoom não são tipados no TS padrão → cast
       const caps = (track?.getCapabilities?.() ?? {}) as { zoom?: { min: number; max: number } }
       zoomSupportedRef.current = !!caps.zoom
+      const normalZoom = getTrackZoomTarget(caps, 1)
+      if (track && normalZoom !== null) {
+        try { await track.applyConstraints({ advanced: [{ zoom: normalZoom }] } as unknown as MediaTrackConstraints) } catch { /* ignore */ }
+      }
+      setZoom(1)
       setHasCamera(true)
       return stream
     } catch {
@@ -225,7 +245,8 @@ export default function StudioModal({ idea, onClose }: Props) {
     if (track && zoomSupportedRef.current) {
       const caps = (track.getCapabilities?.() ?? {}) as { zoom?: { min: number; max: number } }
       if (caps.zoom) {
-        const target = Math.min(caps.zoom.max, Math.max(caps.zoom.min, z))
+        const target = getTrackZoomTarget(caps, z)
+        if (target === null) return
         try { await track.applyConstraints({ advanced: [{ zoom: target }] } as unknown as MediaTrackConstraints) } catch { /* ignore */ }
       }
     }

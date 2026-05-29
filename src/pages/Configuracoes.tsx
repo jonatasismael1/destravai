@@ -6,11 +6,14 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2,
+  KeyRound, CreditCard, LifeBuoy, Loader2, Camera,
 } from 'lucide-react'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 import { createTester } from '../services/subscriptionService'
+import { uploadAvatar } from '../services/profileService'
+import { enableNotifications, disableNotifications, notificationsEnabled, notificationsSupported } from '../services/notificationsService'
 import { supabase } from '../lib/supabase/client'
+import { useRef } from 'react'
 
 const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
 const ADMIN_EMAIL = 'assessoriadbe@gmail.com'
@@ -78,15 +81,55 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 export default function Configuracoes() {
-  const { state, logout } = useApp()
+  const { state, logout, setProfile } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
   const { isDark, toggleTheme } = useTheme()
 
-  const [notifDaily, setNotifDaily] = useState(true)
+  const [notifDaily, setNotifDaily] = useState(notificationsEnabled())
   const [notifTips, setNotifTips] = useState(false)
+
+  // Liga/desliga as notificações locais (lembrete + régua de constância).
+  const handleToggleNotif = async (on: boolean) => {
+    if (!notificationsSupported()) {
+      addToast('Seu navegador não suporta notificações.', 'error'); return
+    }
+    if (on) {
+      const granted = await enableNotifications()
+      setNotifDaily(granted)
+      addToast(granted ? 'Notificações ativadas!' : 'Permissão de notificação negada pelo navegador.', granted ? 'success' : 'error')
+    } else {
+      disableNotifications()
+      setNotifDaily(false)
+      addToast('Notificações desativadas.', 'info')
+    }
+  }
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [showResetDayConfirm, setShowResetDayConfirm] = useState(false)
+
+  // Foto de perfil
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+
+  const handlePickAvatar = () => fileInputRef.current?.click()
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permite reescolher o mesmo arquivo depois
+    if (!file) return
+    if (!file.type.startsWith('image/')) { addToast('Escolha um arquivo de imagem.', 'error'); return }
+    if (file.size > 5 * 1024 * 1024) { addToast('Imagem muito grande (máx. 5 MB).', 'error'); return }
+    setUploadingAvatar(true)
+    try {
+      const url = await uploadAvatar(file)
+      if (state.profile) setProfile({ ...state.profile, avatar_url: url })
+      addToast('Foto atualizada!', 'success')
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao atualizar a foto.', 'error')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
 
   // Alterar senha (usuário logado: o Supabase não exige a senha atual).
   const [showPasswordForm, setShowPasswordForm] = useState(false)
@@ -186,15 +229,30 @@ export default function Configuracoes() {
           style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.6), transparent)' }} />
 
         <div className="flex items-center gap-4">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 font-black text-2xl"
+          <button
+            onClick={handlePickAvatar}
+            disabled={uploadingAvatar}
+            className="relative w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 font-black text-2xl overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
               boxShadow: '0 0 24px rgba(109,93,246,0.5)',
             }}
+            aria-label="Trocar foto de perfil"
+            title="Trocar foto"
           >
-            {(profile?.name ?? supabaseUser?.email ?? '?').charAt(0).toUpperCase()}
-          </div>
+            {profile?.avatar_url ? (
+              <img src={profile.avatar_url} alt="Foto de perfil" className="w-full h-full object-cover" />
+            ) : (
+              (profile?.name ?? supabaseUser?.email ?? '?').charAt(0).toUpperCase()
+            )}
+            <span className="absolute bottom-0 right-0 w-6 h-6 rounded-tl-lg flex items-center justify-center"
+              style={{ background: 'rgba(0,0,0,0.55)' }}>
+              {uploadingAvatar
+                ? <RefreshCw size={12} className="text-white animate-spin" />
+                : <Camera size={12} className="text-white" />}
+            </span>
+          </button>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
           <div className="flex-1 min-w-0">
             <p className="font-extrabold text-lg leading-tight" style={{ color: 'var(--text-primary)' }}>{profile?.name ?? 'Usuário'}</p>
             <p className="text-sm mt-0.5 truncate" style={{ color: 'var(--text-secondary)' }}>{supabaseUser?.email ?? profile?.email ?? '—'}</p>
@@ -393,9 +451,9 @@ export default function Configuracoes() {
             </div>
             <div className="flex-1">
               <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Lembrete diário</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Missão do dia às 9h</p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Lembrete da missão e marcos de constância</p>
             </div>
-            <Toggle value={notifDaily} onChange={setNotifDaily} />
+            <Toggle value={notifDaily} onChange={handleToggleNotif} />
           </div>
 
           <div className="flex items-center gap-3">

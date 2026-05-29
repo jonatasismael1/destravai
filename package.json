@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "test:rls": "node scripts/rls-test.mjs",
+    "gen:types": "supabase gen types typescript --project-id fddxaozosrlqddthvqhn --schema public > src/lib/supabase/database.types.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",

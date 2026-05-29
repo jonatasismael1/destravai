@@ -10,12 +10,12 @@ export default function TermosDeUso() {
         </Link>
 
         <h1 className="text-3xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Termos de Uso</h1>
-        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 28/05/2026</p>
+        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 29/05/2026</p>
 
         <div className="space-y-6 text-sm leading-relaxed">
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>1. Objeto</h2>
-            <p>O Destravaí é uma plataforma (SaaS) que ajuda profissionais e criadores a transformar suas rotinas e ideias em stories e conteúdos prontos para gravar e publicar, com auxílio de inteligência artificial. Ao criar uma conta e assinar, você concorda com estes Termos.</p>
+            <p>O Destravaí é uma plataforma (SaaS) que ajuda profissionais e criadores a transformar suas rotinas e ideias em stories e conteúdos prontos para gravar e publicar, com auxílio de inteligência artificial. Ao criar uma conta e assinar, você concorda com estes Termos. Você declara ter 18 anos ou mais (ou estar autorizado por um responsável) e capacidade para contratar.</p>
           </section>
 
           <section>
@@ -57,10 +57,6 @@ export default function TermosDeUso() {
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>9. Contato</h2>
             <p>Dúvidas sobre estes Termos: assessoriadbe@gmail.com</p>
           </section>
-
-          <p className="text-xs pt-4" style={{ color: 'var(--text-muted)' }}>
-            Este documento é um modelo inicial. Recomendamos revisão por um advogado para adequação ao seu caso e à legislação vigente.
-          </p>
         </div>
       </div>
     </div>

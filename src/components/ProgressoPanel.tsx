@@ -50,6 +50,20 @@ export default function ProgressoPanel() {
 
   const balance = progress.contentBalance
 
+  // Score de constância (0–100): combina streak, missões da semana, total e
+  // diversidade dos tipos de conteúdo. Motiva sem ser punitivo.
+  const balanceUsed = Object.values(balance).filter(v => v > 0).length
+  const constancyScore = Math.min(100, Math.round(
+    progress.currentStreak * 8 +
+    progress.weeklyMissions * 6 +
+    Math.min(progress.missionsCompleted, 20) * 2 +
+    balanceUsed * 3,
+  ))
+  const scoreLabel = constancyScore >= 85 ? 'Referência em movimento'
+    : constancyScore >= 60 ? 'Presença constante'
+    : constancyScore >= 30 ? 'Pegando o ritmo'
+    : 'Começando a aparecer'
+
   const tips: string[] = []
   if (balance.sale < 2) tips.push('Você está evitando venda. Adicione uma venda leve esta semana.')
   if (balance.backstage < 2) tips.push('Que tal mostrar um bastidor hoje? Cria conexão.')
@@ -92,6 +106,22 @@ export default function ProgressoPanel() {
             <span style={{ color: 'var(--text-primary)' }}>{nextLevel.name}</span>
           </p>
         )}
+      </div>
+
+      {/* Score de constância */}
+      <div className="rounded-3xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="flex items-end justify-between mb-2">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>Score de constância</p>
+            <p className="font-extrabold text-sm" style={{ color: '#9B8CFF' }}>{scoreLabel}</p>
+          </div>
+          <p className="font-extrabold text-3xl leading-none" style={{ color: 'var(--text-primary)' }}>
+            {constancyScore}<span className="text-sm" style={{ color: 'var(--text-muted)' }}>/100</span>
+          </p>
+        </div>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${constancyScore}%` }} />
+        </div>
       </div>
 
       {/* Stats */}

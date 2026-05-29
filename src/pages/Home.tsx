@@ -12,6 +12,7 @@ import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
 import { trackEvent, loadActivationStatus, type ActivationStatus } from '../services/eventsService'
+import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
 
 // Check-ins com ícones vetoriais (sem emojis estruturais)
@@ -349,7 +350,10 @@ export default function Home() {
   useEffect(() => {
     if (!state.supabaseUser) return
     void trackEvent('returned')
-    loadActivationStatus().then(setActivation)
+    loadActivationStatus().then((a) => {
+      setActivation(a)
+      void runActivationNudges({ hasPendingMission: true, activeDays: a?.activeDays ?? 0 })
+    })
   }, [state.supabaseUser?.id])
 
   const generateDailyMission = async () => {

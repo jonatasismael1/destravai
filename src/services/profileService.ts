@@ -54,6 +54,27 @@ export async function updateProfile(
   return data
 }
 
+// Envia uma imagem do dispositivo para o Storage (bucket "avatars"), salva a URL
+// pública no perfil e retorna a URL. O caminho começa com o id do usuário, então
+// a policy de RLS do Storage garante que cada um só mexe na própria foto.
+export async function uploadAvatar(file: File): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Usuário não autenticado')
+
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+  const path = `${user.id}/avatar-${Date.now()}.${ext || 'jpg'}`
+
+  const { error: upErr } = await supabase.storage
+    .from('avatars')
+    .upload(path, file, { upsert: true, contentType: file.type || 'image/jpeg' })
+  if (upErr) throw new Error(`Erro ao enviar imagem: ${upErr.message}`)
+
+  const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+  const url = data.publicUrl
+  await updateProfile({ avatar_url: url })
+  return url
+}
+
 export async function markOnboardingComplete(): Promise<void> {
   await updateProfile({ onboarding_completed: true })
 }

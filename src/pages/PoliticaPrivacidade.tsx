@@ -10,12 +10,12 @@ export default function PoliticaPrivacidade() {
         </Link>
 
         <h1 className="text-3xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Política de Privacidade</h1>
-        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 28/05/2026</p>
+        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 29/05/2026</p>
 
         <div className="space-y-6 text-sm leading-relaxed">
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>1. Dados que coletamos</h2>
-            <p>Coletamos: (a) dados de cadastro (nome, e-mail); (b) informações que você fornece no onboarding e na sua Essência (área de atuação, público, tom de voz, objetivos etc.); (c) dados de uso da plataforma; e (d) dados necessários ao pagamento (nome, e-mail e CPF/CNPJ), processados pelo Asaas. <strong>Não armazenamos dados do seu cartão de crédito.</strong></p>
+            <p>Coletamos: (a) dados de cadastro (nome, e-mail e, se você enviar, foto de perfil); (b) informações que você fornece no onboarding e na sua Essência (área de atuação, público, tom de voz, objetivos etc.); (c) dados de uso e execução (ideias geradas, missões, gravações realizadas, conteúdos planejados/postados) usados para medir sua constância; e (d) dados necessários ao pagamento (nome, e-mail e CPF/CNPJ), processados pelo Asaas. <strong>Não armazenamos dados do seu cartão de crédito.</strong></p>
           </section>
 
           <section>
@@ -44,13 +44,14 @@ export default function PoliticaPrivacidade() {
           </section>
 
           <section>
-            <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>7. Contato</h2>
-            <p>Encarregado de dados / contato: assessoriadbe@gmail.com</p>
+            <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>7. Cookies e armazenamento local</h2>
+            <p>Usamos armazenamento local no seu dispositivo apenas para preferências e funcionamento do app (por exemplo, tema claro/escuro, sessão de login e progresso de uso). Esses dados ficam no seu aparelho e não são usados para publicidade de terceiros.</p>
           </section>
 
-          <p className="text-xs pt-4" style={{ color: 'var(--text-muted)' }}>
-            Este documento é um modelo inicial. Recomendamos revisão por um advogado para adequação à LGPD e ao seu caso.
-          </p>
+          <section>
+            <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>8. Contato</h2>
+            <p>Encarregado de dados / contato: assessoriadbe@gmail.com</p>
+          </section>
         </div>
       </div>
     </div>

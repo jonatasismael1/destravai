@@ -2,13 +2,12 @@ import { supabase } from '../supabase/client'
 
 // Serviço centralizado de IA.
 //
-// SEGURANÇA: a chave do Gemini NÃO fica mais no frontend. Toda geração passa
-// pela Edge Function `destravai-gemini` do Supabase, que valida o usuário
-// logado, aplica o limite mensal de uso e chama o Gemini no servidor (a chave
-// vive apenas no secret GOOGLE_GENERATIVE_AI_API_KEY do projeto Supabase).
+// SEGURANÇA: a chave do Gemini NÃO fica no frontend. Toda geração passa pela
+// Netlify Function `destravai-gemini` (mesma origem do app), que valida o
+// usuário logado, aplica o limite mensal e chama o Gemini no servidor. A chave
+// vive apenas nas variáveis de ambiente do Netlify.
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
-const GEMINI_FN = `${SUPABASE_URL}/functions/v1/destravai-gemini`
+const GEMINI_FN = '/.netlify/functions/destravai-gemini'
 
 export interface GenerateOptions {
   temperature?: number
@@ -27,7 +26,6 @@ export async function generateText(prompt: string, opts: GenerateOptions = {}): 
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        apikey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
         Authorization: `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({

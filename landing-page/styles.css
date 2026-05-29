@@ -429,16 +429,53 @@ footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: re
 .load.l5 { animation-delay: 0.66s; }
 @keyframes loadUp { to { opacity: 1; transform: none; } }
 
+/* ── Menu mobile (sidebar) ──────────────────────────────── */
+.mobile-overlay {
+  position: fixed; inset: 0; z-index: 150;
+  background: rgba(0, 0, 0, 0.55);
+  opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.mobile-overlay.open { opacity: 1; pointer-events: auto; }
+
+.mobile-menu {
+  position: fixed; top: 0; right: 0; z-index: 200;
+  height: 100%; width: 80%; max-width: 320px;
+  background: var(--bg-2);
+  border-left: 1px solid var(--border);
+  box-shadow: -16px 0 48px rgba(0, 0, 0, 0.5);
+  padding: 76px 28px 28px;
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mobile-menu.open { transform: translateX(0); }
+.mm-links { display: flex; flex-direction: column; gap: 4px; }
+.mm-links a {
+  color: var(--ink); text-decoration: none;
+  font-size: 18px; font-weight: 700; padding: 14px 4px;
+  border-bottom: 1px solid var(--border);
+}
+.mm-entrar {
+  margin-top: 20px; text-align: center; justify-content: center;
+  border-bottom: none !important; padding: 13px 22px;
+}
+.mm-close {
+  position: absolute; top: 22px; right: 22px;
+  background: none; border: none; color: var(--ink); cursor: pointer;
+  display: grid; place-items: center;
+}
+
 /* ── Responsivo ─────────────────────────────────────────── */
 @media (max-width: 920px) {
-  .hero-grid { grid-template-columns: 1fr; gap: 48px; }
-  .phone { order: -1; }
+  .hero-grid { grid-template-columns: 1fr; gap: 40px; }
+  /* O mockup do celular aparece DEPOIS do texto do hero (antes da seção "O problema"). */
+  .phone { order: 0; }
   .how-grid { grid-template-columns: 1fr; gap: 40px; }
   .phone-studio { order: -1; }
   .pain-grid, .testi-grid { grid-template-columns: 1fr; }
   .feat-grid { grid-template-columns: repeat(2, 1fr); }
   .plans { grid-template-columns: 1fr; }
   .nav-links { display: none; }
+  .nav-entrar { display: none; }   /* Entrar fica dentro do menu lateral no mobile */
   .menu-toggle { display: grid; place-items: center; }
   .table-row { grid-template-columns: 1.3fr 0.85fr 0.85fr; }
   .table-cell { padding: 14px 12px; font-size: 13px; }

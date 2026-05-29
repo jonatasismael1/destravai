@@ -43,12 +43,33 @@ document.querySelectorAll('.faq-q').forEach((btn) => {
   })
 })
 
-// ── Menu mobile: rola até os planos ─────────────────────
+// ── Menu mobile (sidebar) ───────────────────────────────
 const menuToggle = document.getElementById('menuToggle')
-if (menuToggle) {
-  menuToggle.addEventListener('click', () => {
-    document.getElementById('planos').scrollIntoView({ behavior: 'smooth' })
-  })
+const mobileMenu = document.getElementById('mobileMenu')
+const mobileOverlay = document.getElementById('mobileOverlay')
+const menuClose = document.getElementById('menuClose')
+
+function openMenu() {
+  mobileMenu.classList.add('open')
+  mobileOverlay.classList.add('open')
+  mobileMenu.setAttribute('aria-hidden', 'false')
+  menuToggle?.setAttribute('aria-expanded', 'true')
+  document.body.style.overflow = 'hidden'
+}
+function closeMenu() {
+  mobileMenu.classList.remove('open')
+  mobileOverlay.classList.remove('open')
+  mobileMenu.setAttribute('aria-hidden', 'true')
+  menuToggle?.setAttribute('aria-expanded', 'false')
+  document.body.style.overflow = ''
+}
+
+if (menuToggle && mobileMenu) {
+  menuToggle.addEventListener('click', openMenu)
+  menuClose?.addEventListener('click', closeMenu)
+  mobileOverlay?.addEventListener('click', closeMenu)
+  // Fecha ao clicar em qualquer link do menu
+  mobileMenu.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu))
 }
 
 // ── Âncoras suaves (fallback p/ navegadores sem smooth) ──

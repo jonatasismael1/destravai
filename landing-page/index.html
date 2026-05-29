@@ -43,13 +43,28 @@
         <a href="#faq">Dúvidas</a>
       </div>
       <div class="nav-cta">
-        <a href="https://destravai.dbe.digital/login" class="btn btn-primary" style="padding:11px 22px;font-size:15px;">Entrar</a>
-        <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+        <a href="https://destravai.dbe.digital/login" class="btn btn-primary nav-entrar" style="padding:11px 22px;font-size:15px;">Entrar</a>
+        <button class="menu-toggle" id="menuToggle" aria-label="Abrir menu" aria-expanded="false">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
         </button>
       </div>
     </nav>
   </header>
+
+  <!-- ── Menu mobile (sidebar) ─────────────────────────── -->
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  <aside class="mobile-menu" id="mobileMenu" aria-hidden="true">
+    <button class="mm-close" id="menuClose" aria-label="Fechar menu">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+    <nav class="mm-links">
+      <a href="#como">Como funciona</a>
+      <a href="#recursos">Recursos</a>
+      <a href="#planos">Planos</a>
+      <a href="#faq">Dúvidas</a>
+      <a href="https://destravai.dbe.digital/login" class="btn btn-primary mm-entrar">Entrar</a>
+    </nav>
+  </aside>
 
   <!-- ── Hero ──────────────────────────────────────────── -->
   <section class="hero" id="topo">
@@ -339,7 +354,7 @@
           <div class="faq-a"><p>Não. O Studio tem teleprompter e você grava lendo o roteiro. Sem edição complexa.</p></div>
         </div>
         <div class="faq-item reveal d1">
-          <button class="faq-q">Serve pra minha área, mesmo não sendo saúde? <span class="sign">+</span></button>
+          <button class="faq-q">Serve pra qualquer área ou nicho? <span class="sign">+</span></button>
           <div class="faq-a"><p>Sim. O app se adapta ao seu nicho a partir das suas respostas — nutricionista, advogado, fotógrafo, coach, o que for.</p></div>
         </div>
         <div class="faq-item reveal d1">
@@ -352,7 +367,7 @@
         </div>
         <div class="faq-item reveal d1">
           <button class="faq-q">Funciona no celular? <span class="sign">+</span></button>
-          <div class="faq-a"><p>Sim — foi feito pra ser usado no celular, entre seus compromissos. É instalável como app (PWA).</p></div>
+          <div class="faq-a"><p>Sim — foi feito pra ser usado no celular, entre seus compromissos, direto do navegador.</p></div>
         </div>
         <div class="faq-item reveal d1">
           <button class="faq-q">Posso cancelar quando quiser? <span class="sign">+</span></button>

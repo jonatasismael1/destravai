@@ -379,11 +379,11 @@ export default function Checkout() {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  // min-h + rolagem natural do documento: garante que o formulário inteiro
-  // seja alcançável no mobile (sem ficar preso num container de altura fixa).
+  // body/#root têm overflow:hidden no app — então a página precisa do próprio
+  // container rolável com ALTURA fixa de viewport (h-100svh + overflow-y-auto).
   return (
-    <div className="min-h-[100svh] w-full" style={{ background: '#0B0B12' }}>
-      <div className="max-w-md mx-auto px-5 py-8 pb-20">{children}</div>
+    <div className="w-full" style={{ height: '100svh', overflowY: 'auto', background: '#0B0B12' }}>
+      <div className="max-w-md mx-auto px-5 py-8 pb-24">{children}</div>
     </div>
   )
 }

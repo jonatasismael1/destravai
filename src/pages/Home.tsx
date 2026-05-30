@@ -443,6 +443,8 @@ export default function Home() {
     const m = state.missions.find(m => m.content?.id === idea.id)
     if (m) updateMission(m.id, { status: 'done' })
     completeMission(idea.objective)
+    // Registra o evento de execução — alimenta o ranking dos grupos (XP de missão).
+    void trackEvent('mission_done', idea.id)
 
     if (dayState.mission?.id === idea.id) {
       setDayState(prev => {

@@ -64,6 +64,8 @@ function progressToRow(userId: string, progress: Progress, weekKey = getWeekKey(
     last_activity: progress.lastActivity,
     level: progress.level,
     week_key: weekKey,
+    best_streak: progress.bestStreak ?? 0,
+    streak_shields: progress.streakShields ?? 0,
     updated_at: new Date().toISOString(),
   }
 }
@@ -84,6 +86,8 @@ function rowToProgress(row: StoredProgress): Progress {
     },
     lastActivity: row.last_activity,
     level: row.level,
+    bestStreak: row.best_streak ?? 0,
+    streakShields: row.streak_shields ?? 0,
   }
 }
 

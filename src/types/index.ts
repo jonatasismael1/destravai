@@ -95,6 +95,10 @@ export interface Progress {
   }
   lastActivity: string
   level: string
+  /** Maior sequência já atingida. */
+  bestStreak: number
+  /** Escudos que protegem a sequência de zerar ao pular 1 dia. */
+  streakShields: number
 }
 
 export interface PersonalContext {

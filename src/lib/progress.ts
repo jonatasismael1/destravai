@@ -31,6 +31,55 @@ export function calculateStreak(lastActivity: string, currentStreak: number): nu
   return 1
 }
 
+export const MAX_STREAK_SHIELDS = 2
+
+export interface StreakResult {
+  streak: number
+  shields: number
+  usedShield: boolean   // consumiu um escudo para não zerar
+  awardedShield: boolean // ganhou um escudo neste marco
+}
+
+// Versão do cálculo de streak com "escudo": se a pessoa pulou EXATAMENTE 1 dia e
+// tem escudo, o escudo é consumido e o streak continua em vez de zerar. A cada
+// múltiplo de 7 dias seguidos, ganha 1 escudo (até MAX_STREAK_SHIELDS).
+export function calculateStreakWithShield(
+  lastActivity: string,
+  currentStreak: number,
+  shields: number,
+): StreakResult {
+  const last = new Date(lastActivity)
+  const today = new Date()
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
+  const dayBefore = new Date(today); dayBefore.setDate(today.getDate() - 2)
+
+  // Já contou hoje: nada muda.
+  if (last.toDateString() === today.toDateString()) {
+    return { streak: currentStreak, shields, usedShield: false, awardedShield: false }
+  }
+
+  let streak: number
+  let usedShield = false
+  if (last.toDateString() === yesterday.toDateString()) {
+    streak = currentStreak + 1
+  } else if (last.toDateString() === dayBefore.toDateString() && shields > 0) {
+    // Pulou 1 dia, mas o escudo cobre — mantém a sequência.
+    streak = currentStreak + 1
+    usedShield = true
+  } else {
+    streak = 1
+  }
+
+  let nextShields = shields - (usedShield ? 1 : 0)
+  let awardedShield = false
+  if (streak > currentStreak && streak % 7 === 0 && nextShields < MAX_STREAK_SHIELDS) {
+    nextShields += 1
+    awardedShield = true
+  }
+
+  return { streak, shields: nextShields, usedShield, awardedShield }
+}
+
 export function calculateLevel(completed: number): string {
   if (completed >= 50) return 'Referência em movimento'
   if (completed >= 30) return 'Perfil ativo'

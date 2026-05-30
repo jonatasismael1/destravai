@@ -153,7 +153,54 @@ function extractJSON(raw: string): Record<string, unknown> {
     } catch { /* tenta o próximo */ }
   }
 
+  // 3) Reparo de JSON TRUNCADO. O Gemini às vezes corta a resposta no limite de
+  //    tokens, deixando o JSON incompleto. Aqui pegamos do primeiro abre-chave/
+  //    colchete até o fim e fechamos o que ficou em aberto (string + estruturas).
+  const start = firstObj !== -1 && (firstArr === -1 || firstObj < firstArr) ? firstObj : firstArr
+  if (start !== -1) {
+    const repaired = repairTruncatedJSON(cleaned.slice(start))
+    if (repaired) {
+      try {
+        const parsed = JSON.parse(repaired)
+        return Array.isArray(parsed) ? { items: parsed } : parsed
+      } catch { /* desiste abaixo */ }
+    }
+  }
+
   throw new Error(`JSON_NOT_FOUND — modelo retornou: "${cleaned.slice(0, 200)}"`)
+}
+
+// Fecha um JSON que foi cortado no meio (resposta truncada da IA). Percorre o
+// texto rastreando se está dentro de string e a pilha de { } / [ ]; no fim,
+// fecha a string aberta e todas as estruturas pendentes, na ordem correta.
+function repairTruncatedJSON(s: string): string | null {
+  const stack: string[] = []
+  let inString = false
+  let escaped = false
+
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i]
+    if (inString) {
+      if (escaped) { escaped = false }
+      else if (ch === '\\') { escaped = true }
+      else if (ch === '"') { inString = false }
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{') stack.push('}')
+    else if (ch === '[') stack.push(']')
+    else if (ch === '}' || ch === ']') stack.pop()
+  }
+
+  if (stack.length === 0 && !inString) return null // não estava truncado
+
+  let out = s
+  // Remove uma vírgula/dois-pontos pendente no fim para não gerar JSON inválido.
+  out = out.replace(/[\s]*$/, '')
+  if (inString) out += '"'           // fecha a string aberta
+  out = out.replace(/[,:]\s*$/, '')  // remove separador solto após fechar string
+  while (stack.length) out += stack.pop()
+  return out
 }
 
 function buildPersonalSuggestionsPrompt(

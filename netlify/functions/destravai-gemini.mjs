@@ -46,9 +46,12 @@ export const handler = async (event) => {
 
     // Se o prompt pede JSON, força o Gemini a responder JSON válido — isso elimina
     // o erro "JSON_NOT_FOUND" quando o modelo às vezes devolve texto/markdown.
+    // maxOutputTokens generoso: o gemini-flash-latest gasta parte do orçamento
+    // "pensando", então 2048 truncava o JSON em roteiros maiores (causava o
+    // erro JSON_NOT_FOUND no app). 8192 cobre roteiros longos com folga.
     const generationConfig = {
       temperature: body.temperature ?? 0.9,
-      maxOutputTokens: body.maxOutputTokens ?? 2048,
+      maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
     if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
 

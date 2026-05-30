@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Flame, Check, TrendingUp, Award, Target, Zap, Lock, Users, ChevronRight } from 'lucide-react'
+import { Flame, Check, TrendingUp, Award, Target, Zap, Lock, Users, ChevronRight, Shield } from 'lucide-react'
 import { ACHIEVEMENTS } from '../lib/achievements'
+import { MAX_STREAK_SHIELDS } from '../lib/progress'
 import { loadAchievements, checkAndUnlockAchievements, type UnlockedAchievement } from '../services/achievementsService'
 
 // Painel de progresso reutilizável (sem cabeçalho de página). Usado dentro de
@@ -151,6 +152,26 @@ export default function ProgressoPanel() {
         </div>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${constancyScore}%` }} />
+        </div>
+
+        {/* Escudos de sequência: protegem o streak de zerar ao pular 1 dia */}
+        <div className="flex items-center justify-between mt-4 pt-4" style={{ borderTop: '1px solid var(--border-color)' }}>
+          <div className="flex items-center gap-2">
+            <Shield size={15} style={{ color: '#9B8CFF' }} />
+            <div>
+              <p className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>Escudos de sequência</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Cobrem 1 dia perdido · ganha 1 a cada 7 dias</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: MAX_STREAK_SHIELDS }).map((_, i) => {
+              const active = i < (progress.streakShields ?? 0)
+              return (
+                <Shield key={i} size={18}
+                  style={{ color: active ? '#9B8CFF' : 'var(--text-muted)', fill: active ? '#9B8CFF' : 'transparent', opacity: active ? 1 : 0.35 }} />
+              )
+            })}
+          </div>
         </div>
       </div>
 

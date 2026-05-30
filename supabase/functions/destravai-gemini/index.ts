@@ -68,15 +68,20 @@ Deno.serve(async (req: Request) => {
     const promptType = body.promptType ?? 'generic_gemini'
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
 
+    // Paridade com a Netlify Function: tokens generosos (evita JSON truncado) e,
+    // quando o prompt pede JSON, força a saída a ser JSON válido.
+    const generationConfig: Record<string, unknown> = {
+      temperature: body.temperature ?? 0.9,
+      maxOutputTokens: body.maxOutputTokens ?? 8192,
+    }
+    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: body.temperature ?? 0.9,
-          maxOutputTokens: body.maxOutputTokens ?? 2048,
-        },
+        generationConfig,
       }),
     })
 

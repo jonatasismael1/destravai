@@ -547,6 +547,99 @@ export async function generateLibraryItems(essence: BrandEssence): Promise<Gener
   }).filter((i: GeneratedLibraryItem) => i.content.length > 0)
 }
 
+// ── Momento livre ──────────────────────────────────────────────────────────
+// Cria um story a partir do que a pessoa está pensando/fazendo AGORA — pode ser
+// um tema fora do nicho dela (ex.: profissional de marketing falando de política).
+// Mantém a VOZ dela (tom, bordão, palavras a evitar) mas com liberdade temática
+// e tom mais leve/pessoal. Aproveita o nível de exposição declarado.
+function buildFreeStoryPrompt(
+  profile: ProfessionalProfile,
+  topic: string,
+  vibe: string,
+): string {
+  const tone = profile.voiceTone.join(', ') || 'natural, leve, pessoal'
+  const exposure = EXPOSURE_LABELS[profile.exposureLevel] ?? ''
+
+  return `Você é um roteirista que ajuda criadores a transformar QUALQUER pensamento ou momento do dia em um story autêntico para o Instagram — mesmo que o tema NÃO tenha relação com a profissão da pessoa.
+
+QUEM ESTÁ FALANDO (mantenha a voz, não a obrigue a falar da profissão)
+Nome: ${profile.professionalName}
+Tom de voz natural: ${tone}
+Como aparece no conteúdo: ${exposure}
+${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
+${profile.avoidedWords?.length ? `NUNCA use estas palavras: ${profile.avoidedWords.join(', ')}` : ''}
+
+O QUE A PESSOA QUER FALAR AGORA (tema livre, pode ser pessoal/opinião/cotidiano)
+"${topic}"
+
+ESTILO PEDIDO: ${vibe}
+
+DIRETRIZES
+- Este é um conteúdo PESSOAL/LIVRE: NÃO force conexão com a profissão dela nem CTA de venda.
+- Soe como um desabafo/opinião/relato espontâneo, do jeito que ela falaria com amigos.
+- Tom leve e humano. Pode ter humor, vulnerabilidade ou opinião — desde que natural.
+- Se o tema for sensível (ex.: política), traga de forma respeitosa e pessoal, sem radicalismo nem ataque.
+- Roteiro curto, executável em até 30-45 segundos.
+
+Responda SOMENTE com este JSON (sem texto fora, sem markdown):
+{
+  "theme": "título curto e instigante em até 6 palavras",
+  "objective": "que sensação/conexão esse story gera (1 frase)",
+  "timeEstimate": "tempo estimado de gravação",
+  "content": "roteiro em LINHAS ROTULADAS. Use 'FALA:' para o que dizer em voz alta (1ª pessoa, palavra por palavra), 'TEXTO NA TELA:' para o que aparece escrito e 'CENA:' para enquadramento. Uma linha por trecho.",
+  "cta": "uma pergunta leve ou convite à interação (sem vender nada)",
+  "tags": ["livre", "tag2"]
+}`
+}
+
+export async function generateFreeStory(
+  profile: ProfessionalProfile,
+  topic: string,
+  vibe = 'leve e pessoal',
+): Promise<ContentIdea> {
+  const prompt = buildFreeStoryPrompt(profile, topic, vibe)
+  const raw = await callGemini(prompt)
+  const parsed = extractJSON(raw)
+
+  return {
+    id: crypto.randomUUID(),
+    type: 'story',
+    theme: String(parsed.theme ?? topic.slice(0, 40)),
+    objective: String(parsed.objective ?? 'Conteúdo livre do momento'),
+    content: String(parsed.content ?? ''),
+    cta: String(parsed.cta ?? ''),
+    timeEstimate: String(parsed.timeEstimate ?? '30 segundos'),
+    exposureLevel: profile.exposureLevel,
+    status: 'pending',
+    favorite: false,
+    createdAt: new Date().toISOString(),
+    tags: Array.isArray(parsed.tags) ? parsed.tags.map(String) : ['livre'],
+  }
+}
+
+// Embrulha um roteiro escrito pela PRÓPRIA pessoa num ContentIdea, sem chamar a
+// IA — para ela digitar/colar o texto e ir direto para o teleprompter (StudioModal).
+export function ideaFromOwnScript(text: string, opts?: { theme?: string; type?: ContentIdea['type']; exposureLevel?: ExposureLevel }): ContentIdea {
+  const body = text.trim()
+  const firstLine = body.split(/\r?\n/)[0]?.trim() ?? ''
+  const theme = opts?.theme?.trim() || (firstLine.length > 0 ? firstLine.slice(0, 48) : 'Meu roteiro')
+  return {
+    id: crypto.randomUUID(),
+    type: opts?.type ?? 'story',
+    theme,
+    objective: 'Roteiro escrito por você',
+    // Sem rótulos: o StudioModal trata texto neutro como fala (teleprompter).
+    content: body,
+    cta: '',
+    timeEstimate: '—',
+    exposureLevel: opts?.exposureLevel ?? 'comfortable-talking',
+    status: 'pending',
+    favorite: false,
+    createdAt: new Date().toISOString(),
+    tags: ['meu-roteiro'],
+  }
+}
+
 export async function generateContent(req: GenerateRequest): Promise<ContentIdea> {
   const memoryBlock = await getMemoryBlock()
   const prompt = buildPrompt(req, memoryBlock)

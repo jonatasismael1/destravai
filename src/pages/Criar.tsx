@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList } from 'lucide-react'
+import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
-import { generateContent, generateCaption, generatePersonalizedCTAs } from '../lib/ai'
+import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
@@ -326,7 +326,7 @@ export default function Criar() {
   const paramTheme = searchParams.get('theme') ?? ''
   const paramObjective = searchParams.get('objective') ?? ''
 
-  const [activeTab, setActiveTab] = useState<'criar' | 'ctas'>('criar')
+  const [activeTab, setActiveTab] = useState<'criar' | 'livre' | 'roteiro' | 'ctas'>('criar')
   const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? 'story')
   const [theme, setTheme] = useState(paramTheme)
   const [objective, setObjective] = useState(paramObjective)
@@ -336,6 +336,15 @@ export default function Criar() {
   const [result, setResult] = useState<ContentIdea | null>(null)
   const [showStudio, setShowStudio] = useState(false)
   const [showVoice, setShowVoice] = useState(false)
+
+  // Momento livre (tema do momento, fora do nicho, tom leve)
+  const [freeTopic, setFreeTopic] = useState('')
+  const [freeVibe, setFreeVibe] = useState('leve e pessoal')
+  const [showFreeVoice, setShowFreeVoice] = useState(false)
+  // Meu roteiro (texto escrito pela própria pessoa → grava direto)
+  const [ownScript, setOwnScript] = useState('')
+  const [ownTheme, setOwnTheme] = useState('')
+  const [showOwnVoice, setShowOwnVoice] = useState(false)
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
   const [libraryItemId, setLibraryItemId] = useState<string | null>(null)
@@ -405,6 +414,37 @@ export default function Criar() {
     }
   }
 
+  // Momento livre: gera um story leve sobre o que a pessoa quer falar agora.
+  const handleGenerateFree = async () => {
+    if (!profile || !freeTopic.trim()) return
+    setLoading(true); setResult(null)
+    try {
+      const idea = await generateFreeStory(profile, freeTopic.trim(), freeVibe)
+      setResult(idea); addIdea(idea)
+      const id = await persistIdeaToLibrary(idea)
+      setLibraryItemId(id)
+      if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[Criar generateFree]', msg)
+      setResult({ id: 'error', type: 'story', theme: 'Erro na geração', objective: '', content: `Falha ao gerar:\n\n${msg}`, cta: '', timeEstimate: '', exposureLevel: profile?.exposureLevel ?? 'no-appearance', status: 'pending', favorite: false, createdAt: new Date().toISOString(), tags: [] })
+    } finally { setLoading(false) }
+  }
+
+  // Meu roteiro: usa o texto da própria pessoa e abre o teleprompter direto.
+  const handleOwnScript = async () => {
+    if (!ownScript.trim()) return
+    const idea = ideaFromOwnScript(ownScript, {
+      theme: ownTheme,
+      exposureLevel: profile?.exposureLevel,
+    })
+    setResult(idea); addIdea(idea)
+    setShowStudio(true)
+    const id = await persistIdeaToLibrary(idea)
+    setLibraryItemId(id)
+    if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
+  }
+
   return (
     <div className="p-5 space-y-6 pb-28">
       <div className="pt-4">
@@ -414,33 +454,143 @@ export default function Criar() {
         </p>
       </div>
 
-      {/* Tab switcher */}
-      <div className="flex gap-1 p-1 rounded-2xl" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <button
-          onClick={() => setActiveTab('criar')}
-          className="flex-1 py-2.5 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all duration-200"
-          style={activeTab === 'criar' ? {
-            background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-            color: '#fff',
-            boxShadow: '0 4px 16px rgba(109,93,246,0.4)',
-          } : { color: 'var(--text-muted)' }}
-        >
-          <Sparkles size={14} /> Roteiro
-        </button>
-        <button
-          onClick={() => setActiveTab('ctas')}
-          className="flex-1 py-2.5 rounded-xl text-sm font-extrabold flex items-center justify-center gap-2 transition-all duration-200"
-          style={activeTab === 'ctas' ? {
-            background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.15))',
-            color: '#9B8CFF',
-            border: '1px solid rgba(109,93,246,0.35)',
-          } : { color: 'var(--text-muted)' }}
-        >
-          <Zap size={14} /> CTAs
-        </button>
+      {/* Tab switcher — 4 abas, com scroll horizontal em telas estreitas */}
+      <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        {([
+          { key: 'criar', label: 'Roteiro', Icon: Sparkles },
+          { key: 'livre', label: 'Momento livre', Icon: Coffee },
+          { key: 'roteiro', label: 'Meu roteiro', Icon: PenLine },
+          { key: 'ctas', label: 'CTAs', Icon: Zap },
+        ] as const).map(({ key, label, Icon }) => (
+          <button
+            key={key}
+            onClick={() => setActiveTab(key)}
+            className="flex-1 min-w-[88px] py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all duration-200 whitespace-nowrap"
+            style={activeTab === key ? {
+              background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+              color: '#fff',
+              boxShadow: '0 4px 16px rgba(109,93,246,0.4)',
+            } : { color: 'var(--text-muted)' }}
+          >
+            <Icon size={13} /> {label}
+          </button>
+        ))}
       </div>
 
       {activeTab === 'ctas' && <PersonalizedCTABrowser />}
+
+      {/* ── Aba: Momento livre ── */}
+      {activeTab === 'livre' && <>
+        <div className="rounded-3xl p-5 space-y-1"
+          style={{ background: 'linear-gradient(135deg, rgba(247,185,85,0.1), rgba(255,122,107,0.06))', border: '1px solid rgba(247,185,85,0.25)' }}>
+          <p className="font-extrabold text-base flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <Coffee size={16} style={{ color: '#F7B955' }} /> Fala o que está na sua cabeça
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Um tema do momento, mesmo fora da sua área (uma opinião, um desabafo, algo do dia). A IA mantém a sua voz, com tom leve — sem forçar venda.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="label">Sobre o que você quer falar agora?</label>
+            <div className="relative">
+              <textarea
+                className="input resize-none pr-12"
+                rows={3}
+                value={freeTopic}
+                onChange={e => setFreeTopic(e.target.value)}
+                placeholder="Ex: minha opinião sobre o debate de ontem, por que parei de tomar café, o que aprendi num perrengue hoje..."
+              />
+              <button
+                onClick={() => setShowFreeVoice(true)}
+                className="absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)' }}
+                title="Ditar por voz" type="button"
+              >
+                <Mic size={14} style={{ color: '#9B8CFF' }} />
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Estilo</label>
+            <div className="flex flex-wrap gap-1.5">
+              {['leve e pessoal', 'com humor', 'opinião sincera', 'reflexivo', 'desabafo real'].map(v => (
+                <button key={v} onClick={() => setFreeVibe(v)}
+                  className={`chip text-xs ${freeVibe === v ? 'chip-active' : 'chip-inactive'}`}>{v}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={handleGenerateFree}
+          disabled={loading || !profile || !freeTopic.trim()}
+          className="btn-primary w-full py-4 text-base disabled:opacity-40"
+        >
+          {loading
+            ? <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Criando seu story...</>
+            : <><Coffee size={18} /> Criar story do momento</>}
+        </button>
+        {!profile && (
+          <div className="rounded-2xl p-4 text-sm font-semibold text-center"
+            style={{ background: 'rgba(247,185,85,0.1)', border: '1px solid rgba(247,185,85,0.2)', color: '#F7B955' }}>
+            Complete o onboarding para a IA conhecer a sua voz.
+          </div>
+        )}
+      </>}
+
+      {/* ── Aba: Meu roteiro (texto próprio → teleprompter) ── */}
+      {activeTab === 'roteiro' && <>
+        <div className="rounded-3xl p-5 space-y-1"
+          style={{ background: 'linear-gradient(135deg, rgba(83,214,161,0.1), rgba(109,93,246,0.06))', border: '1px solid rgba(83,214,161,0.25)' }}>
+          <p className="font-extrabold text-base flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
+            <PenLine size={16} style={{ color: '#53D6A1' }} /> Já tenho o que falar
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Escreva ou cole o seu próprio roteiro e vá direto para o teleprompter gravar. Sem IA — do seu jeito.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="label">Título (opcional)</label>
+            <input className="input" value={ownTheme} onChange={e => setOwnTheme(e.target.value)} placeholder="Como você quer chamar este roteiro" />
+          </div>
+          <div>
+            <label className="label">Seu roteiro</label>
+            <div className="relative">
+              <textarea
+                className="input resize-none pr-12"
+                rows={8}
+                value={ownScript}
+                onChange={e => setOwnScript(e.target.value)}
+                placeholder="Escreva exatamente o que você vai falar. O teleprompter vai exibir esse texto enquanto você grava."
+              />
+              <button
+                onClick={() => setShowOwnVoice(true)}
+                className="absolute right-3 top-3 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-90"
+                style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)' }}
+                title="Ditar por voz" type="button"
+              >
+                <Mic size={14} style={{ color: '#9B8CFF' }} />
+              </button>
+            </div>
+            <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+              Dica: cada linha vira um trecho no teleprompter.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleOwnScript}
+          disabled={!ownScript.trim()}
+          className="btn-primary w-full py-4 text-base disabled:opacity-40"
+        >
+          <Camera size={18} /> Gravar meu roteiro
+        </button>
+      </>}
 
       {activeTab === 'criar' && <>
         {/* Type selector */}
@@ -534,6 +684,10 @@ export default function Criar() {
           </div>
         )}
 
+      </>}
+
+      {/* Resultado da IA — vale para 'Roteiro' e 'Momento livre' */}
+      {(activeTab === 'criar' || activeTab === 'livre') && <>
         {result && !loading && result.id !== 'error' && (
           <div className="flex items-center justify-center gap-1.5 text-xs font-semibold -mb-1"
             style={{ color: savedNotice ? '#53D6A1' : 'var(--text-muted)' }}>
@@ -582,6 +736,22 @@ export default function Criar() {
           label="Fale o tema da sua ideia..."
           onResult={(text) => setTheme(text)}
           onClose={() => setShowVoice(false)}
+        />
+      )}
+
+      {showFreeVoice && (
+        <VoiceDictation
+          label="Fale o que está na sua cabeça..."
+          onResult={(text) => setFreeTopic(text)}
+          onClose={() => setShowFreeVoice(false)}
+        />
+      )}
+
+      {showOwnVoice && (
+        <VoiceDictation
+          label="Dite o seu roteiro..."
+          onResult={(text) => setOwnScript(prev => (prev ? `${prev}\n${text}` : text))}
+          onClose={() => setShowOwnVoice(false)}
         />
       )}
     </div>

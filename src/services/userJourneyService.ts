@@ -297,6 +297,16 @@ export async function removeCalendarItem(id: string): Promise<void> {
   if (error) throw new Error(`Erro ao remover do calendário: ${error.message}`)
 }
 
+// Move um item de conteúdo para outro dia (arrastar e soltar no calendário).
+export async function moveCalendarItem(id: string, newDayKey: string): Promise<void> {
+  const { error } = await supabase
+    .from('destravai_calendar_items')
+    .update({ day_key: newDayKey, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) throw new Error(`Erro ao mover conteúdo: ${error.message}`)
+}
+
 export async function loadPersonalSpace(fallback: PersonalSpace): Promise<PersonalSpace> {
   const userId = await currentUserId()
   if (!userId) return fallback

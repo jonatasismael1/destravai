@@ -1,5 +1,9 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Flame, Check, TrendingUp, Award, Target, Zap } from 'lucide-react'
+import { Flame, Check, TrendingUp, Award, Target, Zap, Lock, Users, ChevronRight } from 'lucide-react'
+import { ACHIEVEMENTS } from '../lib/achievements'
+import { loadAchievements, checkAndUnlockAchievements, type UnlockedAchievement } from '../services/achievementsService'
 
 // Painel de progresso reutilizável (sem cabeçalho de página). Usado dentro de
 // "Meu Espaço" para deixar o progresso visível e motivar o usuário.
@@ -36,6 +40,32 @@ function getLevelProgress(completed: number) {
 export default function ProgressoPanel() {
   const { state } = useApp()
   const { progress, missions } = state
+  const navigate = useNavigate()
+
+  // Conquistas: carrega as já desbloqueadas e verifica se há novas a desbloquear.
+  // Tolerante a falhas — se o backend de conquistas não responder, a tela continua igual.
+  const [unlocked, setUnlocked] = useState<UnlockedAchievement[]>([])
+  const [justUnlocked, setJustUnlocked] = useState<UnlockedAchievement[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const existing = await loadAchievements()
+      if (!cancelled) setUnlocked(existing)
+      const fresh = await checkAndUnlockAchievements(progress)
+      if (!cancelled && fresh.length > 0) {
+        setJustUnlocked(fresh)
+        setUnlocked(prev => {
+          const have = new Set(prev.map(a => a.key))
+          return [...fresh.filter(f => !have.has(f.key)), ...prev]
+        })
+      }
+    })()
+    return () => { cancelled = true }
+    // Reavalia quando o nº de missões concluídas muda (proxy de progresso).
+  }, [progress.missionsCompleted, progress.currentStreak]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const unlockedKeys = new Set(unlocked.map(a => a.key))
 
   const doneMissions = missions.filter(m => m.status === 'done')
   const { level, nextLevel, progress: levelProgress } = getLevelProgress(progress.missionsCompleted)
@@ -121,6 +151,72 @@ export default function ProgressoPanel() {
         </div>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${constancyScore}%` }} />
+        </div>
+      </div>
+
+      {/* Banner de conquista recém-desbloqueada */}
+      {justUnlocked.length > 0 && (
+        <div className="rounded-3xl p-5 animate-fade-up"
+          style={{ background: 'linear-gradient(135deg, rgba(247,185,85,0.15), rgba(255,122,107,0.08))', border: '1px solid rgba(247,185,85,0.35)', boxShadow: '0 0 30px rgba(247,185,85,0.12)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: '#F7B955' }}>Nova conquista desbloqueada!</p>
+          <div className="space-y-2">
+            {justUnlocked.map(a => (
+              <div key={a.key} className="flex items-center gap-3">
+                <span style={{ fontSize: 26 }}>{a.emoji}</span>
+                <div>
+                  <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>{a.title}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{a.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Grupos & Ranking — leva para a competição de constância entre amigos */}
+      <button onClick={() => navigate('/grupos')}
+        className="w-full rounded-3xl p-5 flex items-center gap-4 text-left transition-all active:scale-[0.98]"
+        style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.07))', border: '1px solid rgba(109,93,246,0.3)' }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 0 20px rgba(109,93,246,0.4)' }}>
+          <Users size={22} className="text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Grupos &amp; Ranking</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Dispute constância com amigos e mantenha o ritmo juntos.</p>
+        </div>
+        <ChevronRight size={18} style={{ color: 'var(--text-muted)' }} />
+      </button>
+
+      {/* Conquistas (badges) */}
+      <div className="glass p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-extrabold" style={{ color: 'var(--text-primary)' }}>Conquistas</h3>
+          <span className="text-xs font-bold" style={{ color: '#9B8CFF' }}>
+            {unlockedKeys.size}/{ACHIEVEMENTS.length}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-2.5">
+          {ACHIEVEMENTS.map(a => {
+            const isOn = unlockedKeys.has(a.key)
+            return (
+              <div key={a.key} className="rounded-2xl p-3 text-center transition-all duration-300"
+                style={isOn ? {
+                  background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.08))',
+                  border: '1px solid rgba(109,93,246,0.35)',
+                } : {
+                  background: 'var(--bg-card)', border: '1px solid var(--border-color)', opacity: 0.55,
+                }}
+                title={a.description}>
+                <div style={{ fontSize: 24, filter: isOn ? 'none' : 'grayscale(1)' }} className="mb-1 flex items-center justify-center" >
+                  {isOn ? a.emoji : <Lock size={18} style={{ color: 'var(--text-muted)' }} />}
+                </div>
+                <p className="text-[10px] font-bold leading-tight" style={{ color: isOn ? 'var(--text-primary)' : 'var(--text-muted)' }}>
+                  {a.title}
+                </p>
+              </div>
+            )
+          })}
         </div>
       </div>
 

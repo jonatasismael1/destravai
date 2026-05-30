@@ -3,6 +3,30 @@ import type { BrandEssence, LibraryItemType } from './supabase/types'
 import { generateText } from './ai/googleGemini'
 import { buildEssenceSummaryPrompt } from './ai/prompts/essenceSummary'
 import { buildInitialLibraryPrompt } from './ai/prompts/initialLibrary'
+import { loadUserMemory, buildMemoryBlock } from '../services/userMemoryService'
+
+// ── Cache curto da memória do usuário ─────────────────────────────────────────
+// Ações como o check-in da Home disparam 3 gerações em sequência. Para não
+// consultar o banco 3x, guardamos o bloco de memória por alguns segundos.
+// Tolerante a falhas: se a memória falhar, devolve string vazia e o prompt fica
+// EXATAMENTE igual ao comportamento atual.
+let _memoryBlockCache: { value: string; at: number } | null = null
+const MEMORY_TTL_MS = 30_000
+
+async function getMemoryBlock(): Promise<string> {
+  const now = Date.now()
+  if (_memoryBlockCache && now - _memoryBlockCache.at < MEMORY_TTL_MS) {
+    return _memoryBlockCache.value
+  }
+  try {
+    const memory = await loadUserMemory()
+    const block = buildMemoryBlock(memory)
+    _memoryBlockCache = { value: block, at: now }
+    return block
+  } catch {
+    return ''
+  }
+}
 
 const EXPOSURE_LABELS: Record<ExposureLevel, string> = {
   'no-appearance': 'não aparece no vídeo — usa só texto, imagem estática ou carrossel',
@@ -29,7 +53,7 @@ Descreva visual, texto na tela e fala para cada story.`,
 Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição.`,
 }
 
-function buildPrompt(req: GenerateRequest): string {
+function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {
   const { profile } = req
   const pillarList = profile.pillars.map((p, i) => `${i + 1}. ${p.name}${p.description ? ` (${p.description})` : ''}`).join('\n')
   const serviceList = profile.services.map(s => `- ${s.name}${s.commercialGoal ? ` (${s.commercialGoal})` : ''}`).join('\n')
@@ -82,6 +106,7 @@ DIRETRIZES OBRIGATÓRIAS
 INSTRUÇÃO DE GERAÇÃO
 ═══════════════════════════════
 ${TYPE_INSTRUCTIONS[req.type]}
+${memoryBlock}
 
 Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto fora do JSON):
 {
@@ -259,7 +284,7 @@ const CHECKIN_CONFIG: Record<string, CheckinConfig> = {
   },
 }
 
-function buildCheckinPrompt(profile: ProfessionalProfile, checkinKey: string, variationHint?: string): string {
+function buildCheckinPrompt(profile: ProfessionalProfile, checkinKey: string, variationHint?: string, memoryBlock = ''): string {
   const cfg = CHECKIN_CONFIG[checkinKey] ?? CHECKIN_CONFIG['2min']
   const pillars = profile.pillars.slice(0, 3).map(p => p.name).join(', ') || 'autoridade na área'
   const services = profile.services.slice(0, 3).map(s => s.name).join(', ') || profile.specialty
@@ -291,6 +316,7 @@ DIRETRIZES
 - Para story falado: escreva o roteiro como ela falaria, em primeira pessoa, natural
 - Respeite o nível de exposição declarado
 - Nenhuma ideia genérica que qualquer profissional poderia usar
+${memoryBlock}
 
 Responda SOMENTE com este JSON (sem texto fora, sem markdown):
 {
@@ -310,7 +336,8 @@ export async function generateCheckinIdea(
 ): Promise<ContentIdea> {
   const cfg = CHECKIN_CONFIG[checkinKey] ?? CHECKIN_CONFIG['2min']
 
-  const prompt = buildCheckinPrompt(profile, checkinKey, variationHint)
+  const memoryBlock = await getMemoryBlock()
+  const prompt = buildCheckinPrompt(profile, checkinKey, variationHint, memoryBlock)
   const raw = await callGemini(prompt)
   const parsed = extractJSON(raw)
 
@@ -521,7 +548,8 @@ export async function generateLibraryItems(essence: BrandEssence): Promise<Gener
 }
 
 export async function generateContent(req: GenerateRequest): Promise<ContentIdea> {
-  const prompt = buildPrompt(req)
+  const memoryBlock = await getMemoryBlock()
+  const prompt = buildPrompt(req, memoryBlock)
   const raw = await callGemini(prompt)
   const parsed = extractJSON(raw)
 

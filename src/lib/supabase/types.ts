@@ -137,6 +137,8 @@ export interface StoredProgress {
   last_activity: string
   level: string
   week_key: string | null
+  best_streak: number
+  streak_shields: number
   created_at: string
   updated_at: string
 }

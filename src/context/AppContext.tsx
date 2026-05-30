@@ -3,7 +3,7 @@ import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import type { DestravaiProfile, BrandEssence } from '../lib/supabase/types'
 import type { ContentIdea, Mission, Progress, PersonalSpace, PersonalContext, JournalEntry, PersonalIdea, ProfessionalProfile } from '../types'
-import { calculateStreak, calculateLevel, getWeekKey, inferCategory } from '../lib/progress'
+import { calculateStreakWithShield, calculateLevel, getWeekKey, inferCategory } from '../lib/progress'
 import { getCurrentProfile } from '../services/profileService'
 import { getBrandEssence, essenceToProfile } from '../services/essenceService'
 import { getSubscriptionStatus, type SubscriptionStatus } from '../services/subscriptionService'
@@ -40,6 +40,8 @@ const defaultProgress: Progress = {
   contentBalance: { authority: 0, backstage: 0, connection: 0, sale: 0, interaction: 0, humor: 0 },
   lastActivity: new Date().toISOString(),
   level: 'Começando a aparecer',
+  bestStreak: 0,
+  streakShields: 0,
 }
 
 const defaultPersonalSpace: PersonalSpace = {
@@ -261,7 +263,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => {
       const newCompleted = s.progress.missionsCompleted + 1
       const newWeekly = s.progress.weeklyMissions + 1
-      const newStreak = calculateStreak(s.progress.lastActivity, s.progress.currentStreak)
+      // Streak com escudo: pular 1 dia não zera se houver escudo; a cada 7 dias
+      // seguidos ganha um escudo novo.
+      const streakResult = calculateStreakWithShield(
+        s.progress.lastActivity,
+        s.progress.currentStreak,
+        s.progress.streakShields ?? 0,
+      )
       const newLevel = calculateLevel(newCompleted)
       const category = inferCategory(ideaObjective)
       const newBalance = {
@@ -272,7 +280,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ...s.progress,
         missionsCompleted: newCompleted,
         weeklyMissions: newWeekly,
-        currentStreak: newStreak,
+        currentStreak: streakResult.streak,
+        streakShields: streakResult.shields,
+        bestStreak: Math.max(s.progress.bestStreak ?? 0, streakResult.streak),
         level: newLevel,
         contentBalance: newBalance,
         lastActivity: new Date().toISOString(),

@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import PersonalSetupModal from '../components/PersonalSetupModal'
 import ProgressoPanel from '../components/ProgressoPanel'
+import Grupos from './Grupos'
 import type { JournalEntry, PersonalIdea } from '../types'
 import { generatePersonalSuggestions } from '../lib/ai'
 import { toISODateKey } from '../services/userJourneyService'
@@ -45,7 +46,7 @@ export default function MeuEspaco() {
   const today = toISODateKey()
 
   const [showSetup, setShowSetup] = useState(false)
-  const [tab, setTab] = useState<'espaco' | 'progresso'>('espaco')
+  const [tab, setTab] = useState<'espaco' | 'progresso' | 'ranking'>('espaco')
   const [selectedMood, setSelectedMood] = useState(
     todayMoodDate === today ? (todayMood ?? '') : ''
   )
@@ -162,7 +163,7 @@ export default function MeuEspaco() {
         {/* Abas: Espaço pessoal e Progresso (lugar único e organizado) */}
         <div className="flex p-1 mb-5 rounded-2xl gap-1"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-          {([['espaco', 'Meu espaço'], ['progresso', 'Meu progresso']] as const).map(([key, label]) => (
+          {([['espaco', 'Meu espaço'], ['progresso', 'Progresso'], ['ranking', 'Ranking']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -179,6 +180,15 @@ export default function MeuEspaco() {
         </div>
 
         {tab === 'progresso' && <ProgressoPanel />}
+
+        {/* Ranking: reaproveita a página de Grupos dentro de uma aba dedicada.
+            O wrapper neutraliza o padding-top próprio da página (já estamos numa
+            tela com header), mantendo todo o resto do comportamento intacto. */}
+        {tab === 'ranking' && (
+          <div className="-mx-4 -mt-1">
+            <Grupos />
+          </div>
+        )}
 
         {tab === 'espaco' && (
         <>

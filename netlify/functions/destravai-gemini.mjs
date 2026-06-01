@@ -12,9 +12,10 @@ import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.m
 // é só um fallback caso a env não exista — NÃO substitui a sua configuração.
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-flash-latest'
 // Usado APENAS como rede de segurança quando o principal falha de forma
-// transitória (após o retry). Modelo estável e da mesma família, para manter o
-// estilo parecido. Não afeta o fluxo normal, que continua usando o principal.
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash'
+// transitória (após o retry). gemini-1.5-flash tem COTA GRATUITA (free tier),
+// ao contrário do gemini-2.0-flash, que nesta chave vinha com limite 0 e por
+// isso o fallback falhava. Não afeta o fluxo normal, que usa o principal.
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash'
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
@@ -136,8 +137,14 @@ export const handler = async (event) => {
       user_id: user.id, prompt_type: promptType, model: usedModel, status: 'error', error_message: lastMsg,
     }).then(() => {}, () => {})
     await serverLog('destravai-gemini', lastMsg, 'error', user.id, { models })
-    return json(503, {
-      error: 'A IA está sobrecarregada no momento. Aguarde alguns segundos e tente novamente.',
+
+    // Erro de COTA (free tier do Google) é diferente de instabilidade: a mensagem
+    // precisa orientar o usuário a esperar — retry imediato não resolve.
+    const isQuota = /quota|billing|exceeded|resource_exhausted/i.test(lastMsg)
+    return json(isQuota ? 429 : 503, {
+      error: isQuota
+        ? 'Muitas gerações em sequência agora. Aguarde cerca de 1 minuto e tente novamente.'
+        : 'A IA está instável no momento. Aguarde alguns segundos e tente novamente.',
     })
   } catch (err) {
     console.error('[destravai-gemini]', err?.message)

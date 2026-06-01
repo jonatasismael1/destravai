@@ -11,7 +11,7 @@ import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.m
 // Modelo padrão: DEFAULT_AI_MODEL (ex.: 'openrouter/free'). Mantém compat com as
 // envs antigas do Gemini. Modelos com '/' (ex.: 'openrouter/free',
 // 'meta-llama/llama-3.3-70b') vão pelo OpenRouter; o resto pelo Gemini.
-const DEFAULT_MODEL =
+const LEGACY_DEFAULT_MODEL =
   process.env.DEFAULT_AI_MODEL ||
   process.env.GEMINI_MODEL ||
   process.env.VITE_GEMINI_MODEL ||
@@ -28,6 +28,11 @@ const APP_REFERER = (process.env.APP_URL || 'https://destravai.dbe.digital').rep
 const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || '')
   .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3)
 
+const AI_MODEL_PRIMARY = process.env.AI_MODEL_PRIMARY || LEGACY_DEFAULT_MODEL
+const AI_PROVIDER_PRIMARY = normalizeProvider(process.env.AI_PROVIDER_PRIMARY) || providerForModel(AI_MODEL_PRIMARY)
+const AI_MODEL_FALLBACK = process.env.AI_MODEL_FALLBACK || ''
+const AI_PROVIDER_FALLBACK = normalizeProvider(process.env.AI_PROVIDER_FALLBACK) || (AI_MODEL_FALLBACK ? providerForModel(AI_MODEL_FALLBACK) : null)
+
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
@@ -36,6 +41,38 @@ const PER_MINUTE_MS = 60 * 1000
 // Modelo do OpenRouter? (tem provedor no nome, no formato "provedor/modelo")
 function isOpenRouterModel(model) {
   return typeof model === 'string' && model.includes('/')
+}
+
+function normalizeProvider(provider) {
+  const value = String(provider || '').trim().toLowerCase()
+  if (value === 'openrouter') return 'openrouter'
+  if (value === 'gemini' || value === 'google') return 'gemini'
+  return null
+}
+
+function providerForModel(model) {
+  return isOpenRouterModel(model) ? 'openrouter' : 'gemini'
+}
+
+function buildProviderAttempts(requestedModel) {
+  const primaryModel = requestedModel || AI_MODEL_PRIMARY
+  const primaryProvider = requestedModel ? providerForModel(primaryModel) : AI_PROVIDER_PRIMARY
+  const attempts = [{ provider: primaryProvider, model: primaryModel }]
+
+  if (AI_PROVIDER_FALLBACK && AI_MODEL_FALLBACK) {
+    const fallback = { provider: AI_PROVIDER_FALLBACK, model: AI_MODEL_FALLBACK }
+    const alreadyIncluded = attempts.some((attempt) => (
+      attempt.provider === fallback.provider && attempt.model === fallback.model
+    ))
+    if (!alreadyIncluded) attempts.push(fallback)
+  }
+
+  return attempts
+}
+
+function openRouterModelsFor(model) {
+  if (OPENROUTER_MODELS.length && model === AI_MODEL_PRIMARY) return OPENROUTER_MODELS
+  return [model]
 }
 
 // Chama o OpenRouter (API compatível com a da OpenAI: /chat/completions).
@@ -140,47 +177,57 @@ export const handler = async (event) => {
       return json(429, { error: `Você atingiu o limite de ${MONTHLY_LIMIT} gerações neste mês. O limite renova no início do próximo mês.` })
     }
 
-    const promptType = body.promptType || 'generic_gemini'
-    const requested = body.model || DEFAULT_MODEL
+    const promptType = body.promptType || 'generic_ai'
+    const requested = body.model ? String(body.model).trim() : ''
+    const attempts = buildProviderAttempts(requested)
     // Cadeia OpenRouter (se configurada) tem prioridade; senão, usa o modelo pedido.
-    const orModels = OPENROUTER_MODELS.length ? OPENROUTER_MODELS : (isOpenRouterModel(requested) ? [requested] : [])
-    const viaOpenRouter = orModels.length > 0
     const wantsJson = /JSON/i.test(prompt)
 
     // Valida a chave do provedor escolhido.
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY
-    if (viaOpenRouter && !OPENROUTER_KEY) return json(500, { error: 'Chave OpenRouter (OPENROUTER_API_KEY) não configurada no servidor' })
-    if (!viaOpenRouter && !geminiKey) return json(500, { error: 'Chave de IA não configurada no servidor' })
+    if (attempts.some((attempt) => attempt.provider === 'openrouter') && !OPENROUTER_KEY) return json(500, { error: 'Chave OpenRouter (OPENROUTER_API_KEY) nao configurada no servidor' })
+    if (attempts.some((attempt) => attempt.provider === 'gemini') && !geminiKey) return json(500, { error: 'Chave Gemini (GOOGLE_GENERATIVE_AI_API_KEY) nao configurada no servidor' })
 
     // maxOutputTokens generoso (8192) cobre roteiros longos.
     const generationConfig = {
       temperature: body.temperature ?? 0.9,
       maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
-    if (!viaOpenRouter && wantsJson) generationConfig.responseMimeType = 'application/json'
-
     const startTime = Date.now()
 
     // UMA única requisição. No OpenRouter, a cadeia (até 3 modelos) faz o fallback
     // do lado dele — sem múltiplos round-trips que estourariam o tempo. O
     // response_format garante JSON válido e completo (fim do "JSON not found"
     // e do roteiro cortado). Timeout 9,5s ~ teto de 10s do Netlify Free.
-    const r = viaOpenRouter
-      ? await callOpenRouter(orModels, prompt, generationConfig, wantsJson, 9500)
-      : await callGemini(requested, prompt, generationConfig, geminiKey, 9500)
-    if (r.ok && r.text) {
-      await admin.from('destravai_ai_generations').insert({
-        user_id: user.id, prompt_type: promptType, model: r.model || requested, status: 'success',
-      }).then(() => {}, () => {})
-      return json(200, { text: r.text })
-    }
-    const lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
+    let lastMsg = 'A IA retornou vazio.'
+    let lastModel = attempts[0]?.model || AI_MODEL_PRIMARY
 
-    // Falhou — registra e responde de forma amigável.
+    for (const attempt of attempts) {
+      const r = attempt.provider === 'openrouter'
+        ? await callOpenRouter(openRouterModelsFor(attempt.model), prompt, generationConfig, wantsJson, 9500)
+        : await callGemini(
+          attempt.model,
+          prompt,
+          { ...generationConfig, ...(wantsJson ? { responseMimeType: 'application/json' } : {}) },
+          geminiKey,
+          9500,
+        )
+
+      lastModel = r.model || attempt.model
+      if (r.ok && r.text) {
+        await admin.from('destravai_ai_generations').insert({
+          user_id: user.id, prompt_type: promptType, model: lastModel, status: 'success',
+        }).then(() => {}, () => {})
+        return json(200, { text: r.text })
+      }
+      lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
+    }
+
+    // Falhou - registra e responde de forma amigavel.
     await admin.from('destravai_ai_generations').insert({
-      user_id: user.id, prompt_type: promptType, model: requested, status: 'error', error_message: lastMsg,
+      user_id: user.id, prompt_type: promptType, model: lastModel, status: 'error', error_message: lastMsg,
     }).then(() => {}, () => {})
-    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { requested, ms: Date.now() - startTime })
+    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { attempts, ms: Date.now() - startTime })
 
     // Mensagem conforme o tipo de falha:
     // - cota (free tier do Google): orienta a aguardar

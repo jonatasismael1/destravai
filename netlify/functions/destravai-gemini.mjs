@@ -8,22 +8,19 @@ import { json, preflight, getUser, supabaseAdmin, serverLog } from './_shared.mj
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 // Modelo principal: respeita a variável de ambiente já configurada
-// (GEMINI_MODEL = gemini-flash-latest no Netlify/Supabase). O default do código
-// é só um fallback caso a env não exista — NÃO substitui a sua configuração.
+// (GEMINI_MODEL/VITE_GEMINI_MODEL = gemini-flash-latest no Netlify). É o único
+// modelo disponível nesta chave — os "fallbacks" que testamos (1.5-flash,
+// 2.0-flash) não existem/têm cota 0 nela, então NÃO usamos fallback: uma única
+// chamada ao principal, como sempre funcionou.
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-flash-latest'
-// Usado APENAS como rede de segurança quando o principal falha de forma
-// transitória (após o retry). gemini-1.5-flash tem COTA GRATUITA (free tier),
-// ao contrário do gemini-2.0-flash, que nesta chave vinha com limite 0 e por
-// isso o fallback falhava. Não afeta o fluxo normal, que usa o principal.
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash'
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
 const PER_MINUTE_MS = 60 * 1000
 
 // Chama o Gemini uma vez, com TIMEOUT próprio (AbortController). É essencial:
-// a função do Netlify é cortada em ~10s (gera 504). Limitamos cada chamada para
-// nunca estourar esse teto, mesmo somando principal + fallback.
+// a função do Netlify (plano Free) é cortada em ~10s e gera 504. Abortamos um
+// pouco antes (9,5s) para devolver uma mensagem clara em vez do 504 cru.
 // Retorna { ok, text, status, msg }.
 async function callGemini(model, prompt, generationConfig, key, timeoutMs) {
   const controller = new AbortController()
@@ -92,57 +89,35 @@ export const handler = async (event) => {
     // Se o prompt pede JSON, força o Gemini a responder JSON válido — isso elimina
     // o erro "JSON_NOT_FOUND" quando o modelo às vezes devolve texto/markdown.
     // maxOutputTokens generoso (8192) cobre roteiros longos com folga.
-    const baseConfig = {
+    // O modelo PENSA normalmente (como sempre funcionou) — não mexemos no thinking.
+    const generationConfig = {
       temperature: body.temperature ?? 0.9,
       maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
-    if (/JSON/i.test(prompt)) baseConfig.responseMimeType = 'application/json'
-
-    // DESLIGA o "pensamento" do modelo principal. O gemini-flash-latest é o
-    // 2.5-flash, que pensa por padrão e fica LENTO (10s+ → timeout/504). Com
-    // thinkingBudget 0 a resposta vem em ~2-4s, sem perder qualidade prática nos
-    // roteiros. O fallback (1.5-flash) não tem esse recurso → recebe baseConfig.
-    const primaryConfig = { ...baseConfig, thinkingConfig: { thinkingBudget: 0 } }
+    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
 
     const requested = body.model || DEFAULT_MODEL
     const startTime = Date.now()
-    let lastMsg = 'Falha desconhecida na IA'
-    let usedModel = requested
 
-    const logSuccess = (model) =>
-      admin.from('destravai_ai_generations').insert({
-        user_id: user.id, prompt_type: promptType, model, status: 'success',
+    // UMA única chamada ao modelo principal (exatamente como funcionava com o
+    // gemini-flash-latest). Sem fallback: os modelos alternativos não existem
+    // nesta chave e só atrapalhavam. Timeout de 9,5s = aproveita quase todo o
+    // teto de 10s da função (plano Free do Netlify), dando tempo de o modelo
+    // pensar e responder. Os 9 sucessos de hoje mostram que cabe nesse tempo.
+    const r = await callGemini(requested, prompt, generationConfig, geminiKey, 9500)
+    if (r.ok && r.text) {
+      await admin.from('destravai_ai_generations').insert({
+        user_id: user.id, prompt_type: promptType, model: requested, status: 'success',
       }).then(() => {}, () => {})
-
-    // 1) CAMINHO FELIZ: uma única chamada ao modelo principal (sem pensar = rápido).
-    //    Timeout de 8,5s — abaixo do corte de ~10s do Netlify.
-    let r = await callGemini(requested, prompt, primaryConfig, geminiKey, 8500)
-    // Se o modelo recusar thinkingConfig (alias antigo que não suporta), tenta de
-    // novo SEM ele — falha rápida, então cabe no tempo.
-    if (!r.ok && /thinking|unknown name|invalid|not supported/i.test(r.msg) && (Date.now() - startTime) < 2500) {
-      r = await callGemini(requested, prompt, baseConfig, geminiKey, 7000)
+      return json(200, { text: r.text })
     }
-    if (r.ok && r.text) { await logSuccess(requested); return json(200, { text: r.text }) }
-    lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
-
-    // 2) FALLBACK só se o principal falhou RÁPIDO (ex.: cota 4xx, ~1s). Se ele
-    //    demorou (timeout/lento), NÃO tentamos de novo — senão estoura o tempo
-    //    e cai em 504. Mantém a robustez sem arriscar o limite da função.
-    const elapsed = Date.now() - startTime
-    const failedFast = elapsed < 3000
-    const worthFallback = (!r.ok || !r.text) && requested !== FALLBACK_MODEL
-    if (failedFast && worthFallback) {
-      const r2 = await callGemini(FALLBACK_MODEL, prompt, baseConfig, geminiKey, 6000)
-      if (r2.ok && r2.text) { await logSuccess(FALLBACK_MODEL); return json(200, { text: r2.text }) }
-      usedModel = FALLBACK_MODEL
-      lastMsg = r2.ok ? 'A IA retornou vazio.' : r2.msg
-    }
+    const lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
 
     // Falhou — registra e responde de forma amigável.
     await admin.from('destravai_ai_generations').insert({
-      user_id: user.id, prompt_type: promptType, model: usedModel, status: 'error', error_message: lastMsg,
+      user_id: user.id, prompt_type: promptType, model: requested, status: 'error', error_message: lastMsg,
     }).then(() => {}, () => {})
-    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { requested, fallback: FALLBACK_MODEL, ms: Date.now() - startTime })
+    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { requested, ms: Date.now() - startTime })
 
     // Mensagem conforme o tipo de falha:
     // - cota (free tier do Google): orienta a aguardar

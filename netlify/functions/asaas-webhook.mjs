@@ -75,7 +75,10 @@ export const handler = async (event) => {
     }
 
     // 4) Aplica a mudança de status.
-    const mapped = eventType.startsWith('PAYMENT_') ? mapPaymentEvent(eventType) : null
+    // Cortesia é gerenciada pelo admin (sem cobrança). Nunca deixamos um evento do
+    // Asaas rebaixar o acesso de um testador — apenas registramos o evento.
+    const isCourtesy = subRow?.payment_method === 'COURTESY'
+    const mapped = (!isCourtesy && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
     const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
 
     // Indica que, ao confirmar o pagamento, precisamos liberar acesso + e-mail.
@@ -93,6 +96,13 @@ export const handler = async (event) => {
         const deadline = new Date(startedAt)
         deadline.setDate(deadline.getDate() + GUARANTEE_DAYS)
         updates.refund_deadline = deadline.toISOString()
+
+        // "Pago até": cada pagamento confirmado garante +1 mês de acesso a partir
+        // de agora. É o que sustenta o acesso até o fim do período já pago quando
+        // o usuário cancela fora da garantia.
+        const periodEnd = new Date()
+        periodEnd.setMonth(periodEnd.getMonth() + 1)
+        updates.current_period_end = periodEnd.toISOString()
 
         if (subRow && !subRow.asaas_subscription_id && subRow.plan_id === COMPLETE_PLAN.id) {
           try {

@@ -37,6 +37,8 @@ export default function MinhaAssinatura() {
 
   const withinGuarantee = !!sub?.withinGuarantee
   const canCancel = sub?.status === 'active' || sub?.status === 'pending' || sub?.status === 'past_due'
+  // Cancelada, mas ainda com acesso até o fim do período já pago.
+  const accessUntil = sub?.status === 'canceled' && sub?.accessUntil ? sub.accessUntil : null
 
   const handleCancel = async () => {
     setLoading(true)
@@ -83,6 +85,14 @@ export default function MinhaAssinatura() {
                 style={{ background: 'rgba(83,214,161,0.08)', border: '1px solid rgba(83,214,161,0.2)', color: '#53D6A1' }}>
                 <ShieldCheck size={14} className="flex-shrink-0 mt-0.5" />
                 Cancelamento solicitado dentro do prazo legal pode gerar reembolso conforme a politica da empresa.
+              </div>
+            )}
+
+            {accessUntil && (
+              <div className="rounded-2xl p-3 flex items-start gap-2 text-xs"
+                style={{ background: 'rgba(247,185,85,0.08)', border: '1px solid rgba(247,185,85,0.25)', color: '#F7B955' }}>
+                <ShieldCheck size={14} className="flex-shrink-0 mt-0.5" />
+                Assinatura cancelada. Você não será cobrado novamente e continua com acesso até {fmt(accessUntil)}.
               </div>
             )}
 

@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, M
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
+import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
@@ -135,11 +136,17 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
   onVariation: (v: string) => void
   onSave: () => void
   onCopy: () => void
-  onRecord: () => void
+  // Aceita um override: ao gravar UM story específico de uma sequência, passamos
+  // a ideia derivada (só aquele story). Sem override, grava a ideia inteira.
+  onRecord: (override?: ContentIdea) => void
   onCaption: () => void
 }) {
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(idea.favorite)
+
+  // Sequência → quebra em stories individuais, para ler e gravar 1 a 1.
+  const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
+  const isMultiStory = stories.length > 1
 
   const handleCopy = () => {
     navigator.clipboard.writeText(idea.content + (idea.cta ? `\n\nCTA: ${idea.cta}` : ''))
@@ -171,11 +178,45 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
 
           <h3 className="font-extrabold text-lg mb-4" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
 
-          <div className="rounded-2xl p-4 mb-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-              {idea.content}
-            </pre>
-          </div>
+          {isMultiStory ? (
+            <div className="space-y-3 mb-3">
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                Sequência de {stories.length} stories. Grave um de cada vez:
+              </p>
+              {stories.map((story, i) => {
+                const body = stripStoryHeader(story)
+                // Ideia derivada SÓ deste story → vai para o teleprompter sozinha.
+                const storyIdea: ContentIdea = {
+                  ...idea,
+                  id: `${idea.id}-s${i + 1}`,
+                  type: 'story',
+                  theme: `Story ${i + 1} — ${idea.theme}`,
+                  content: body,
+                }
+                return (
+                  <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
+                      <button onClick={() => onRecord(storyIdea)}
+                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+                        style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
+                        <Camera size={12} /> Gravar este
+                      </button>
+                    </div>
+                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                      {body}
+                    </pre>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="rounded-2xl p-4 mb-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                {idea.content}
+              </pre>
+            </div>
+          )}
 
           {idea.cta && (
             <div className="rounded-2xl p-3 mb-4" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
@@ -192,9 +233,13 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
             <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
               <FileText size={14} />
             </button>
-            <button onClick={onRecord} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gravar">
-              <Camera size={14} />
-            </button>
+            {/* Sequência: cada story tem seu próprio "Gravar este" acima — aqui o
+                botão único só aparece para story/reels (conteúdo de gravação única). */}
+            {!isMultiStory && (
+              <button onClick={() => onRecord()} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gravar">
+                <Camera size={14} />
+              </button>
+            )}
             <button onClick={handleSave} className="btn-secondary py-2.5 px-3.5 text-sm"
               style={saved ? { borderColor: 'rgba(83,214,161,0.4)', color: '#53D6A1' } : {}}>
               <Bookmark size={14} style={saved ? { fill: '#53D6A1' } : {}} />
@@ -335,6 +380,9 @@ export default function Criar() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ContentIdea | null>(null)
   const [showStudio, setShowStudio] = useState(false)
+  // Ideia efetivamente enviada ao teleprompter. Para sequência, é UM story
+  // específico; senão, é o próprio result.
+  const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
   const [showVoice, setShowVoice] = useState(false)
 
   // Momento livre (tema do momento, fora do nicho, tom leve)
@@ -439,6 +487,7 @@ export default function Criar() {
       exposureLevel: profile?.exposureLevel,
     })
     setResult(idea); addIdea(idea)
+    setStudioIdea(idea)
     setShowStudio(true)
     const id = await persistIdeaToLibrary(idea)
     setLibraryItemId(id)
@@ -704,7 +753,7 @@ export default function Criar() {
               if (libraryItemId) updateLibraryItem(libraryItemId, { is_favorite: true }).catch(() => {})
             }}
             onCopy={() => {}}
-            onRecord={() => setShowStudio(true)}
+            onRecord={(override) => { setStudioIdea(override ?? result); setShowStudio(true) }}
             onCaption={handleCaption}
           />
         )}
@@ -727,8 +776,8 @@ export default function Criar() {
         )}
       </>}
 
-      {showStudio && result && (
-        <StudioModal idea={result} onClose={() => setShowStudio(false)} />
+      {showStudio && (studioIdea ?? result) && (
+        <StudioModal idea={(studioIdea ?? result)!} onClose={() => { setShowStudio(false); setStudioIdea(null) }} />
       )}
 
       {showVoice && (

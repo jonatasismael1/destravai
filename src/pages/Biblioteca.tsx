@@ -10,6 +10,7 @@ import {
   createLibraryItemsBatch,
 } from '../services/libraryService'
 import { generateLibraryItems } from '../lib/ai'
+import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
 import { getBrandEssence } from '../services/essenceService'
 import { addCalendarItem, toISODateKey } from '../services/userJourneyService'
 import type { LibraryItem, LibraryItemType } from '../lib/supabase/types'
@@ -68,7 +69,9 @@ interface ItemCardProps {
   onDelete: () => void
   onDuplicate: () => void
   onEdit: (updates: LibraryEdits) => void
-  onRecord: () => void
+  // Aceita override: para gravar UM story de uma sequência, passamos a ideia
+  // derivada (só aquele story). Sem override, grava o item inteiro.
+  onRecord: (override?: ContentIdea) => void
   onAddToCalendar: () => void
 }
 
@@ -83,6 +86,10 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const meta = TYPE_META[item.type] ?? { label: item.type, icon: '📝', color: 'tag-purple', section: '' }
+
+  // Sequência → stories individuais, para ler e gravar 1 a 1.
+  const stories = item.type === 'story_sequence' ? splitSequenceStories(item.content) : []
+  const isMultiStory = stories.length > 1
 
   const handleCopy = () => {
     navigator.clipboard.writeText(item.content)
@@ -145,11 +152,45 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
 
         {expanded && !editing && (
           <div className="mt-3 animate-fade-up">
-            <div className="rounded-xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                {item.content}
-              </pre>
-            </div>
+            {isMultiStory ? (
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  Sequência de {stories.length} stories. Grave um de cada vez:
+                </p>
+                {stories.map((story, i) => {
+                  const body = stripStoryHeader(story)
+                  // Ideia derivada SÓ deste story → vai sozinha para o teleprompter.
+                  const storyIdea: ContentIdea = {
+                    ...libraryItemToIdea(item),
+                    id: `${item.id}-s${i + 1}`,
+                    type: 'story',
+                    theme: `Story ${i + 1} — ${item.title}`,
+                    content: body,
+                  }
+                  return (
+                    <div key={i} className="rounded-xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
+                        <button onClick={() => onRecord(storyIdea)}
+                          className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
+                          <Camera size={11} /> Gravar este
+                        </button>
+                      </div>
+                      <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                        {body}
+                      </pre>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl p-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  {item.content}
+                </pre>
+              </div>
+            )}
           </div>
         )}
 
@@ -235,12 +276,16 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
                 </button>
               </>
             )}
-            <button onClick={onRecord}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
-              style={{ background: 'rgba(124,92,255,0.12)', color: '#9B8CFF', border: '1px solid rgba(124,92,255,0.3)' }}
-              title="Gravar com teleprompter" aria-label="Gravar com teleprompter">
-              <Camera size={11} />
-            </button>
+            {/* Sequência: cada story tem seu "Gravar este" acima. O botão único só
+                aparece para conteúdo de gravação única (story/reels/etc.). */}
+            {!isMultiStory && (
+              <button onClick={() => onRecord()}
+                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+                style={{ background: 'rgba(124,92,255,0.12)', color: '#9B8CFF', border: '1px solid rgba(124,92,255,0.3)' }}
+                title="Gravar com teleprompter" aria-label="Gravar com teleprompter">
+                <Camera size={11} />
+              </button>
+            )}
             <button onClick={onAddToCalendar}
               className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
               style={{ background: 'rgba(83,214,161,0.1)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.25)' }}
@@ -313,7 +358,9 @@ export default function Biblioteca() {
   const [showFavOnly, setShowFavOnly] = useState(false)
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-  const [studioItem, setStudioItem] = useState<LibraryItem | null>(null)
+  // Ideia enviada ao teleprompter. Para sequência, é UM story específico; senão,
+  // é o item inteiro convertido em ideia.
+  const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
 
   const loadItems = useCallback(async (reset = false) => {
     try {
@@ -590,7 +637,7 @@ export default function Biblioteca() {
                     onDelete={() => handleDelete(item.id)}
                     onDuplicate={() => handleDuplicate(item.id)}
                     onEdit={(updates) => handleEdit(item.id, updates)}
-                    onRecord={() => setStudioItem(item)}
+                    onRecord={(override) => setStudioIdea(override ?? libraryItemToIdea(item))}
                     onAddToCalendar={() => handleAddToCalendar(item)}
                   />
                 ))}
@@ -610,8 +657,8 @@ export default function Biblioteca() {
         </div>
       )}
 
-      {studioItem && (
-        <StudioModal idea={libraryItemToIdea(studioItem)} onClose={() => setStudioItem(null)} />
+      {studioIdea && (
+        <StudioModal idea={studioIdea} onClose={() => setStudioIdea(null)} />
       )}
     </div>
   )

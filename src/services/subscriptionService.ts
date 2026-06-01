@@ -18,6 +18,9 @@ export interface SubscriptionStatus {
   refundDeadline?: string | null
   withinGuarantee?: boolean
   canceledAt?: string | null
+  currentPeriodEnd?: string | null
+  // Quando cancelada fora da garantia: até quando o acesso ainda vale.
+  accessUntil?: string | null
 }
 
 async function authHeaders(): Promise<Record<string, string>> {
@@ -125,7 +128,7 @@ export async function getCheckoutStatus(paymentId: string): Promise<CheckoutStat
 }
 
 export async function cancelSubscription(): Promise<{
-  ok: boolean; refunded: boolean; status: string; message: string
+  ok: boolean; refunded: boolean; status: string; message: string; accessUntil?: string | null
 }> {
   const res = await fetch(`${FN}/asaas-cancel-subscription`, {
     method: 'POST',

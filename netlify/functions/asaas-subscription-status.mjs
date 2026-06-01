@@ -28,7 +28,16 @@ export const handler = async (event) => {
     const now = new Date()
     const deadline = sub.refund_deadline ? new Date(sub.refund_deadline) : null
     const withinGuarantee = !!deadline && now <= deadline && sub.payment_status === 'paid'
-    const hasAccess = ['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid'
+
+    const periodEnd = sub.current_period_end ? new Date(sub.current_period_end) : null
+    // Cortesia (testador liberado pelo admin): acesso vale pelo access_granted,
+    // independente de status de pagamento — não há cobrança envolvida.
+    const isCourtesy = sub.payment_method === 'COURTESY' && sub.access_granted === true
+    // Acesso normal: assinatura ativa e paga.
+    const activePaid = ['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid'
+    // Carência: cancelou fora da garantia mas ainda está dentro do período pago.
+    const canceledButInPaidPeriod = sub.status === 'canceled' && !!periodEnd && now <= periodEnd
+    const hasAccess = isCourtesy || activePaid || canceledButInPaidPeriod
 
     return json(200, {
       hasSubscription: true,
@@ -43,6 +52,9 @@ export const handler = async (event) => {
       refundDeadline: sub.refund_deadline,
       withinGuarantee,
       canceledAt: sub.canceled_at,
+      currentPeriodEnd: sub.current_period_end ?? null,
+      // Até quando o acesso vale quando cancelado dentro do período pago.
+      accessUntil: canceledButInPaidPeriod ? sub.current_period_end : null,
     })
   } catch (err) {
     console.error('[asaas-subscription-status]', err?.message)

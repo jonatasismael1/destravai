@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { generateCheckinIdea, generateCaption } from '../lib/ai'
+import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
 import { trackEvent, loadActivationStatus } from '../services/eventsService'
@@ -87,25 +88,6 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
       </div>
     </div>
   )
-}
-
-// Divide o conteúdo de uma SEQUÊNCIA em stories individuais, usando os marcadores
-// "STORY 1/2/3" que a IA insere. Sem marcadores (geração antiga), devolve o
-// conteúdo inteiro como um único item — nada quebra.
-function splitSequenceStories(content: string): string[] {
-  const text = (content || '').trim()
-  if (!text) return []
-  const headerRe = /(?:^|\n)\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+/i
-  if (!headerRe.test(text)) return [text]
-  return text
-    .split(/\n(?=\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+)/i)
-    .map(s => s.trim())
-    .filter(Boolean)
-}
-
-// Remove o cabeçalho "STORY N" da primeira linha (para exibir o corpo limpo).
-function stripStoryHeader(story: string): string {
-  return story.replace(/^\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+\s*[—:-]?\s*/i, '').trim()
 }
 
 function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, featured }: {

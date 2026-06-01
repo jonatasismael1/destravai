@@ -31,6 +31,11 @@ const PagamentoErro = lazy(() => import('./pages/PagamentoErro'))
 // assinatura ativa.
 const PAYWALL_ENABLED = import.meta.env.VITE_PAYWALL_ENABLED === 'true'
 
+// E-mail do administrador (dono do produto). Nunca é bloqueado pelo paywall, mesmo
+// sem assinatura — evita que o dono se tranque fora ao ligar a cobrança. Espelha o
+// ADMIN_EMAIL do backend (netlify/functions/_shared.mjs).
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || 'assessoriadbe@gmail.com').toLowerCase()
+
 function PageLoader() {
   return (
     <div className="flex items-center justify-center" style={{ minHeight: '100svh', background: '#0D0B14' }}>
@@ -52,8 +57,10 @@ function ProtectedRoutes() {
   const onboardingDone = state.profile?.onboarding_completed ?? false
   if (!onboardingDone) return <Navigate to="/onboarding" replace />
 
-  // Gating de assinatura (só quando o paywall está ativado)
-  if (PAYWALL_ENABLED) {
+  // Gating de assinatura (só quando o paywall está ativado). O admin nunca é
+  // bloqueado, para o dono conseguir usar/testar mesmo sem assinatura.
+  const isAdmin = (state.supabaseUser?.email ?? '').toLowerCase() === ADMIN_EMAIL
+  if (PAYWALL_ENABLED && !isAdmin) {
     if (state.subscriptionLoading) return <PageLoader />
     if (!state.subscription?.hasAccess) return <Navigate to="/assinatura" replace />
   }

@@ -4,7 +4,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2'
 // Funcao generica de IA: recebe um prompt, valida o usuario logado, aplica o
 // limite mensal de geracoes, chama o provedor de IA no servidor (chave nunca
 // exposta) e devolve o texto. Suporta OpenRouter (modelo com '/') e Gemini.
-// OBS: o app em producao usa a Netlify Function; esta Edge Function e' paridade.
+// Esta e' a funcao PRINCIPAL do app: roda na Edge Function do Supabase, que NAO
+// tem o teto de ~10s da Netlify Free, entao aguenta a fila dos modelos :free.
 
 const DEFAULT_MODEL =
   Deno.env.get('DEFAULT_AI_MODEL') || Deno.env.get('GEMINI_MODEL') || 'openrouter/free'
@@ -20,7 +21,7 @@ const isOpenRouterModel = (m: string) => typeof m === 'string' && m.includes('/'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  'Access-Control-Allow-Headers': 'authorization, content-type, apikey',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
@@ -33,14 +34,23 @@ Deno.serve(async (req: Request) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return errorResponse('Token ausente', 401)
 
-    // Cliente com o JWT do usuario: o RLS garante que ele so le/grava o proprio uso.
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+    // Cliente com o JWT do usuario: usado SO para validar quem e' o usuario.
+    const authClient = createClient(
+      SUPABASE_URL,
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } },
     )
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    const { data: { user }, error: authError } = await authClient.auth.getUser()
     if (authError || !user) return errorResponse('Nao autorizado', 401)
+
+    // Cliente com service role: usado para contagem/logs (ignora RLS, igual a
+    // Netlify Function). Evita falhas de permissao ao gravar o uso.
+    const supabase = createClient(
+      SUPABASE_URL,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      { auth: { persistSession: false } },
+    )
 
     const body = await req.json().catch(() => ({})) as {
       prompt?: string
@@ -84,6 +94,7 @@ Deno.serve(async (req: Request) => {
     const maxOutputTokens = body.maxOutputTokens ?? 8192
 
     let res: Response
+    let usedModel = model
     if (viaOpenRouter) {
       res = await fetch(`${OPENROUTER_URL}/chat/completions`, {
         method: 'POST',
@@ -115,25 +126,29 @@ Deno.serve(async (req: Request) => {
       const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } }
       const msg = errBody?.error?.message ?? `IA HTTP ${res.status}`
       supabase.from('destravai_ai_generations').insert({
-        user_id: user.id, prompt_type: promptType, model, status: 'error', error_message: msg,
+        user_id: user.id, prompt_type: promptType, model: usedModel, status: 'error', error_message: msg,
       }).then(() => {}).catch(() => {})
-      if (res.status === 429) return errorResponse('Muitas geracoes em pouco tempo. Espere alguns minutos.', 429)
+      if (res.status === 429) return errorResponse('Muitas geracoes em pouco tempo. Espere um minuto.', 429)
       return errorResponse(msg, res.status)
     }
 
     const data = await res.json() as {
+      model?: string
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
       choices?: Array<{ message?: { content?: string } }>
     }
+    if (viaOpenRouter && data?.model) usedModel = data.model
     const text = viaOpenRouter
       ? (data?.choices?.[0]?.message?.content ?? '')
       : (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '')
     if (!text) return errorResponse('A IA retornou vazio.', 502)
 
-    // Log de sucesso (await: mantem a contagem do limite precisa)
-    await supabase.from('destravai_ai_generations').insert({
-      user_id: user.id, prompt_type: promptType, model, status: 'success',
-    })
+    // Log de sucesso — tolerante: nunca pode quebrar a resposta da IA.
+    try {
+      await supabase.from('destravai_ai_generations').insert({
+        user_id: user.id, prompt_type: promptType, model: usedModel, status: 'success',
+      })
+    } catch { /* ignora: a geracao ja deu certo */ }
 
     return jsonResponse({ text })
   } catch (err) {

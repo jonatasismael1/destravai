@@ -92,11 +92,17 @@ export const handler = async (event) => {
     // Se o prompt pede JSON, força o Gemini a responder JSON válido — isso elimina
     // o erro "JSON_NOT_FOUND" quando o modelo às vezes devolve texto/markdown.
     // maxOutputTokens generoso (8192) cobre roteiros longos com folga.
-    const generationConfig = {
+    const baseConfig = {
       temperature: body.temperature ?? 0.9,
       maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
-    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+    if (/JSON/i.test(prompt)) baseConfig.responseMimeType = 'application/json'
+
+    // DESLIGA o "pensamento" do modelo principal. O gemini-flash-latest é o
+    // 2.5-flash, que pensa por padrão e fica LENTO (10s+ → timeout/504). Com
+    // thinkingBudget 0 a resposta vem em ~2-4s, sem perder qualidade prática nos
+    // roteiros. O fallback (1.5-flash) não tem esse recurso → recebe baseConfig.
+    const primaryConfig = { ...baseConfig, thinkingConfig: { thinkingBudget: 0 } }
 
     const requested = body.model || DEFAULT_MODEL
     const startTime = Date.now()
@@ -108,10 +114,14 @@ export const handler = async (event) => {
         user_id: user.id, prompt_type: promptType, model, status: 'success',
       }).then(() => {}, () => {})
 
-    // 1) CAMINHO FELIZ: uma única chamada ao modelo principal (igual ao que sempre
-    //    funcionou). Timeout de 8,5s — abaixo do corte de ~10s do Netlify (que
-    //    gerava 504 quando eu fazia várias tentativas em sequência).
-    let r = await callGemini(requested, prompt, generationConfig, geminiKey, 8500)
+    // 1) CAMINHO FELIZ: uma única chamada ao modelo principal (sem pensar = rápido).
+    //    Timeout de 8,5s — abaixo do corte de ~10s do Netlify.
+    let r = await callGemini(requested, prompt, primaryConfig, geminiKey, 8500)
+    // Se o modelo recusar thinkingConfig (alias antigo que não suporta), tenta de
+    // novo SEM ele — falha rápida, então cabe no tempo.
+    if (!r.ok && /thinking|unknown name|invalid|not supported/i.test(r.msg) && (Date.now() - startTime) < 2500) {
+      r = await callGemini(requested, prompt, baseConfig, geminiKey, 7000)
+    }
     if (r.ok && r.text) { await logSuccess(requested); return json(200, { text: r.text }) }
     lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
 
@@ -122,7 +132,7 @@ export const handler = async (event) => {
     const failedFast = elapsed < 3000
     const worthFallback = (!r.ok || !r.text) && requested !== FALLBACK_MODEL
     if (failedFast && worthFallback) {
-      const r2 = await callGemini(FALLBACK_MODEL, prompt, generationConfig, geminiKey, 6000)
+      const r2 = await callGemini(FALLBACK_MODEL, prompt, baseConfig, geminiKey, 6000)
       if (r2.ok && r2.text) { await logSuccess(FALLBACK_MODEL); return json(200, { text: r2.text }) }
       usedModel = FALLBACK_MODEL
       lastMsg = r2.ok ? 'A IA retornou vazio.' : r2.msg

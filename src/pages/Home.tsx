@@ -351,11 +351,19 @@ export default function Home() {
     setLoading(true)
 
     try {
+      // A missão principal é crítica: se ela falhar, mostramos o erro.
       const missionIdea = await generateCheckinIdea(profile, value)
-      const e1 = await generateCheckinIdea(profile, 'educate')
-      const e2 = await generateCheckinIdea(profile, 'sell')
 
-      const extras = [e1, e2]
+      // As ideias extras são um bônus — geramos em paralelo e toleramos falhas.
+      // Antes, se UMA extra falhasse, todo o check-in quebrava e nada aparecia.
+      const results = await Promise.allSettled([
+        generateCheckinIdea(profile, 'educate'),
+        generateCheckinIdea(profile, 'sell'),
+      ])
+      const extras = results
+        .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
+        .map(r => r.value)
+
       const newDayState: DayState = { checkin: value, mission: missionIdea, extras }
       setDayState(newDayState)
       await upsertDailyCheckin(TODAY_KEY, newDayState)
@@ -381,10 +389,13 @@ export default function Home() {
       const formats = ['2min', 'reel', 'educate', 'light'] as const
       const randomKey = formats[Math.floor(Math.random() * formats.length)]
       const missionIdea = await generateCheckinIdea(profile, randomKey)
-      const extras = await Promise.all([
+      const results = await Promise.allSettled([
         generateCheckinIdea(profile, 'educate'),
         generateCheckinIdea(profile, 'sell'),
       ])
+      const extras = results
+        .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
+        .map(r => r.value)
       const newDayState: DayState = { checkin: randomKey, mission: missionIdea, extras }
       setDayState(newDayState)
       await upsertDailyCheckin(TODAY_KEY, newDayState)

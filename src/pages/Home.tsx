@@ -8,10 +8,10 @@ import {
   Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
-import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
+import { generateCheckinIdea, generateCaption } from '../lib/ai'
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
-import { trackEvent, loadActivationStatus, loadConsistencyData, type ConsistencyData } from '../services/eventsService'
+import { trackEvent, loadActivationStatus } from '../services/eventsService'
 import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
 
@@ -266,12 +266,8 @@ export default function Home() {
   const navigate = useNavigate()
 
   const [dayState, setDayState] = useState<DayState>(emptyDayState)
-  const [dayLoaded, setDayLoaded] = useState(false)
 
   const [loading, setLoading] = useState(false)
-  // Constância dia-a-dia (1→7) baseada em conteúdo real produzido — substitui a
-  // antiga régua D1/D3/D7 que contava dias de login.
-  const [consistency, setConsistency] = useState<ConsistencyData | null>(null)
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
   // Guard de idempotência: impede que o mesmo conteúdo incremente o streak duas vezes
   // (ex: clique duplo ou re-render antes do estado atualizar).
@@ -322,12 +318,10 @@ export default function Home() {
 
   useEffect(() => {
     let cancelled = false
-    setDayLoaded(false)
 
     ;(async () => {
       if (!state.supabaseUser) {
         setDayState(emptyDayState)
-        setDayLoaded(true)
         return
       }
 
@@ -337,64 +331,20 @@ export default function Home() {
       } catch (err) {
         console.error('[Home daily state]', err)
         if (!cancelled) setDayState(emptyDayState)
-      } finally {
-        if (!cancelled) setDayLoaded(true)
       }
     })()
 
     return () => { cancelled = true }
   }, [state.supabaseUser?.id])
 
-  useEffect(() => {
-    if (dayLoaded && profile && !dayState.checkin) {
-      generateDailyMission()
-    }
-  }, [dayLoaded, profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Registra o retorno do usuário e carrega a constância real (dias de conteúdo).
-  // activeDays aqui é usado só para os nudges de notificação (não para a UI da régua).
+  // Registra o retorno do usuário e dispara os nudges de notificação (D1/D3/D7).
   useEffect(() => {
     if (!state.supabaseUser) return
     void trackEvent('returned')
     loadActivationStatus().then((a) => {
       void runActivationNudges({ hasPendingMission: true, activeDays: a?.activeDays ?? 0 })
     })
-    loadConsistencyData().then(setConsistency)
   }, [state.supabaseUser?.id])
-
-  // Recarrega a constância sempre que uma missão é concluída (reflete o novo dia).
-  useEffect(() => {
-    if (!state.supabaseUser) return
-    loadConsistencyData().then(setConsistency)
-  }, [progress.missionsCompleted]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const generateDailyMission = async () => {
-    if (!profile) return
-
-    try {
-      const { row } = await loadDailyCheckin(TODAY_KEY)
-      if (row?.daily_status && row.daily_status !== 'idle') return
-
-      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'attempted' })
-      const pillar = profile.pillars[new Date().getDay() % Math.max(1, profile.pillars.length)]
-      const idea = await generateContent({
-        type: 'story',
-        theme: pillar?.name ?? profile.specialty ?? 'Autoridade na área',
-        objective: 'Missão do dia — conteúdo possível, simples e executável',
-        exposureLevel: profile.exposureLevel,
-        timeAvailable: '5 minutos',
-        tone: profile.voiceTone,
-        profile,
-      })
-      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'generated' })
-      addIdea(idea)
-      addMission({ id: crypto.randomUUID(), title: idea.theme, description: idea.objective, type: idea.type, status: 'pending', date: new Date().toISOString(), content: idea, points: 10 })
-      addToast('Sua missão de hoje está pronta!', 'info')
-    } catch (err) {
-      console.error('[Home daily mission]', err)
-      await upsertDailyCheckin(TODAY_KEY, { dailyStatus: 'idle' }).catch(() => undefined)
-    }
-  }
 
   const handleCheckin = async (value: string) => {
     if (!profile) return
@@ -648,53 +598,32 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── Constância dia-a-dia (Dia 1→7) ──────────────────────────────
-          Conta apenas dias com produção REAL de conteúdo (missão feita,
-          conteúdo postado ou gravação salva). Login não conta. */}
-      {consistency && consistency.daysCompleted > 0 && (
-        <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Sua constância</p>
-            <span className="text-xs font-bold flex items-center gap-1" style={{ color: '#FF7A6B' }}>
-              <Flame size={12} />
-              {consistency.daysCompleted >= 7 ? 'Semana completa!' : `Dia ${consistency.daysCompleted} de 7`}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: 7 }).map((_, i) => {
-              const done = i < consistency.daysCompleted
-              const isCurrent = i === consistency.daysCompleted && i < 7
-              return (
-                <div key={i} className="flex-1 text-center">
-                  <div className="h-1.5 rounded-full mb-1.5"
-                    style={{
-                      background: done
-                        ? 'linear-gradient(90deg, #F7B955, #FF7A6B)'
-                        : isCurrent
-                        ? 'rgba(247,185,85,0.35)'
-                        : 'var(--bg-card-bright)',
-                    }} />
-                  <span className="text-[10px] font-bold" style={{ color: done ? '#FF7A6B' : 'var(--text-muted)' }}>
-                    {i + 1}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
-          {consistency.daysCompleted < 7 ? (
-            <p className="text-[11px] mt-2.5" style={{ color: 'var(--text-secondary)' }}>
-              Faltam {7 - consistency.daysCompleted} {7 - consistency.daysCompleted === 1 ? 'dia' : 'dias'} para completar sua primeira semana de constância. Continue!
-            </p>
-          ) : (
-            <p className="text-[11px] mt-2.5 font-bold" style={{ color: '#F7B955' }}>
-              🎉 Primeira semana completa! Você provou que consegue manter o ritmo.
-            </p>
-          )}
-        </div>
-      )}
+      {/* A jornada de constância dia-a-dia (Dia 1→7) vive em "Meu Espaço >
+          Progresso" para não repetir o indicador de sequência acima. */}
 
-      {/* ── Check-in / conteúdo ─────────────────────── */}
-      {!checkin ? (
+      {/* ── Check-in / conteúdo ───────────────────────
+          Ordem importa: o loading vem PRIMEIRO para o spinner aparecer já no
+          clique do check-in (antes não aparecia, pois 'checkin' só era setado
+          ao fim da geração — o usuário via a grade e podia clicar em tudo). */}
+      {loading ? (
+        <div className="rounded-3xl p-8 flex flex-col items-center justify-center gap-4 text-center"
+          style={{ background: 'rgba(109,93,246,0.08)', border: '1px solid rgba(109,93,246,0.2)' }}>
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))', border: '1px solid rgba(109,93,246,0.3)' }}>
+            <Sparkles size={24} style={{ color: '#9B8CFF' }} className="animate-pulse" />
+          </div>
+          <div>
+            <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Personalizando para o seu perfil</p>
+          </div>
+          <div className="flex gap-1.5">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse"
+                style={{ background: '#9B8CFF', animationDelay: `${i * 0.25}s` }} />
+            ))}
+          </div>
+        </div>
+      ) : !checkin ? (
         <div className="space-y-3">
           <p className="section-title">Como está seu dia?</p>
           <div className="grid grid-cols-2 gap-2">
@@ -739,24 +668,6 @@ export default function Home() {
               <Wand2 size={15} /> Surpreenda-me — destravar uma ideia agora
             </button>
           )}
-        </div>
-      ) : loading ? (
-        <div className="rounded-3xl p-8 flex flex-col items-center justify-center gap-4 text-center"
-          style={{ background: 'rgba(109,93,246,0.08)', border: '1px solid rgba(109,93,246,0.2)' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))', border: '1px solid rgba(109,93,246,0.3)' }}>
-            <Sparkles size={24} style={{ color: '#9B8CFF' }} className="animate-pulse" />
-          </div>
-          <div>
-            <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Personalizando para o seu perfil</p>
-          </div>
-          <div className="flex gap-1.5">
-            {[0, 1, 2].map(i => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse"
-                style={{ background: '#9B8CFF', animationDelay: `${i * 0.25}s` }} />
-            ))}
-          </div>
         </div>
       ) : (
         <div className="space-y-5">

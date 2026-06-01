@@ -472,7 +472,7 @@ export default function Configuracoes() {
             style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.15)' }}>
             <AlertCircle size={13} style={{ color: '#F7B955', flexShrink: 0, marginTop: 1 }} />
             <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              Notificações requerem permissão do navegador e só funcionam com app instalado (PWA).
+              As notificações precisam da sua permissão e funcionam melhor com o app instalado na tela inicial.
             </p>
           </div>
 
@@ -559,7 +559,7 @@ export default function Configuracoes() {
               <p className="font-bold text-sm" style={{ color: '#FF7A6B' }}>Confirmar saída?</p>
             </div>
             <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Seus dados de conta continuam salvos no Supabase. Esta ação limpa apenas a sessão e preferências locais deste aparelho.
+              Seus dados de conta continuam salvos com segurança. Esta ação encerra apenas a sessão neste aparelho — é só entrar de novo para continuar de onde parou.
             </p>
             <div className="flex gap-2">
               <button

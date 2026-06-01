@@ -11,7 +11,7 @@ import type { ContentIdea } from '../types'
 import { generateContent, generateCheckinIdea, generateCaption } from '../lib/ai'
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
-import { trackEvent, loadActivationStatus, type ActivationStatus } from '../services/eventsService'
+import { trackEvent, loadActivationStatus, loadConsistencyData, type ConsistencyData } from '../services/eventsService'
 import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
 
@@ -269,7 +269,9 @@ export default function Home() {
   const [dayLoaded, setDayLoaded] = useState(false)
 
   const [loading, setLoading] = useState(false)
-  const [activation, setActivation] = useState<ActivationStatus | null>(null)
+  // Constância dia-a-dia (1→7) baseada em conteúdo real produzido — substitui a
+  // antiga régua D1/D3/D7 que contava dias de login.
+  const [consistency, setConsistency] = useState<ConsistencyData | null>(null)
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
   // Guard de idempotência: impede que o mesmo conteúdo incremente o streak duas vezes
   // (ex: clique duplo ou re-render antes do estado atualizar).
@@ -349,15 +351,22 @@ export default function Home() {
     }
   }, [dayLoaded, profile, dayState.checkin]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Registra o retorno do usuário e carrega a régua de ativação (D1/D3/D7).
+  // Registra o retorno do usuário e carrega a constância real (dias de conteúdo).
+  // activeDays aqui é usado só para os nudges de notificação (não para a UI da régua).
   useEffect(() => {
     if (!state.supabaseUser) return
     void trackEvent('returned')
     loadActivationStatus().then((a) => {
-      setActivation(a)
       void runActivationNudges({ hasPendingMission: true, activeDays: a?.activeDays ?? 0 })
     })
+    loadConsistencyData().then(setConsistency)
   }, [state.supabaseUser?.id])
+
+  // Recarrega a constância sempre que uma missão é concluída (reflete o novo dia).
+  useEffect(() => {
+    if (!state.supabaseUser) return
+    loadConsistencyData().then(setConsistency)
+  }, [progress.missionsCompleted]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const generateDailyMission = async () => {
     if (!profile) return
@@ -639,30 +648,46 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── Régua de ativação (constância) ──────────── */}
-      {activation && activation.activeDays > 0 && (
+      {/* ── Constância dia-a-dia (Dia 1→7) ──────────────────────────────
+          Conta apenas dias com produção REAL de conteúdo (missão feita,
+          conteúdo postado ou gravação salva). Login não conta. */}
+      {consistency && consistency.daysCompleted > 0 && (
         <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
           <div className="flex items-center justify-between mb-3">
             <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Sua constância</p>
-            <span className="text-xs font-bold" style={{ color: '#9B8CFF' }}>{activation.activeDays} {activation.activeDays === 1 ? 'dia ativo' : 'dias ativos'}</span>
+            <span className="text-xs font-bold flex items-center gap-1" style={{ color: '#FF7A6B' }}>
+              <Flame size={12} />
+              {consistency.daysCompleted >= 7 ? 'Semana completa!' : `Dia ${consistency.daysCompleted} de 7`}
+            </span>
           </div>
-          <div className="flex items-center gap-2">
-            {[1, 3, 7].map(milestone => {
-              const reached = activation.activeDays >= milestone
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: 7 }).map((_, i) => {
+              const done = i < consistency.daysCompleted
+              const isCurrent = i === consistency.daysCompleted && i < 7
               return (
-                <div key={milestone} className="flex-1 text-center">
+                <div key={i} className="flex-1 text-center">
                   <div className="h-1.5 rounded-full mb-1.5"
-                    style={{ background: reached ? 'linear-gradient(90deg, #6D5DF6, #9B8CFF)' : 'var(--bg-card-bright)' }} />
-                  <span className="text-[10px] font-bold" style={{ color: reached ? '#9B8CFF' : 'var(--text-muted)' }}>
-                    {milestone}d
+                    style={{
+                      background: done
+                        ? 'linear-gradient(90deg, #F7B955, #FF7A6B)'
+                        : isCurrent
+                        ? 'rgba(247,185,85,0.35)'
+                        : 'var(--bg-card-bright)',
+                    }} />
+                  <span className="text-[10px] font-bold" style={{ color: done ? '#FF7A6B' : 'var(--text-muted)' }}>
+                    {i + 1}
                   </span>
                 </div>
               )
             })}
           </div>
-          {activation.postedCount > 0 && (
+          {consistency.daysCompleted < 7 ? (
             <p className="text-[11px] mt-2.5" style={{ color: 'var(--text-secondary)' }}>
-              🎉 {activation.postedCount} {activation.postedCount === 1 ? 'conteúdo postado' : 'conteúdos postados'} até agora. Continue aparecendo!
+              Faltam {7 - consistency.daysCompleted} {7 - consistency.daysCompleted === 1 ? 'dia' : 'dias'} para completar sua primeira semana de constância. Continue!
+            </p>
+          ) : (
+            <p className="text-[11px] mt-2.5 font-bold" style={{ color: '#F7B955' }}>
+              🎉 Primeira semana completa! Você provou que consegue manter o ritmo.
             </p>
           )}
         </div>

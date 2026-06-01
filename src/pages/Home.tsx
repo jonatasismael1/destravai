@@ -612,30 +612,36 @@ export default function Home() {
       {/* A jornada de constância dia-a-dia (Dia 1→7) vive em "Meu Espaço >
           Progresso" para não repetir o indicador de sequência acima. */}
 
-      {/* ── Check-in / conteúdo ───────────────────────
-          Ordem importa: o loading vem PRIMEIRO para o spinner aparecer já no
-          clique do check-in (antes não aparecia, pois 'checkin' só era setado
-          ao fim da geração — o usuário via a grade e podia clicar em tudo). */}
-      {loading ? (
-        <div className="rounded-3xl p-8 flex flex-col items-center justify-center gap-4 text-center"
-          style={{ background: 'rgba(109,93,246,0.08)', border: '1px solid rgba(109,93,246,0.2)' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+      {/* ── Aviso de carregamento NÃO-bloqueante ──────────────────────────
+          A geração roda em segundo plano. Mostramos um aviso compacto e
+          deixamos o usuário navegar livremente (Biblioteca, Meu Espaço…).
+          A missão fica salva e aparece aqui quando estiver pronta. */}
+      {loading && (
+        <div className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.25)' }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))', border: '1px solid rgba(109,93,246,0.3)' }}>
-            <Sparkles size={24} style={{ color: '#9B8CFF' }} className="animate-pulse" />
+            <Sparkles size={18} style={{ color: '#9B8CFF' }} className="animate-pulse" />
           </div>
-          <div>
-            <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Personalizando para o seu perfil</p>
+          <div className="flex-1 min-w-0">
+            <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              Pode continuar navegando — sua missão aparece aqui quando ficar pronta.
+            </p>
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-1 flex-shrink-0">
             {[0, 1, 2].map(i => (
               <div key={i} className="w-1.5 h-1.5 rounded-full animate-pulse"
                 style={{ background: '#9B8CFF', animationDelay: `${i * 0.25}s` }} />
             ))}
           </div>
         </div>
-      ) : !checkin ? (
-        <div className="space-y-3">
+      )}
+
+      {/* ── Check-in / conteúdo ─────────────────────── */}
+      {!checkin ? (
+        <div className="space-y-3"
+          style={{ opacity: loading ? 0.45 : 1, pointerEvents: loading ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
           <p className="section-title">Como está seu dia?</p>
           <div className="grid grid-cols-2 gap-2">
             {checkinOptions.map(opt => {

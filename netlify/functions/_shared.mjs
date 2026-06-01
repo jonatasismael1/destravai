@@ -151,7 +151,25 @@ export async function sendAccessEmail(email) {
   if (error) throw error
 }
 
-// Chamada à API do Asaas (autenticada com a API key no header access_token).
+// ── Logger server-side ───────────────────────────────────────────────────────
+// Registra erros/avisos na tabela destravai_error_logs (via service role).
+// Não lança exceção — logging nunca deve derrubar o fluxo principal.
+export async function serverLog(source, message, level = 'error', userId = null, details = null) {
+  try {
+    const admin = supabaseAdmin()
+    await admin.rpc('destravai_log_error', {
+      p_source: source,
+      p_message: String(message).slice(0, 2000),
+      p_level: level,
+      p_user_id: userId,
+      p_details: details,
+    })
+  } catch {
+    // Silencioso: se o log falhar, não quebre o serviço
+  }
+}
+
+// ── Chamada à API do Asaas (autenticada com a API key no header access_token).
 export async function asaas(path, options = {}) {
   const baseUrl = process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3'
   const apiKey = process.env.ASAAS_API_KEY

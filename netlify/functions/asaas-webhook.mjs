@@ -4,7 +4,7 @@
 // URL para cadastrar no painel do Asaas:
 //   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
 
-import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail } from './_shared.mjs'
+import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail, serverLog } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
@@ -127,6 +127,9 @@ export const handler = async (event) => {
     return json(200, { ok: true })
   } catch (err) {
     console.error('[asaas-webhook]', err?.message)
+    await serverLog('asaas-webhook', err?.message || 'Erro', 'error', null, {
+      eventId, eventType, asaasSubscriptionId,
+    })
     // Responde 200 para o Asaas não reenviar infinitamente em erro nosso não-crítico;
     // o evento fica registrado e pode ser reprocessado manualmente se necessário.
     return json(200, { ok: false, error: err?.message })

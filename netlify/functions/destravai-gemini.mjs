@@ -4,10 +4,14 @@
 // Substitui a Edge Function do Supabase para não depender do projeto certo
 // estar configurado no MCP nem de secret separado.
 
-import { json, preflight, getUser, supabaseAdmin } from './_shared.mjs'
+import { json, preflight, getUser, supabaseAdmin, serverLog } from './_shared.mjs'
+import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-flash-latest'
 const MONTHLY_LIMIT = 1000
+// Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
+const PER_MINUTE_LIMIT = 15
+const PER_MINUTE_MS = 60 * 1000
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
@@ -16,6 +20,12 @@ export const handler = async (event) => {
   try {
     const user = await getUser(event)
     if (!user) return json(401, { error: 'Sessão expirada. Faça login novamente.' })
+
+    // Rate limit por usuário: 15 gerações/minuto (anti-burst)
+    const rlMinute = await checkRateLimit(`gemini:user:${user.id}`, PER_MINUTE_LIMIT, PER_MINUTE_MS)
+    if (!rlMinute.allowed) {
+      return rateLimitExceeded(rlMinute.resetAt, 'Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.')
+    }
 
     const body = JSON.parse(event.body || '{}')
     const prompt = String(body.prompt || '').trim()
@@ -85,6 +95,8 @@ export const handler = async (event) => {
     return json(200, { text })
   } catch (err) {
     console.error('[destravai-gemini]', err?.message)
+    const userId = (await getUser(event).catch(() => null))?.id ?? null
+    await serverLog('destravai-gemini', err?.message || 'Erro interno', 'error', userId, { stack: err?.stack?.slice(0, 500) })
     return json(500, { error: err?.message || 'Erro interno' })
   }
 }

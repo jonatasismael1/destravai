@@ -10,7 +10,13 @@
 //   6. Salva o registro inicial (status pending) no Supabase.
 // O acesso só é liberado pelo webhook quando o pagamento é confirmado.
 
-import { getPlan, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas } from './_shared.mjs'
+import { getPlan, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog } from './_shared.mjs'
+import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
+
+// Checkout é público: limitar por IP para evitar spam de cadastros e abusos.
+// 10 tentativas por hora por IP é generoso para uso legítimo, mas impede bots.
+const CHECKOUT_LIMIT = 10
+const CHECKOUT_WINDOW_MS = 60 * 60 * 1000
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -21,6 +27,13 @@ export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
 
   try {
+    // Rate limit por IP (endpoint público — alvo de bots e scraping)
+    const ip = getClientIp(event)
+    const rl = await checkRateLimit(`checkout:ip:${ip}`, CHECKOUT_LIMIT, CHECKOUT_WINDOW_MS)
+    if (!rl.allowed) {
+      return rateLimitExceeded(rl.resetAt, 'Muitas tentativas de pagamento. Aguarde um momento antes de tentar novamente.')
+    }
+
     const body = JSON.parse(event.body || '{}')
 
     // ── Validação de entrada ──────────────────────────────────────────────
@@ -165,6 +178,9 @@ export const handler = async (event) => {
     })
   } catch (err) {
     console.error('[asaas-create-checkout]', err?.message, err?.body || '')
+    await serverLog('asaas-create-checkout', err?.message || 'Erro', 'error', null, {
+      asaasBody: err?.body ? JSON.stringify(err.body).slice(0, 500) : null,
+    })
     return json(500, { error: err?.message || 'Erro ao iniciar o pagamento' })
   }
 }

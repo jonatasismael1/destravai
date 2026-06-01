@@ -24,16 +24,16 @@ export default function VoiceDictation({
   const [error, setError] = useState('')
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recRef = useRef<any>(null)
-  // Rastreia o último índice de resultado final processado para evitar duplicação.
-  // O Web Speech API em modo contínuo pode re-entregar resultados antigos após
-  // reinicialização interna (ex: silêncio longo), causando palavras repetidas.
-  const lastFinalIndexRef = useRef(-1)
+  // Texto finalizado acumulado de TODAS as sessões (a verdade do transcript).
+  const finalizedRef = useRef('')
+  // Texto finalizado ANTES da sessão atual começar (para "continuar ditando").
+  const sessionBaseRef = useRef('')
   const SR = getSR()
 
   const startListening = useCallback(() => {
     if (!SR) return
-    // Ao reiniciar, reseta o contador de índice para o novo contexto de reconhecimento.
-    lastFinalIndexRef.current = -1
+    // Nova sessão continua de onde a anterior parou (não zera o que já foi dito).
+    sessionBaseRef.current = finalizedRef.current
     const rec = new SR()
     rec.lang = 'pt-BR'
     rec.continuous = true
@@ -41,21 +41,19 @@ export default function VoiceDictation({
 
     rec.onstart = () => { setIsListening(true); setError('') }
     rec.onresult = (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-      let fin = ''; let inter = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) {
-          // Só processa se este índice ainda não foi processado — evita duplicação
-          // quando o browser reinicia o reconhecimento e reentrega resultados antigos.
-          if (i > lastFinalIndexRef.current) {
-            fin += e.results[i][0].transcript + ' '
-            lastFinalIndexRef.current = i
-          }
-        } else {
-          inter += e.results[i][0].transcript
-        }
+      // Reconstrói o texto da SESSÃO do zero a cada evento. O e.results é
+      // cumulativo dentro da sessão, então ler do índice 0 dá o texto completo
+      // SEM duplicar — some com a repetição de palavras do modo contínuo.
+      let sessionFinal = ''
+      let interimText = ''
+      for (let i = 0; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript
+        if (e.results[i].isFinal) sessionFinal += t + ' '
+        else interimText += t
       }
-      if (fin) setTranscript(prev => (prev + fin).trimStart())
-      setInterim(inter)
+      finalizedRef.current = sessionBaseRef.current + sessionFinal
+      setTranscript(finalizedRef.current.replace(/\s+/g, ' ').trimStart())
+      setInterim(interimText)
     }
     rec.onerror = (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       if (e.error !== 'aborted') setError(`Microfone indisponível (${e.error})`)

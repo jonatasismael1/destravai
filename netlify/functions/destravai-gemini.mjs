@@ -7,20 +7,69 @@
 import { json, preflight, getUser, supabaseAdmin, serverLog } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
-// Modelo principal: respeita a variável de ambiente já configurada
-// (GEMINI_MODEL/VITE_GEMINI_MODEL = gemini-flash-latest no Netlify). É o único
-// modelo disponível nesta chave — os "fallbacks" que testamos (1.5-flash,
-// 2.0-flash) não existem/têm cota 0 nela, então NÃO usamos fallback: uma única
-// chamada ao principal, como sempre funcionou.
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-flash-latest'
+// ── Provedor de IA ───────────────────────────────────────────────────────────
+// Modelo padrão: DEFAULT_AI_MODEL (ex.: 'openrouter/free'). Mantém compat com as
+// envs antigas do Gemini. Modelos com '/' (ex.: 'openrouter/free',
+// 'meta-llama/llama-3.3-70b') vão pelo OpenRouter; o resto pelo Gemini.
+const DEFAULT_MODEL =
+  process.env.DEFAULT_AI_MODEL ||
+  process.env.GEMINI_MODEL ||
+  process.env.VITE_GEMINI_MODEL ||
+  'openrouter/free'
+
+const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY
+const OPENROUTER_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
+const APP_REFERER = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
+
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
 const PER_MINUTE_MS = 60 * 1000
 
-// Chama o Gemini uma vez, com TIMEOUT próprio (AbortController). É essencial:
-// a função do Netlify (plano Free) é cortada em ~10s e gera 504. Abortamos um
-// pouco antes (9,5s) para devolver uma mensagem clara em vez do 504 cru.
+// Modelo do OpenRouter? (tem provedor no nome, no formato "provedor/modelo")
+function isOpenRouterModel(model) {
+  return typeof model === 'string' && model.includes('/')
+}
+
+// Chama o OpenRouter (API compatível com a da OpenAI: /chat/completions).
+// Retorna { ok, text, status, msg }.
+async function callOpenRouter(model, prompt, cfg, timeoutMs) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${OPENROUTER_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENROUTER_KEY}`,
+        // Recomendados pelo OpenRouter (ranking/limites por app).
+        'HTTP-Referer': APP_REFERER,
+        'X-Title': 'Destravai',
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: cfg.temperature,
+        max_tokens: cfg.maxOutputTokens,
+      }),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}))
+      return { ok: false, status: res.status, msg: errBody?.error?.message || `OpenRouter HTTP ${res.status}` }
+    }
+    const data = await res.json()
+    const text = data?.choices?.[0]?.message?.content ?? ''
+    return { ok: true, text }
+  } catch (e) {
+    return { ok: false, status: 0, msg: e?.name === 'AbortError' ? 'timeout' : (e?.message || 'falha de rede') }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// Chama o Gemini (mantido para compatibilidade caso o modelo seja do Google).
+// TIMEOUT próprio: a função do Netlify (Free) é cortada em ~10s e gera 504.
 // Retorna { ok, text, status, msg }.
 async function callGemini(model, prompt, generationConfig, key, timeoutMs) {
   const controller = new AbortController()
@@ -81,30 +130,31 @@ export const handler = async (event) => {
       return json(429, { error: `Você atingiu o limite de ${MONTHLY_LIMIT} gerações neste mês. O limite renova no início do próximo mês.` })
     }
 
-    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY
-    if (!geminiKey) return json(500, { error: 'Chave de IA não configurada no servidor' })
-
     const promptType = body.promptType || 'generic_gemini'
+    const requested = body.model || DEFAULT_MODEL
+    const viaOpenRouter = isOpenRouterModel(requested)
 
-    // Se o prompt pede JSON, força o Gemini a responder JSON válido — isso elimina
-    // o erro "JSON_NOT_FOUND" quando o modelo às vezes devolve texto/markdown.
-    // maxOutputTokens generoso (8192) cobre roteiros longos com folga.
-    // O modelo PENSA normalmente (como sempre funcionou) — não mexemos no thinking.
+    // Valida a chave do provedor escolhido.
+    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY
+    if (viaOpenRouter && !OPENROUTER_KEY) return json(500, { error: 'Chave OpenRouter (OPENROUTER_API_KEY) não configurada no servidor' })
+    if (!viaOpenRouter && !geminiKey) return json(500, { error: 'Chave de IA não configurada no servidor' })
+
+    // Config de geração. maxOutputTokens generoso (8192) cobre roteiros longos.
+    // responseMimeType só faz sentido no Gemini; no OpenRouter a saída JSON é
+    // garantida pelo prompt + parser robusto do frontend (extractJSON).
     const generationConfig = {
       temperature: body.temperature ?? 0.9,
       maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
-    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+    if (!viaOpenRouter && /JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
 
-    const requested = body.model || DEFAULT_MODEL
     const startTime = Date.now()
 
-    // UMA única chamada ao modelo principal (exatamente como funcionava com o
-    // gemini-flash-latest). Sem fallback: os modelos alternativos não existem
-    // nesta chave e só atrapalhavam. Timeout de 9,5s = aproveita quase todo o
-    // teto de 10s da função (plano Free do Netlify), dando tempo de o modelo
-    // pensar e responder. Os 9 sucessos de hoje mostram que cabe nesse tempo.
-    const r = await callGemini(requested, prompt, generationConfig, geminiKey, 9500)
+    // UMA única chamada ao modelo escolhido. Timeout de 9,5s = aproveita quase
+    // todo o teto de 10s da função (plano Free do Netlify).
+    const r = viaOpenRouter
+      ? await callOpenRouter(requested, prompt, generationConfig, 9500)
+      : await callGemini(requested, prompt, generationConfig, geminiKey, 9500)
     if (r.ok && r.text) {
       await admin.from('destravai_ai_generations').insert({
         user_id: user.id, prompt_type: promptType, model: requested, status: 'success',

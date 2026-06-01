@@ -2,12 +2,18 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
 // Funcao generica de IA: recebe um prompt, valida o usuario logado, aplica o
-// limite mensal de geracoes, chama o Gemini no servidor (chave nunca exposta)
-// e devolve o texto. Usada pelo lib/ai.ts do frontend (Home, Criar, Essencia,
-// Biblioteca, Meu Espaco).
+// limite mensal de geracoes, chama o provedor de IA no servidor (chave nunca
+// exposta) e devolve o texto. Suporta OpenRouter (modelo com '/') e Gemini.
+// OBS: o app em producao usa a Netlify Function; esta Edge Function e' paridade.
 
-const DEFAULT_MODEL = 'gemini-flash-latest'
+const DEFAULT_MODEL =
+  Deno.env.get('DEFAULT_AI_MODEL') || Deno.env.get('GEMINI_MODEL') || 'openrouter/free'
+const OPENROUTER_KEY = Deno.env.get('OPENROUTER_API_KEY')
+const OPENROUTER_URL = (Deno.env.get('OPENROUTER_BASE_URL') || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
+const APP_REFERER = (Deno.env.get('APP_URL') || 'https://destravai.dbe.digital').replace(/\/$/, '')
 const MONTHLY_LIMIT = 1000 // geracoes bem-sucedidas por usuario por mes
+
+const isOpenRouterModel = (m: string) => typeof m === 'string' && m.includes('/')
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -61,33 +67,47 @@ Deno.serve(async (req: Request) => {
       )
     }
 
-    const geminiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY')
-    if (!geminiKey) return errorResponse('Chave de IA nao configurada no servidor', 500)
-
     const model = body.model ?? DEFAULT_MODEL
     const promptType = body.promptType ?? 'generic_gemini'
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`
+    const viaOpenRouter = isOpenRouterModel(model)
 
-    // Paridade com a Netlify Function: tokens generosos (evita JSON truncado) e,
-    // quando o prompt pede JSON, força a saída a ser JSON válido.
-    const generationConfig: Record<string, unknown> = {
-      temperature: body.temperature ?? 0.9,
-      maxOutputTokens: body.maxOutputTokens ?? 8192,
+    const geminiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY')
+    if (viaOpenRouter && !OPENROUTER_KEY) return errorResponse('Chave OpenRouter nao configurada no servidor', 500)
+    if (!viaOpenRouter && !geminiKey) return errorResponse('Chave de IA nao configurada no servidor', 500)
+
+    const temperature = body.temperature ?? 0.9
+    const maxOutputTokens = body.maxOutputTokens ?? 8192
+
+    let res: Response
+    if (viaOpenRouter) {
+      res = await fetch(`${OPENROUTER_URL}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${OPENROUTER_KEY}`,
+          'HTTP-Referer': APP_REFERER,
+          'X-Title': 'Destravai',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [{ role: 'user', content: prompt }],
+          temperature,
+          max_tokens: maxOutputTokens,
+        }),
+      })
+    } else {
+      const generationConfig: Record<string, unknown> = { temperature, maxOutputTokens }
+      if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
+      })
     }
-    if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
-
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig,
-      }),
-    })
 
     if (!res.ok) {
       const errBody = await res.json().catch(() => ({})) as { error?: { message?: string } }
-      const msg = errBody?.error?.message ?? `Gemini HTTP ${res.status}`
+      const msg = errBody?.error?.message ?? `IA HTTP ${res.status}`
       supabase.from('destravai_ai_generations').insert({
         user_id: user.id, prompt_type: promptType, model, status: 'error', error_message: msg,
       }).then(() => {}).catch(() => {})
@@ -97,8 +117,11 @@ Deno.serve(async (req: Request) => {
 
     const data = await res.json() as {
       candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
+      choices?: Array<{ message?: { content?: string } }>
     }
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    const text = viaOpenRouter
+      ? (data?.choices?.[0]?.message?.content ?? '')
+      : (data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '')
     if (!text) return errorResponse('A IA retornou vazio.', 502)
 
     // Log de sucesso (await: mantem a contagem do limite precisa)

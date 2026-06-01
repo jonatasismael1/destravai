@@ -107,13 +107,16 @@ INSTRUÇÃO DE GERAÇÃO
 ═══════════════════════════════
 ${TYPE_INSTRUCTIONS[req.type]}
 ${memoryBlock}
+${req.type === 'sequence' ? `
+FORMATO OBRIGATÓRIO DA SEQUÊNCIA (para o app separar os stories e a pessoa gravar 1 a 1):
+Dentro de "content", comece CADA um dos 3 stories com uma linha contendo APENAS "STORY 1", depois "STORY 2", depois "STORY 3" (nessa ordem), seguida das linhas rotuladas (FALA:, TEXTO NA TELA:, CENA:) daquele story.` : ''}
 
 Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto fora do JSON):
 {
   "theme": "título criativo e descritivo do conteúdo (máx 8 palavras)",
   "objective": "o que este conteúdo vai gerar no público (1 frase)",
   "timeEstimate": "tempo real de gravação estimado",
-  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.",
+  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ' Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, STORY 3.' : ''}",
   "cta": "chamada para ação final natural e não-forçada, que soe como a pessoa falaria",
   "tags": ["categoria1", "categoria2"]
 }`
@@ -370,7 +373,9 @@ Responda SOMENTE com este JSON (sem texto fora, sem markdown):
   "theme": "título curto da ideia em até 6 palavras",
   "objective": "o que esse conteúdo vai gerar no público em 1 frase",
   "timeEstimate": "${cfg.time}",
-  "content": "AÇÃO: descreva exatamente o que fazer agora (seguindo o formato: ${cfg.formatLabel})\\n\\nROTEIRO/FRASE: escreva a frase exata ou o roteiro completo em primeira pessoa\\n\\nDICA: um detalhe prático para executar melhor",
+  "content": "${cfg.type === 'sequence'
+    ? 'SEQUÊNCIA de 3 stories para gravar 1 a 1. Comece CADA story com uma linha contendo APENAS STORY 1, depois STORY 2, depois STORY 3 (nessa ordem). Em cada story, use ROTEIRO/FRASE: com a fala exata em primeira pessoa e, se útil, AÇÃO: e DICA:.'
+    : 'AÇÃO: descreva exatamente o que fazer agora (seguindo o formato: ' + cfg.formatLabel + ')\\n\\nROTEIRO/FRASE: escreva a frase exata ou o roteiro completo em primeira pessoa\\n\\nDICA: um detalhe prático para executar melhor'}",
   "cta": "frase de legenda ou call-to-action curto e no tom dela",
   "tags": ["tag1", "tag2"]
 }`

@@ -89,12 +89,31 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
   )
 }
 
+// Divide o conteúdo de uma SEQUÊNCIA em stories individuais, usando os marcadores
+// "STORY 1/2/3" que a IA insere. Sem marcadores (geração antiga), devolve o
+// conteúdo inteiro como um único item — nada quebra.
+function splitSequenceStories(content: string): string[] {
+  const text = (content || '').trim()
+  if (!text) return []
+  const headerRe = /(?:^|\n)\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+/i
+  if (!headerRe.test(text)) return [text]
+  return text
+    .split(/\n(?=\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+)/i)
+    .map(s => s.trim())
+    .filter(Boolean)
+}
+
+// Remove o cabeçalho "STORY N" da primeira linha (para exibir o corpo limpo).
+function stripStoryHeader(story: string): string {
+  return story.replace(/^\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+\s*[—:-]?\s*/i, '').trim()
+}
+
 function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, featured }: {
   idea: ContentIdea
   onDone: () => void
   onSave: () => void
   onVariation: (hint: string) => void
-  onRecord: () => void
+  onRecord: (override?: ContentIdea) => void
   onCaption: () => void
   featured?: boolean
 }) {
@@ -108,6 +127,10 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
     reel: { label: 'Reels' },
   }
   const meta = TYPE_META[idea.type] ?? { label: idea.type }
+
+  // Sequência → stories individuais, para ler e gravar 1 a 1.
+  const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
+  const isMultiStory = stories.length > 1
 
   const handleDone = () => {
     setCelebrating(true)
@@ -164,11 +187,48 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
 
         {expanded && (
           <div className="mt-4 space-y-3">
-            <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                {idea.content}
-              </pre>
-            </div>
+            {isMultiStory ? (
+              <>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  Esta é uma sequência de {stories.length} stories. Grave um de cada vez:
+                </p>
+                {stories.map((story, i) => {
+                  const body = stripStoryHeader(story)
+                  // Ideia derivada SÓ deste story — vai para o gravador/teleprompter.
+                  const storyIdea: ContentIdea = {
+                    ...idea,
+                    id: `${idea.id}-s${i + 1}`,
+                    type: 'story',
+                    theme: `Story ${i + 1} — ${idea.theme}`,
+                    content: body,
+                  }
+                  return (
+                    <div key={i} className="rounded-2xl p-4"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
+                        {idea.status !== 'done' && (
+                          <button onClick={() => onRecord(storyIdea)}
+                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+                            style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
+                            <Camera size={12} /> Gravar este
+                          </button>
+                        )}
+                      </div>
+                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                        {body}
+                      </pre>
+                    </div>
+                  )
+                })}
+              </>
+            ) : (
+              <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+                <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                  {idea.content}
+                </pre>
+              </div>
+            )}
             {idea.cta && (
               <div className="rounded-2xl p-3" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#FF7A6B' }}>CTA</p>
@@ -194,15 +254,17 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
               <button onClick={handleDone} className="btn-primary flex-1 py-2.5 text-sm gap-1.5">
                 <Check size={14} /> Fiz
               </button>
-              {/* Gravar — label visível no tooltip e aria-label */}
+              {/* Gravar — para sequência, abre o roteiro para escolher o story.
+                  IMPORTANTE: usar () => onRecord() (sem passar o evento de clique,
+                  que o onRecord agora interpretaria como ideia derivada). */}
               <button
-                onClick={onRecord}
+                onClick={() => (isMultiStory ? setExpanded(true) : onRecord())}
                 className="btn-secondary py-2.5 px-3.5 text-sm flex items-center gap-1.5"
                 aria-label="Gravar com teleprompter"
-                title="Gravar"
+                title={isMultiStory ? 'Escolha um story para gravar' : 'Gravar'}
               >
                 <Camera size={14} />
-                <span className="text-xs hidden sm:inline">Gravar</span>
+                <span className="text-xs hidden sm:inline">{isMultiStory ? 'Gravar 1 a 1' : 'Gravar'}</span>
               </button>
               <button
                 onClick={onCaption}
@@ -699,7 +761,7 @@ export default function Home() {
               </div>
               <IdeaCard idea={mission} onDone={() => handleDone(mission)} onSave={() => handleSave(mission)}
                 onVariation={(hint) => handleVariation(mission, hint)}
-                onRecord={() => setStudioIdea(mission)}
+                onRecord={(override) => setStudioIdea(override ?? mission)}
                 onCaption={() => handleCaption(mission)}
                 featured />
             </div>
@@ -714,7 +776,7 @@ export default function Home() {
                     onDone={() => handleDone(idea)}
                     onSave={() => handleSave(idea)}
                     onVariation={(hint) => handleVariation(idea, hint)}
-                    onRecord={() => setStudioIdea(idea)}
+                    onRecord={(override) => setStudioIdea(override ?? idea)}
                     onCaption={() => handleCaption(idea)} />
                 ))}
               </div>

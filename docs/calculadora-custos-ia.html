@@ -141,6 +141,12 @@
     border-radius: 10px; padding: 6px 14px; font-weight: 700; cursor: pointer; font-size: 0.85rem;
   }
   .currency-toggle button.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+  .scenario-btn {
+    background: var(--bg-input); border: 1px solid var(--border); color: var(--text);
+    border-radius: 12px; padding: 8px 14px; font-weight: 700; cursor: pointer; font-size: 0.82rem;
+    transition: all 0.15s;
+  }
+  .scenario-btn:hover { border-color: var(--purple-light); background: rgba(124,92,255,0.12); }
 </style>
 </head>
 <body>
@@ -151,6 +157,26 @@
   <div class="card">
     <h2>⚙️ Parâmetros da geração</h2>
     <p class="hint">Ajuste conforme o tamanho médio dos seus roteiros. Os valores padrão refletem um roteiro de story/reel típico.</p>
+
+    <!-- Nota de esclarecimento sobre usuários x gerações -->
+    <div style="background:rgba(124,92,255,0.10); border:1px solid rgba(124,92,255,0.3); border-radius:14px; padding:14px 16px; margin-bottom:18px; font-size:0.88rem; color:var(--text);">
+      <strong style="color:var(--purple-light)">Como ler os números:</strong>
+      cada usuário pode gerar <strong>até 1.000 roteiros por mês</strong> (limite do app). Sua
+      <strong>meta inicial é 1.000 usuários</strong>. Mas, na prática, quase ninguém usa o limite todo —
+      a maioria gera bem menos. Por isso separamos <em>"gerações por usuário/mês"</em> (uso médio real)
+      de <em>"usuários ativos"</em> (quantas pessoas pagantes você tem). O custo total é simplesmente
+      <strong>os dois multiplicados</strong>.
+    </div>
+
+    <!-- Cenários prontos -->
+    <label style="margin-bottom:8px">Cenários rápidos (clique para preencher)</label>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px;">
+      <button class="scenario-btn" onclick="setScenario(1000, 20)">Conservador · 1.000 usuários × 20</button>
+      <button class="scenario-btn" onclick="setScenario(1000, 50)">Realista · 1.000 usuários × 50</button>
+      <button class="scenario-btn" onclick="setScenario(1000, 150)">Intenso · 1.000 usuários × 150</button>
+      <button class="scenario-btn" onclick="setScenario(1000, 1000)">Teto máximo · 1.000 × 1.000</button>
+    </div>
+
     <div class="controls">
       <div>
         <label>Tokens de entrada (prompt)</label>
@@ -161,12 +187,12 @@
         <input type="number" id="outputTokens" value="900" min="0" step="100" />
       </div>
       <div>
-        <label>Gerações por usuário / mês</label>
-        <input type="number" id="genPerUser" value="30" min="1" step="1" />
+        <label>Gerações por usuário / mês <span style="color:var(--text-muted); text-transform:none; letter-spacing:0">(uso médio, máx 1.000)</span></label>
+        <input type="number" id="genPerUser" value="50" min="1" max="1000" step="1" />
       </div>
       <div>
-        <label>Usuários ativos</label>
-        <input type="number" id="activeUsers" value="100" min="1" step="10" />
+        <label>Usuários ativos <span style="color:var(--text-muted); text-transform:none; letter-spacing:0">(meta: 1.000)</span></label>
+        <input type="number" id="activeUsers" value="1000" min="1" step="10" />
       </div>
       <div>
         <label>Câmbio USD → BRL</label>
@@ -179,6 +205,15 @@
           <button id="btnBRL" onclick="setCurrency('BRL')">BRL</button>
         </div>
       </div>
+    </div>
+
+    <!-- Total de gerações/mês derivado -->
+    <div style="margin-top:18px; background:var(--bg-input); border:1px solid var(--border); border-radius:14px; padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">Total de gerações no mês</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);" id="totalGenFormula">1.000 usuários × 50 gerações</div>
+      </div>
+      <div style="font-size:1.8rem; font-weight:800; color:var(--purple-light); font-variant-numeric:tabular-nums;" id="totalGenValue">50.000</div>
     </div>
   </div>
 
@@ -255,6 +290,13 @@
     render();
   }
 
+  // Preenche os campos com um cenário (usuários + gerações médias por usuário)
+  function setScenario(users, genPerUser) {
+    document.getElementById('activeUsers').value = users;
+    document.getElementById('genPerUser').value = genPerUser;
+    render();
+  }
+
   function fmt(usd) {
     const fx = parseFloat(document.getElementById('fxRate').value) || 1;
     const v = currency === 'BRL' ? usd * fx : usd;
@@ -275,6 +317,13 @@
     const body = document.getElementById('modelBody');
     const genPerUser = parseFloat(document.getElementById('genPerUser').value) || 0;
     const users = parseFloat(document.getElementById('activeUsers').value) || 0;
+
+    // Atualiza o painel "Total de gerações no mês"
+    const totalGen = genPerUser * users;
+    document.getElementById('totalGenValue').textContent = totalGen.toLocaleString('pt-BR');
+    document.getElementById('totalGenFormula').textContent =
+      `${users.toLocaleString('pt-BR')} usuários × ${genPerUser.toLocaleString('pt-BR')} gerações`;
+
     body.innerHTML = '';
 
     PAID_MODELS.forEach((m, idx) => {

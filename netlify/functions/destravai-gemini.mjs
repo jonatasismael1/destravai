@@ -7,12 +7,14 @@
 import { json, preflight, getUser, supabaseAdmin, serverLog } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
-// Modelo primário ESTÁVEL (GA). Antes usávamos 'gemini-flash-latest', um alias
-// instável que vinha retornando "Internal error encountered" e "high demand".
-const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash'
-// Se o primário falhar de forma transitória, caímos para um modelo alternativo
-// (outra infra do Google) — reduz muito a chance de o usuário ver erro.
-const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-1.5-flash'
+// Modelo principal: respeita a variável de ambiente já configurada
+// (GEMINI_MODEL = gemini-flash-latest no Netlify/Supabase). O default do código
+// é só um fallback caso a env não exista — NÃO substitui a sua configuração.
+const DEFAULT_MODEL = process.env.GEMINI_MODEL || process.env.VITE_GEMINI_MODEL || 'gemini-flash-latest'
+// Usado APENAS como rede de segurança quando o principal falha de forma
+// transitória (após o retry). Modelo estável e da mesma família, para manter o
+// estilo parecido. Não afeta o fluxo normal, que continua usando o principal.
+const FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || 'gemini-2.0-flash'
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15

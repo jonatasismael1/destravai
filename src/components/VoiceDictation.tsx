@@ -13,6 +13,25 @@ const getSR = (): any =>
     ? (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition ?? null
     : null
 
+// Junta pedaços de transcrição lidando com motores que emitem resultados
+// CUMULATIVOS (ex.: Android/Xiaomi devolve "testando", "testando eu", "testando
+// eu acho"...). Se um pedaço ESTENDE o texto acumulado, ele SUBSTITUI (não soma);
+// se for um trecho realmente novo, concatena. Isso elimina a repetição de palavras.
+function mergeCumulative(parts: string[]): string {
+  let out = ''
+  for (const raw of parts) {
+    const p = (raw || '').trim()
+    if (!p) continue
+    if (!out) { out = p; continue }
+    const a = out.toLowerCase()
+    const b = p.toLowerCase()
+    if (b.startsWith(a)) out = p            // p contém tudo que já tínhamos → substitui
+    else if (a.startsWith(b)) { /* p é um prefixo menor → mantém o que tem */ }
+    else out = `${out} ${p}`                // trecho novo de verdade → concatena
+  }
+  return out
+}
+
 export default function VoiceDictation({
   label = 'Fale o tema da sua ideia...',
   onResult,
@@ -41,19 +60,20 @@ export default function VoiceDictation({
 
     rec.onstart = () => { setIsListening(true); setError('') }
     rec.onresult = (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-      // Reconstrói o texto da SESSÃO do zero a cada evento. O e.results é
-      // cumulativo dentro da sessão, então ler do índice 0 dá o texto completo
-      // SEM duplicar — some com a repetição de palavras do modo contínuo.
-      let sessionFinal = ''
-      let interimText = ''
+      // Coleta finais e interinos separadamente e junta com merge prefixo-aware,
+      // que neutraliza os motores que devolvem resultados cumulativos (a causa da
+      // repetição "testando testando eu testando eu acho...").
+      const finals: string[] = []
+      const interims: string[] = []
       for (let i = 0; i < e.results.length; i++) {
         const t = e.results[i][0].transcript
-        if (e.results[i].isFinal) sessionFinal += t + ' '
-        else interimText += t
+        if (e.results[i].isFinal) finals.push(t)
+        else interims.push(t)
       }
-      finalizedRef.current = sessionBaseRef.current + sessionFinal
-      setTranscript(finalizedRef.current.replace(/\s+/g, ' ').trimStart())
-      setInterim(interimText)
+      const sessionFinal = mergeCumulative(finals)
+      finalizedRef.current = mergeCumulative([sessionBaseRef.current, sessionFinal])
+      setTranscript(finalizedRef.current.trim())
+      setInterim(mergeCumulative(interims))
     }
     rec.onerror = (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
       if (e.error !== 'aborted') setError(`Microfone indisponível (${e.error})`)
@@ -75,12 +95,13 @@ export default function VoiceDictation({
   const stopListening = () => { recRef.current?.stop(); setIsListening(false) }
 
   const handleConfirm = () => {
-    const full = (transcript + ' ' + interim).trim()
-    if (full) onResult(full)
+    // merge para o caso de o interim ainda repetir o fim do transcript final.
+    const result = mergeCumulative([transcript, interim])
+    if (result) onResult(result)
     onClose()
   }
 
-  const full = (transcript + interim).trim()
+  const full = mergeCumulative([transcript, interim])
 
   return (
     <div
@@ -116,11 +137,14 @@ export default function VoiceDictation({
           style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}
         >
           {full ? (
+            // Mostra o texto já mesclado (sem duplicar). O trecho ainda não
+            // finalizado aparece levemente apagado no fim.
             <p className="text-white text-base leading-relaxed">
               {transcript}
-              {interim && (
-                <span style={{ color: 'rgba(255,255,255,0.45)' }}>{interim}</span>
-              )}
+              {(() => {
+                const tail = mergeCumulative([transcript, interim]).slice(transcript.length)
+                return tail ? <span style={{ color: 'rgba(255,255,255,0.45)' }}>{tail}</span> : null
+              })()}
             </p>
           ) : (
             <p className="text-center text-sm mt-3" style={{ color: 'rgba(255,255,255,0.3)' }}>

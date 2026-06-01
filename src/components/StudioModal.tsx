@@ -79,13 +79,18 @@ function formatTimer(s: number) {
 }
 
 function getBestMimeType() {
-  // Ordem do melhor → mais compatível. avc1.640028 = H.264 HIGH profile (nível 4.0,
-  // cobre 1080p): imagem mais limpa no mesmo bitrate que o Baseline (42E01E) usado
-  // antes. Se o aparelho não suportar, cai para Main, depois Baseline, depois WebM.
+  // Ordem do melhor → mais compatível.
+  // HEVC (H.265) primeiro: mesma qualidade do H.264 com ~metade do bitrate, ou
+  // muito mais qualidade no mesmo bitrate — é o que o usuário pediu. Nem todo
+  // navegador grava HEVC via MediaRecorder; se não suportar, cai para H.264 High.
+  // avc1.640028 = H.264 HIGH profile (nível 4.0, cobre 1080p).
   const candidates = [
-    'video/mp4;codecs="avc1.640028,mp4a.40.2"',  // H.264 High Profile + AAC
-    'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',  // H.264 Main Profile
-    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',  // H.264 Baseline (fallback)
+    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC (hvc1) + AAC — 1080p
+    'video/mp4;codecs="hev1.1.6.L120.90,mp4a.40.2"', // HEVC (hev1) variante
+    'video/mp4;codecs="hvc1,mp4a.40.2"',             // HEVC genérico
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',      // H.264 High Profile + AAC
+    'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',      // H.264 Main Profile
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',      // H.264 Baseline (fallback)
     'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
@@ -94,17 +99,26 @@ function getBestMimeType() {
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
 }
 
+// Indica se um mimeType é HEVC (para ajustar o nome do arquivo).
+function isHEVC(mime: string) {
+  return /hvc1|hev1/i.test(mime)
+}
+
 // Constraints de áudio. Quando reduceNoise=false, desligamos o processamento de
 // voz do navegador (eco/ruído/ganho) — esses filtros são pensados para CHAMADA,
 // não para gravar conteúdo. Voz fica mais natural e encorpada (ideal em ambiente
 // silencioso). Quando true, mantém o comportamento de redução de ruído.
-function buildAudioConstraints(reduceNoise: boolean): MediaTrackConstraints {
+// deviceId: quando informado (ex.: microfone USB), força o uso desse microfone —
+// sem isso, o navegador costuma ignorar microfones externos e usar o embutido.
+function buildAudioConstraints(reduceNoise: boolean, deviceId?: string | null): MediaTrackConstraints {
   return {
+    ...(deviceId ? { deviceId: { exact: deviceId } } : {}),
     echoCancellation: reduceNoise,
     noiseSuppression: reduceNoise,
     autoGainControl: reduceNoise,
     sampleRate: { ideal: 48000 },
-    channelCount: { ideal: 1 },
+    // Estéreo: áudio mais cheio e parecido com o da câmera nativa (antes era mono).
+    channelCount: { ideal: 2 },
   }
 }
 
@@ -140,12 +154,13 @@ function getRecordingSize(stream: MediaStream): RecordingSize {
   const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
   const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
   const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
-  // Bitrate alto para compensar o re-encode via canvas. 14 Mbps em 1080p se
-  // aproxima da gravação nativa (~17 Mbps) e reduz blocos/borrão em movimento.
+  // Bitrate alto para compensar o re-encode via canvas e igualar a câmera nativa.
+  // 1080p subiu para 20 Mbps (era 14) — elimina blocos/borrão e a "qualidade ruim"
+  // ao baixar. Com HEVC, esse bitrate rende qualidade ainda melhor que H.264.
   if (sourceMin >= 900 && sourceMax >= 1200) {
-    return { width: 1080, height: 1920, videoBitsPerSecond: 14_000_000 }
+    return { width: 1080, height: 1920, videoBitsPerSecond: 20_000_000 }
   }
-  return { width: 720, height: 1280, videoBitsPerSecond: 7_000_000 }
+  return { width: 720, height: 1280, videoBitsPerSecond: 10_000_000 }
 }
 
 function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, requestedZoom: number) {
@@ -178,6 +193,9 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Redução de ruído do navegador. Ligada por padrão (seguro em qualquer ambiente);
   // o usuário pode desligar nos ajustes para uma voz mais natural/encorpada.
   const [reduceNoise, setReduceNoise] = useState(true)
+  // Microfones disponíveis e o selecionado (ex.: microfone USB externo).
+  const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
+  const [selectedMicId, setSelectedMicId] = useState<string | null>(null)
 
   // Câmera
   const [zoom, setZoom] = useState<number>(1)            // 1x/2x/3x/5x = ZOOM
@@ -202,6 +220,9 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Sempre lê o valor atual de reduceNoise dentro de startCamera (que é memoizado).
   const reduceNoiseRef = useRef(reduceNoise)
   reduceNoiseRef.current = reduceNoise
+  // Idem para o microfone selecionado.
+  const selectedMicRef = useRef(selectedMicId)
+  selectedMicRef.current = selectedMicId
 
   const stopStream = useCallback(() => {
     recordingStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -210,12 +231,30 @@ export default function StudioModal({ idea, onClose }: Props) {
     streamRef.current = null
   }, [])
 
+  // Lista os microfones disponíveis. Só traz os rótulos após a permissão de mídia
+  // ter sido concedida (por isso é chamado depois do primeiro getUserMedia).
+  const refreshAudioInputs = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const mics = devices.filter(d => d.kind === 'audioinput')
+      setAudioInputs(mics)
+      // Auto-seleciona um microfone externo (USB/headset) se houver e nada estiver
+      // escolhido — assim o mic USB passa a ser usado sem o usuário precisar mexer.
+      if (!selectedMicRef.current) {
+        const external = mics.find(m => /usb|extern|headset|fone|micro(phone)?\b/i.test(m.label) && !/default|comunic/i.test(m.label))
+        if (external) setSelectedMicId(external.deviceId)
+      }
+    } catch { /* enumeração indisponível */ }
+  }, [])
+
   const startCamera = useCallback(async (mode: 'user' | 'environment') => {
     stopStream()
     try {
-      const stream = await getCameraStream(mode, buildAudioConstraints(reduceNoiseRef.current))
+      const stream = await getCameraStream(mode, buildAudioConstraints(reduceNoiseRef.current, selectedMicRef.current))
       streamRef.current = stream
       recordingSizeRef.current = getRecordingSize(stream)
+      // Já temos permissão → podemos listar os microfones com rótulo.
+      void refreshAudioInputs()
       if (liveVideoRef.current) { liveVideoRef.current.srcObject = stream; liveVideoRef.current.muted = true }
       // Detecta suporte a zoom real da câmera
       const track = stream.getVideoTracks()[0]
@@ -233,7 +272,7 @@ export default function StudioModal({ idea, onClose }: Props) {
       setHasCamera(false)
       return null
     }
-  }, [stopStream])
+  }, [stopStream, refreshAudioInputs])
 
   useEffect(() => {
     startCamera('user')
@@ -252,6 +291,20 @@ export default function StudioModal({ idea, onClose }: Props) {
     if (skipNoiseEffect.current) { skipNoiseEffect.current = false; return }
     if (phase === 'setup') startCamera(facing)
   }, [reduceNoise]) // eslint-disable-line
+
+  // Recria o stream ao trocar o microfone selecionado (fora de gravação).
+  const skipMicEffect = useRef(true)
+  useEffect(() => {
+    if (skipMicEffect.current) { skipMicEffect.current = false; return }
+    if (phase === 'setup') startCamera(facing)
+  }, [selectedMicId]) // eslint-disable-line
+
+  // Atualiza a lista quando um microfone é conectado/desconectado (ex.: USB).
+  useEffect(() => {
+    const onChange = () => { void refreshAudioInputs() }
+    navigator.mediaDevices?.addEventListener?.('devicechange', onChange)
+    return () => navigator.mediaDevices?.removeEventListener?.('devicechange', onChange)
+  }, [refreshAudioInputs])
 
   // Draws the real 9:16 frame used by both preview and MediaRecorder.
   useEffect(() => {
@@ -377,7 +430,8 @@ export default function StudioModal({ idea, onClose }: Props) {
     const options: MediaRecorderOptions = {
       ...(mimeType ? { mimeType } : {}),
       videoBitsPerSecond: recordingSizeRef.current.videoBitsPerSecond,
-      ...(audioTracks.length ? { audioBitsPerSecond: 192_000 } : {}),
+      // 256 kbps AAC estéreo: áudio mais próximo da câmera nativa (era 192 kbps).
+      ...(audioTracks.length ? { audioBitsPerSecond: 256_000 } : {}),
     }
     let recorder: MediaRecorder
     try {
@@ -444,8 +498,11 @@ export default function StudioModal({ idea, onClose }: Props) {
   const downloadVideo = async () => {
     const blob = blobRef.current
     if (!blob) return
-    // Registra a gravação salva (formato + duração) e abre o "modo postei".
-    void trackEvent('recording_save', idea.id, { mimeType: blob.type, durationSec: timer, name: videoName })
+    // Registra a gravação salva (formato + codec + duração) e abre o "modo postei".
+    void trackEvent('recording_save', idea.id, {
+      mimeType: blob.type, codec: isHEVC(blob.type) ? 'hevc' : (blob.type.includes('mp4') ? 'h264' : 'webm'),
+      durationSec: timer, name: videoName,
+    })
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
     const safeName = (videoName || idea.theme)
       .trim()
@@ -761,6 +818,28 @@ export default function StudioModal({ idea, onClose }: Props) {
                 <span className="absolute rounded-full bg-white transition-all" style={{ top: 4, width: 20, height: 20, left: reduceNoise ? 24 : 4 }} />
               </button>
             </div>
+
+            {/* Seletor de microfone — permite usar um microfone USB/externo */}
+            {audioInputs.length > 1 && (
+              <div className="pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="text-sm font-semibold text-white/80">Microfone</span>
+                <p className="text-[11px] mt-0.5 mb-2 text-white/40">
+                  Conectou um microfone USB? Selecione-o aqui para gravar com ele.
+                </p>
+                <select
+                  value={selectedMicId ?? ''}
+                  onChange={e => setSelectedMicId(e.target.value || null)}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}>
+                  <option value="">Microfone padrão do aparelho</option>
+                  {audioInputs.map((mic, i) => (
+                    <option key={mic.deviceId} value={mic.deviceId} style={{ color: '#111' }}>
+                      {mic.label || `Microfone ${i + 1}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <button onClick={() => setShowSettings(false)}
               className="w-full py-3.5 rounded-2xl font-bold text-white" style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)' }}>

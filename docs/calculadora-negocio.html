@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de Negócio — Destravaí</title>
+<style>
+  :root {
+    --bg: #0E0B1A; --bg-card: #1A1530; --bg-input: #241D40;
+    --border: rgba(155,140,255,0.18);
+    --purple: #7C5CFF; --lilac: #A78BFA; --purple-light: #9B8CFF;
+    --coral: #FF7A6B; --mint: #53D6A1; --amber: #F7B955; --red: #FF5C72;
+    --text: #F4F2FF; --text-muted: #9990C4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.55;
+    padding: 24px 16px 80px; max-width: 1100px; margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.7rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--purple-light), var(--mint));
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 26px; }
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 20px; padding: 22px; margin-bottom: 20px; }
+  .card h2 { font-size: 1.08rem; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .card .hint { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+  label { display: block; font-size: 0.76rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em; }
+  label .normal { text-transform: none; letter-spacing: 0; color: var(--text-muted); font-weight: 500; }
+  input[type="number"] {
+    width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+    border-radius: 11px; padding: 10px 13px; color: var(--text); font-size: 0.98rem; font-weight: 700;
+  }
+  input:focus { outline: none; border-color: var(--purple-light); }
+  .row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .row .lbl { flex: 1; font-size: 0.9rem; }
+  .row input { width: 120px; }
+  .plan-row { display: grid; grid-template-columns: 1fr 90px 90px; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .plan-row .pname { font-weight: 700; font-size: 0.92rem; }
+  .plan-row .psub { font-size: 0.75rem; color: var(--text-muted); }
+  .mini { font-size: 0.72rem; color: var(--text-muted); }
+
+  /* Painel de resultado */
+  .result { background: linear-gradient(135deg, rgba(83,214,161,0.10), rgba(124,92,255,0.08)); border: 1px solid rgba(83,214,161,0.35); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-top: 6px; }
+  .kpi { background: var(--bg-input); border: 1px solid var(--border); border-radius: 14px; padding: 16px; }
+  .kpi .v { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 0.74rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+  .kpi.good .v { color: var(--mint); }
+  .kpi.bad .v { color: var(--red); }
+  .kpi.warn .v { color: var(--amber); }
+  .kpi.neutral .v { color: var(--purple-light); }
+
+  /* Breakdown (cascata de custos) */
+  .bd { margin-top: 18px; }
+  .bd-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 0.92rem; }
+  .bd-row.total { border-bottom: none; border-top: 2px solid var(--border); margin-top: 4px; padding-top: 14px; font-weight: 800; font-size: 1.05rem; }
+  .bd-row .neg { color: var(--coral); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .bd-row .pos { color: var(--mint); font-variant-numeric: tabular-nums; font-weight: 700; }
+  .bar { height: 8px; border-radius: 4px; background: var(--bg-input); overflow: hidden; margin-top: 4px; }
+  .bar > div { height: 100%; }
+
+  .insights { background: rgba(247,185,85,0.07); border: 1px solid rgba(247,185,85,0.25); }
+  .insights ul { list-style: none; }
+  .insights li { padding: 7px 0; font-size: 0.9rem; display: flex; gap: 8px; }
+  .insights li::before { content: '→'; color: var(--amber); font-weight: 800; }
+  .footnote { font-size: 0.8rem; color: var(--text-muted); margin-top: 14px; }
+  a { color: var(--purple-light); }
+  .promo-toggle { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; font-size: 0.85rem; color: var(--text); margin-top: 4px; }
+</style>
+</head>
+<body>
+  <h1>Calculadora de Negócio — Destravaí</h1>
+  <p class="subtitle">Veja quanto você fatura, gasta e lucra a cada mês. Ajuste preços, mix de planos, taxas, tráfego pago e custos. Tudo editável — descubra seu ponto de equilíbrio e onde otimizar.</p>
+
+  <!-- 1. Planos e mix -->
+  <div class="card">
+    <h2>💵 Planos e mix de vendas</h2>
+    <p class="hint">Defina o preço de cada plano e a % de clientes em cada um. A soma ideal das porcentagens é 100%.</p>
+    <div class="plan-row" style="font-size:0.72rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em;">
+      <div>Plano</div><div>Preço (R$)</div><div>% clientes</div>
+    </div>
+    <div class="plan-row">
+      <div><div class="pname">Starter</div><div class="psub">Base de entrada</div></div>
+      <input type="number" id="price1" value="29" step="1" min="0" />
+      <input type="number" id="mix1" value="50" step="5" min="0" />
+    </div>
+    <div class="plan-row">
+      <div><div class="pname">Pro</div><div class="psub">Mais popular</div></div>
+      <input type="number" id="price2" value="49" step="1" min="0" />
+      <input type="number" id="mix2" value="35" step="5" min="0" />
+    </div>
+    <div class="plan-row">
+      <div><div class="pname">Expert</div><div class="psub">Topo</div></div>
+      <input type="number" id="price3" value="69" step="1" min="0" />
+      <input type="number" id="mix3" value="15" step="5" min="0" />
+    </div>
+    <div style="margin-top:14px; background:var(--bg-input); border:1px solid var(--border); border-radius:12px; padding:13px 16px; display:flex; justify-content:space-between; align-items:center;">
+      <span class="mini" id="mixWarn">Ticket médio (preço médio por cliente)</span>
+      <strong style="font-size:1.25rem; color:var(--purple-light)" id="ticketMedio">R$ 0,00</strong>
+    </div>
+  </div>
+
+  <!-- 2. Base de clientes -->
+  <div class="card">
+    <h2>👥 Base de clientes</h2>
+    <p class="hint">Quantos assinantes pagantes você tem hoje e quantos novos entram no mês. Sua meta inicial é 1.000 assinantes ativos.</p>
+    <div class="grid">
+      <div>
+        <label>Assinantes ativos <span class="normal">(meta: 1.000)</span></label>
+        <input type="number" id="activeSubs" value="1000" step="50" min="0" />
+      </div>
+      <div>
+        <label>Novos clientes / mês</label>
+        <input type="number" id="newCustomers" value="200" step="10" min="0" />
+      </div>
+      <div>
+        <label>Churn mensal <span class="normal">(% que cancela/mês)</span></label>
+        <input type="number" id="churn" value="8" step="1" min="0" max="100" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Taxas de pagamento -->
+  <div class="card">
+    <h2>🏦 Taxas de pagamento (Asaas)</h2>
+    <p class="hint">Asaas cobra por cobrança recebida. Edite se mudar de plano/plataforma. As 100 primeiras cobranças Pix do mês são gratuitas.</p>
+    <div class="grid">
+      <div>
+        <label>% pagam por Pix</label>
+        <input type="number" id="pixShare" value="60" step="5" min="0" max="100" />
+      </div>
+      <div>
+        <label>% pagam por Cartão</label>
+        <input type="number" id="cardShare" value="40" step="5" min="0" max="100" />
+      </div>
+      <div>
+        <label>Taxa Pix <span class="normal">(R$/cobrança)</span></label>
+        <input type="number" id="pixFee" value="1.99" step="0.01" min="0" />
+      </div>
+      <div>
+        <label>Taxa Cartão <span class="normal">(% da venda)</span></label>
+        <input type="number" id="cardPct" value="2.99" step="0.01" min="0" />
+      </div>
+      <div>
+        <label>Taxa fixa Cartão <span class="normal">(R$/cobrança)</span></label>
+        <input type="number" id="cardFixed" value="0.49" step="0.01" min="0" />
+      </div>
+      <div>
+        <label>Pix grátis / mês <span class="normal">(Asaas: 100)</span></label>
+        <input type="number" id="pixFree" value="100" step="10" min="0" />
+      </div>
+    </div>
+    <label class="promo-toggle">
+      <input type="checkbox" id="promoToggle" onchange="applyPromo()" />
+      Usar taxa promocional dos 3 primeiros meses (Pix R$0,99 · Cartão 1,99%)
+    </label>
+  </div>
+
+  <!-- 4. Custos variáveis (IA) -->
+  <div class="card">
+    <h2>🤖 Custo de IA por cliente</h2>
+    <p class="hint">Custo médio de gerar roteiros para 1 cliente no mês. Veja o valor exato na <a href="calculadora-custos-ia.html">calculadora de custos de IA</a> (use a coluna "custo por usuário/mês").</p>
+    <div class="grid">
+      <div>
+        <label>Custo de IA por cliente <span class="normal">(R$/mês)</span></label>
+        <input type="number" id="aiPerUser" value="0.40" step="0.05" min="0" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Custos fixos -->
+  <div class="card">
+    <h2>🏢 Custos fixos mensais</h2>
+    <p class="hint">Gastos que não mudam com o número de clientes. Edite os valores conforme sua realidade.</p>
+    <div id="fixedList"></div>
+    <button onclick="addFixed()" style="margin-top:8px; background:var(--bg-input); border:1px dashed var(--border); color:var(--text); border-radius:10px; padding:8px 14px; font-weight:700; cursor:pointer; font-size:0.85rem;">+ adicionar custo</button>
+    <div style="margin-top:14px; display:flex; justify-content:space-between; align-items:center;">
+      <span class="mini">Total de custos fixos</span>
+      <strong style="font-size:1.15rem; color:var(--coral)" id="fixedTotal">R$ 0,00</strong>
+    </div>
+  </div>
+
+  <!-- 6. Tráfego pago -->
+  <div class="card">
+    <h2>📣 Tráfego pago (aquisição)</h2>
+    <p class="hint">Quanto você investe em anúncios e quanto custa trazer 1 cliente pagante (CAC). Se você não sabe o CAC, estime: custo por clique ÷ taxa de conversão.</p>
+    <div class="grid">
+      <div>
+        <label>Investimento em ads <span class="normal">(R$/mês)</span></label>
+        <input type="number" id="adSpend" value="3000" step="100" min="0" />
+      </div>
+      <div>
+        <label>CAC — custo por cliente <span class="normal">(R$)</span></label>
+        <input type="number" id="cac" value="25" step="1" min="0" />
+      </div>
+    </div>
+    <p class="mini" style="margin-top:10px">Com esse investimento e CAC, os anúncios trazem <strong id="adsCustomers" style="color:var(--purple-light)">120</strong> clientes/mês. Se isso for menor que "novos clientes/mês", o resto vem do orgânico (grátis).</p>
+  </div>
+
+  <!-- RESULTADO -->
+  <div class="card result">
+    <h2>📊 Resultado do mês</h2>
+    <div class="kpis">
+      <div class="kpi neutral"><div class="v" id="kMrr">R$ 0</div><div class="l">Faturamento (MRR)</div></div>
+      <div class="kpi bad"><div class="v" id="kCost">R$ 0</div><div class="l">Custos totais</div></div>
+      <div class="kpi good"><div class="v" id="kProfit">R$ 0</div><div class="l">Lucro líquido</div></div>
+      <div class="kpi neutral"><div class="v" id="kMargin">0%</div><div class="l">Margem líquida</div></div>
+    </div>
+
+    <div class="bd">
+      <div class="bd-row"><span>Faturamento bruto (assinantes × ticket)</span><span class="pos" id="bdRevenue">R$ 0</span></div>
+      <div class="bd-row"><span>− Taxas de pagamento (Asaas)</span><span class="neg" id="bdFees">R$ 0</span></div>
+      <div class="bd-row"><span>− Custo de IA</span><span class="neg" id="bdAi">R$ 0</span></div>
+      <div class="bd-row"><span>− Tráfego pago (ads)</span><span class="neg" id="bdAds">R$ 0</span></div>
+      <div class="bd-row"><span>− Custos fixos</span><span class="neg" id="bdFixed">R$ 0</span></div>
+      <div class="bd-row total"><span>= Lucro líquido</span><span id="bdProfit">R$ 0</span></div>
+    </div>
+  </div>
+
+  <!-- Indicadores avançados -->
+  <div class="card">
+    <h2>📈 Indicadores de saúde</h2>
+    <div class="kpis">
+      <div class="kpi neutral"><div class="v" id="kBreakeven">0</div><div class="l">Assinantes p/ empatar</div></div>
+      <div class="kpi neutral"><div class="v" id="kLtv">R$ 0</div><div class="l">LTV (valor do cliente)</div></div>
+      <div class="kpi" id="kLtvCacBox"><div class="v" id="kLtvCac">0x</div><div class="l">LTV ÷ CAC</div></div>
+      <div class="kpi neutral"><div class="v" id="kPayback">0</div><div class="l">Meses p/ pagar o CAC</div></div>
+    </div>
+    <p class="footnote">
+      <strong>LTV</strong> = quanto um cliente deixa de lucro durante toda a relação (ticket × margem ÷ churn).
+      <strong>LTV ÷ CAC</strong> saudável é <strong>≥ 3x</strong> (cada R$1 em ads volta como R$3+).
+      <strong>Payback</strong> ideal é abaixo de 12 meses.
+    </p>
+  </div>
+
+  <!-- Insights -->
+  <div class="card insights">
+    <h2>💡 Diagnóstico e otimização</h2>
+    <ul id="insights"></ul>
+  </div>
+
+  <p class="footnote">
+    Taxas Asaas de referência (jun/2026): Pix R$0,99 nos 3 primeiros meses → R$1,99 · Cartão 1,99%+R$0,49 nos 3 meses → 2,99%+R$0,49 · 100 Pix/mês grátis.
+    Fontes: <a href="https://www.asaas.com/precos-e-taxas" target="_blank">Preços e taxas Asaas</a> · <a href="https://blog.asaas.com/taxas-asaas/" target="_blank">Blog Asaas</a>.
+    Confirme sempre os valores vigentes no seu painel.
+  </p>
+
+<script>
+  // ── Custos fixos editáveis (defaults realistas) ───────────────────────────
+  let FIXED = [
+    { name: 'Supabase (banco + auth)', val: 130 },
+    { name: 'Hospedagem (Netlify)', val: 0 },
+    { name: 'Domínio (rateado/mês)', val: 4 },
+    { name: 'Ferramentas / e-mail / outros', val: 120 },
+  ];
+
+  function brl(v) {
+    return 'R$ ' + (v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function brl0(v) {
+    return 'R$ ' + Math.round(v || 0).toLocaleString('pt-BR');
+  }
+  const num = (id) => parseFloat(document.getElementById(id).value) || 0;
+
+  function renderFixed() {
+    const box = document.getElementById('fixedList');
+    box.innerHTML = FIXED.map((f, i) => `
+      <div class="row">
+        <input class="lbl-input" style="flex:1; width:auto" type="text" value="${f.name}" data-i="${i}" data-k="name" />
+        <input type="number" value="${f.val}" step="10" min="0" data-i="${i}" data-k="val" />
+        <button data-del="${i}" style="background:none;border:none;color:var(--coral);cursor:pointer;font-size:1.1rem;font-weight:800">×</button>
+      </div>`).join('');
+    box.querySelectorAll('input').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const i = +e.target.dataset.i, k = e.target.dataset.k;
+        FIXED[i][k] = k === 'val' ? (parseFloat(e.target.value) || 0) : e.target.value;
+        compute();
+      });
+    });
+    box.querySelectorAll('[data-del]').forEach(b => {
+      b.addEventListener('click', e => { FIXED.splice(+e.target.dataset.del, 1); renderFixed(); compute(); });
+    });
+  }
+  function addFixed() { FIXED.push({ name: 'Novo custo', val: 0 }); renderFixed(); compute(); }
+
+  function applyPromo() {
+    const promo = document.getElementById('promoToggle').checked;
+    document.getElementById('pixFee').value = promo ? '0.99' : '1.99';
+    document.getElementById('cardPct').value = promo ? '1.99' : '2.99';
+    compute();
+  }
+
+  function compute() {
+    // ── Ticket médio ponderado pelo mix ──
+    const p1 = num('price1'), p2 = num('price2'), p3 = num('price3');
+    const m1 = num('mix1'), m2 = num('mix2'), m3 = num('mix3');
+    const mixSum = m1 + m2 + m3;
+    const ticket = mixSum > 0 ? (p1*m1 + p2*m2 + p3*m3) / mixSum : 0;
+    document.getElementById('ticketMedio').textContent = brl(ticket);
+    document.getElementById('mixWarn').textContent = mixSum === 100
+      ? 'Ticket médio (preço médio por cliente)'
+      : `⚠ As % somam ${mixSum}% (ideal 100%). Ticket médio mesmo assim:`;
+
+    // ── Faturamento ──
+    const subs = num('activeSubs');
+    const revenue = subs * ticket;
+
+    // ── Taxas de pagamento ──
+    const pixShare = num('pixShare') / 100, cardShare = num('cardShare') / 100;
+    const pixFee = num('pixFee'), cardPct = num('cardPct') / 100, cardFixed = num('cardFixed');
+    const pixFree = num('pixFree');
+    const pixCharges = Math.max(0, subs * pixShare - pixFree);   // 100 primeiras grátis
+    const cardCharges = subs * cardShare;
+    const feesTotal = pixCharges * pixFee + cardCharges * (ticket * cardPct + cardFixed);
+
+    // ── Custo de IA ──
+    const aiTotal = subs * num('aiPerUser');
+
+    // ── Tráfego pago ──
+    const adSpend = num('adSpend'), cac = num('cac');
+    const adsCustomers = cac > 0 ? Math.floor(adSpend / cac) : 0;
+    document.getElementById('adsCustomers').textContent = adsCustomers.toLocaleString('pt-BR');
+
+    // ── Custos fixos ──
+    const fixedTotal = FIXED.reduce((s, f) => s + (f.val || 0), 0);
+    document.getElementById('fixedTotal').textContent = brl(fixedTotal);
+
+    // ── Lucro ──
+    const totalCost = feesTotal + aiTotal + adSpend + fixedTotal;
+    const profit = revenue - totalCost;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+
+    // KPIs principais
+    document.getElementById('kMrr').textContent = brl0(revenue);
+    document.getElementById('kCost').textContent = brl0(totalCost);
+    document.getElementById('kProfit').textContent = brl0(profit);
+    document.getElementById('kMargin').textContent = margin.toFixed(1) + '%';
+    const profitBox = document.getElementById('kProfit').parentElement;
+    profitBox.className = 'kpi ' + (profit >= 0 ? 'good' : 'bad');
+
+    // Breakdown
+    document.getElementById('bdRevenue').textContent = brl0(revenue);
+    document.getElementById('bdFees').textContent = '− ' + brl0(feesTotal);
+    document.getElementById('bdAi').textContent = '− ' + brl0(aiTotal);
+    document.getElementById('bdAds').textContent = '− ' + brl0(adSpend);
+    document.getElementById('bdFixed').textContent = '− ' + brl0(fixedTotal);
+    const bdProfit = document.getElementById('bdProfit');
+    bdProfit.textContent = brl0(profit);
+    bdProfit.className = profit >= 0 ? 'pos' : 'neg';
+
+    // ── Indicadores avançados ──
+    // Margem de contribuição por cliente (receita - custos variáveis por cliente)
+    const varCostPerUser = (feesTotal + aiTotal) / Math.max(1, subs);
+    const contribPerUser = ticket - varCostPerUser;
+    // Break-even: assinantes para cobrir fixos + ads com a margem de contribuição
+    const breakeven = contribPerUser > 0 ? Math.ceil((fixedTotal + adSpend) / contribPerUser) : 0;
+    // LTV: contribuição por cliente ÷ churn (vida média = 1/churn)
+    const churn = num('churn') / 100;
+    const lifetimeMonths = churn > 0 ? 1 / churn : 0;
+    const ltv = contribPerUser * lifetimeMonths;
+    const ltvCac = cac > 0 ? ltv / cac : 0;
+    const payback = contribPerUser > 0 ? cac / contribPerUser : 0;
+
+    document.getElementById('kBreakeven').textContent = breakeven.toLocaleString('pt-BR');
+    document.getElementById('kLtv').textContent = brl0(ltv);
+    document.getElementById('kLtvCac').textContent = ltvCac.toFixed(1) + 'x';
+    document.getElementById('kPayback').textContent = payback.toFixed(1) + ' m';
+    const ltvBox = document.getElementById('kLtvCacBox');
+    ltvBox.className = 'kpi ' + (ltvCac >= 3 ? 'good' : ltvCac >= 1.5 ? 'warn' : 'bad');
+
+    // ── Insights automáticos ──
+    const tips = [];
+    if (mixSum !== 100) tips.push(`As porcentagens dos planos somam ${mixSum}% — ajuste para 100% para um cálculo preciso.`);
+    if (profit < 0) tips.push(`Você está no prejuízo de ${brl0(-profit)}/mês. Foque em reduzir o CAC ou aumentar o ticket médio (mais vendas dos planos Pro/Expert).`);
+    else tips.push(`Lucro de ${brl0(profit)}/mês com margem de ${margin.toFixed(1)}%. ${margin < 30 ? 'Margem apertada — veja onde cortar.' : 'Margem saudável.'}`);
+    if (ltvCac < 3 && cac > 0) tips.push(`Seu LTV÷CAC é ${ltvCac.toFixed(1)}x (ideal ≥ 3x). Cada cliente vale ${brl0(ltv)} mas custa ${brl0(cac)} para adquirir — reduza o CAC ou aumente a retenção (menos churn).`);
+    else if (cac > 0) tips.push(`Ótimo: LTV÷CAC de ${ltvCac.toFixed(1)}x. Cada R$1 em anúncios retorna cerca de R$${ltvCac.toFixed(1)} ao longo da vida do cliente — dá para escalar os anúncios.`);
+    if (churn >= 10) tips.push(`Churn de ${num('churn')}% é alto. Cada ponto a menos aumenta muito o LTV — invista em ativação e nas notificações de constância (D1/D3/D7).`);
+    const feesPct = revenue > 0 ? (feesTotal / revenue) * 100 : 0;
+    if (feesPct > 4) tips.push(`Taxas de pagamento consomem ${feesPct.toFixed(1)}% do faturamento. Incentivar Pix (mais barato que cartão) reduz esse custo.`);
+    const biggestCost = [['Taxas', feesTotal], ['IA', aiTotal], ['Ads', adSpend], ['Fixos', fixedTotal]].sort((a,b)=>b[1]-a[1])[0];
+    if (biggestCost[1] > 0) tips.push(`Maior custo: ${biggestCost[0]} (${brl0(biggestCost[1])}/mês, ${((biggestCost[1]/Math.max(1,totalCost))*100).toFixed(0)}% do total). É onde a otimização rende mais.`);
+    if (subs < breakeven) tips.push(`Faltam ${(breakeven - subs).toLocaleString('pt-BR')} assinantes para cobrir custos fixos + ads. Você empata em ${breakeven.toLocaleString('pt-BR')} assinantes.`);
+
+    document.getElementById('insights').innerHTML = tips.map(t => `<li>${t}</li>`).join('');
+  }
+
+  // Recalcula em qualquer mudança
+  document.querySelectorAll('input[type=number]').forEach(inp => inp.addEventListener('input', compute));
+  renderFixed();
+  compute();
+</script>
+</body>
+</html>

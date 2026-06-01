@@ -11,6 +11,9 @@ const DEFAULT_MODEL =
 const OPENROUTER_KEY = Deno.env.get('OPENROUTER_API_KEY')
 const OPENROUTER_URL = (Deno.env.get('OPENROUTER_BASE_URL') || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
 const APP_REFERER = (Deno.env.get('APP_URL') || 'https://destravai.dbe.digital').replace(/\/$/, '')
+// Cadeia de fallback do OpenRouter (máx 3). Ordene do mais rápido p/ o mais lento.
+const OPENROUTER_MODELS = (Deno.env.get('OPENROUTER_MODELS') || '')
+  .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3)
 const MONTHLY_LIMIT = 1000 // geracoes bem-sucedidas por usuario por mes
 
 const isOpenRouterModel = (m: string) => typeof m === 'string' && m.includes('/')
@@ -69,7 +72,9 @@ Deno.serve(async (req: Request) => {
 
     const model = body.model ?? DEFAULT_MODEL
     const promptType = body.promptType ?? 'generic_gemini'
-    const viaOpenRouter = isOpenRouterModel(model)
+    const orModels = OPENROUTER_MODELS.length ? OPENROUTER_MODELS : (isOpenRouterModel(model) ? [model] : [])
+    const viaOpenRouter = orModels.length > 0
+    const wantsJson = /JSON/i.test(prompt)
 
     const geminiKey = Deno.env.get('GOOGLE_GENERATIVE_AI_API_KEY')
     if (viaOpenRouter && !OPENROUTER_KEY) return errorResponse('Chave OpenRouter nao configurada no servidor', 500)
@@ -89,10 +94,11 @@ Deno.serve(async (req: Request) => {
           'X-Title': 'Destravai',
         },
         body: JSON.stringify({
-          model,
+          models: orModels,
           messages: [{ role: 'user', content: prompt }],
           temperature,
           max_tokens: maxOutputTokens,
+          ...(wantsJson ? { response_format: { type: 'json_object' } } : {}),
         }),
       })
     } else {

@@ -21,6 +21,13 @@ const OPENROUTER_KEY = process.env.OPENROUTER_API_KEY
 const OPENROUTER_URL = (process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1').replace(/\/$/, '')
 const APP_REFERER = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
 
+// Cadeia de modelos do OpenRouter (fallback NATIVO numa única requisição — sem
+// múltiplas chamadas que estourariam o tempo). O OpenRouter aceita NO MÁXIMO 3.
+// Ordene do mais RÁPIDO para o mais lento: no plano Free do Netlify (10s) o
+// modelo precisa caber nesse tempo, então o 1º deve ser ágil.
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 3)
+
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
@@ -32,8 +39,10 @@ function isOpenRouterModel(model) {
 }
 
 // Chama o OpenRouter (API compatível com a da OpenAI: /chat/completions).
-// Retorna { ok, text, status, msg }.
-async function callOpenRouter(model, prompt, cfg, timeoutMs) {
+// `models` é um array (cadeia de fallback). `wantsJson` força saída JSON válida
+// (response_format) — resolve o "JSON not found" e o roteiro cortado.
+// Retorna { ok, text, status, msg, model }.
+async function callOpenRouter(models, prompt, cfg, wantsJson, timeoutMs) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -47,10 +56,11 @@ async function callOpenRouter(model, prompt, cfg, timeoutMs) {
         'X-Title': 'Destravai',
       },
       body: JSON.stringify({
-        model,
+        models,                       // cadeia de fallback (até 3) numa só chamada
         messages: [{ role: 'user', content: prompt }],
         temperature: cfg.temperature,
         max_tokens: cfg.maxOutputTokens,
+        ...(wantsJson ? { response_format: { type: 'json_object' } } : {}),
       }),
       signal: controller.signal,
     })
@@ -60,7 +70,7 @@ async function callOpenRouter(model, prompt, cfg, timeoutMs) {
     }
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content ?? ''
-    return { ok: true, text }
+    return { ok: true, text, model: data?.model || models[0] }
   } catch (e) {
     return { ok: false, status: 0, msg: e?.name === 'AbortError' ? 'timeout' : (e?.message || 'falha de rede') }
   } finally {
@@ -132,32 +142,35 @@ export const handler = async (event) => {
 
     const promptType = body.promptType || 'generic_gemini'
     const requested = body.model || DEFAULT_MODEL
-    const viaOpenRouter = isOpenRouterModel(requested)
+    // Cadeia OpenRouter (se configurada) tem prioridade; senão, usa o modelo pedido.
+    const orModels = OPENROUTER_MODELS.length ? OPENROUTER_MODELS : (isOpenRouterModel(requested) ? [requested] : [])
+    const viaOpenRouter = orModels.length > 0
+    const wantsJson = /JSON/i.test(prompt)
 
     // Valida a chave do provedor escolhido.
     const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY
     if (viaOpenRouter && !OPENROUTER_KEY) return json(500, { error: 'Chave OpenRouter (OPENROUTER_API_KEY) não configurada no servidor' })
     if (!viaOpenRouter && !geminiKey) return json(500, { error: 'Chave de IA não configurada no servidor' })
 
-    // Config de geração. maxOutputTokens generoso (8192) cobre roteiros longos.
-    // responseMimeType só faz sentido no Gemini; no OpenRouter a saída JSON é
-    // garantida pelo prompt + parser robusto do frontend (extractJSON).
+    // maxOutputTokens generoso (8192) cobre roteiros longos.
     const generationConfig = {
       temperature: body.temperature ?? 0.9,
       maxOutputTokens: body.maxOutputTokens ?? 8192,
     }
-    if (!viaOpenRouter && /JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
+    if (!viaOpenRouter && wantsJson) generationConfig.responseMimeType = 'application/json'
 
     const startTime = Date.now()
 
-    // UMA única chamada ao modelo escolhido. Timeout de 9,5s = aproveita quase
-    // todo o teto de 10s da função (plano Free do Netlify).
+    // UMA única requisição. No OpenRouter, a cadeia (até 3 modelos) faz o fallback
+    // do lado dele — sem múltiplos round-trips que estourariam o tempo. O
+    // response_format garante JSON válido e completo (fim do "JSON not found"
+    // e do roteiro cortado). Timeout 9,5s ~ teto de 10s do Netlify Free.
     const r = viaOpenRouter
-      ? await callOpenRouter(requested, prompt, generationConfig, 9500)
+      ? await callOpenRouter(orModels, prompt, generationConfig, wantsJson, 9500)
       : await callGemini(requested, prompt, generationConfig, geminiKey, 9500)
     if (r.ok && r.text) {
       await admin.from('destravai_ai_generations').insert({
-        user_id: user.id, prompt_type: promptType, model: requested, status: 'success',
+        user_id: user.id, prompt_type: promptType, model: r.model || requested, status: 'success',
       }).then(() => {}, () => {})
       return json(200, { text: r.text })
     }

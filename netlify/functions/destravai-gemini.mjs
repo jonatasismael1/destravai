@@ -21,31 +21,33 @@ const MONTHLY_LIMIT = 1000
 const PER_MINUTE_LIMIT = 15
 const PER_MINUTE_MS = 60 * 1000
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-
-// Erros transitórios do Gemini que valem retry/fallback (não são culpa do prompt).
-function isTransient(status, msg) {
-  if (status === 429 || status === 500 || status === 503) return true
-  const m = String(msg || '').toLowerCase()
-  return m.includes('high demand') || m.includes('internal error') ||
-         m.includes('overloaded') || m.includes('unavailable') || m.includes('try again')
-}
-
-// Chama o Gemini uma vez. Retorna { ok, text, status, msg }.
-async function callGemini(model, prompt, generationConfig, key) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
-  })
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({}))
-    return { ok: false, status: res.status, msg: errBody?.error?.message || `Gemini HTTP ${res.status}` }
+// Chama o Gemini uma vez, com TIMEOUT próprio (AbortController). É essencial:
+// a função do Netlify é cortada em ~10s (gera 504). Limitamos cada chamada para
+// nunca estourar esse teto, mesmo somando principal + fallback.
+// Retorna { ok, text, status, msg }.
+async function callGemini(model, prompt, generationConfig, key, timeoutMs) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
+      signal: controller.signal,
+    })
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}))
+      return { ok: false, status: res.status, msg: errBody?.error?.message || `Gemini HTTP ${res.status}` }
+    }
+    const data = await res.json()
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+    return { ok: true, text }
+  } catch (e) {
+    return { ok: false, status: 0, msg: e?.name === 'AbortError' ? 'timeout' : (e?.message || 'falha de rede') }
+  } finally {
+    clearTimeout(timer)
   }
-  const data = await res.json()
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-  return { ok: true, text }
 }
 
 export const handler = async (event) => {
@@ -96,55 +98,54 @@ export const handler = async (event) => {
     }
     if (/JSON/i.test(prompt)) generationConfig.responseMimeType = 'application/json'
 
-    // Ordem de tentativa: modelo pedido/primário e, se falhar de forma transitória,
-    // o modelo de fallback. Cada modelo tem até 2 tentativas com backoff curto.
     const requested = body.model || DEFAULT_MODEL
-    const models = [...new Set([requested, FALLBACK_MODEL])]
+    const startTime = Date.now()
     let lastMsg = 'Falha desconhecida na IA'
     let usedModel = requested
 
-    for (const model of models) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        let r
-        try {
-          r = await callGemini(model, prompt, generationConfig, geminiKey)
-        } catch (e) {
-          r = { ok: false, status: 0, msg: e?.message || 'Falha de rede com a IA' }
-        }
+    const logSuccess = (model) =>
+      admin.from('destravai_ai_generations').insert({
+        user_id: user.id, prompt_type: promptType, model, status: 'success',
+      }).then(() => {}, () => {})
 
-        if (r.ok && r.text) {
-          // Sucesso — registra (aguardado, para o log não se perder no serverless).
-          usedModel = model
-          await admin.from('destravai_ai_generations').insert({
-            user_id: user.id, prompt_type: promptType, model, status: 'success',
-          }).then(() => {}, () => {})
-          return json(200, { text: r.text })
-        }
+    // 1) CAMINHO FELIZ: uma única chamada ao modelo principal (igual ao que sempre
+    //    funcionou). Timeout de 8,5s — abaixo do corte de ~10s do Netlify (que
+    //    gerava 504 quando eu fazia várias tentativas em sequência).
+    let r = await callGemini(requested, prompt, generationConfig, geminiKey, 8500)
+    if (r.ok && r.text) { await logSuccess(requested); return json(200, { text: r.text }) }
+    lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
 
-        lastMsg = r.ok ? 'A IA retornou vazio.' : r.msg
-        const transient = !r.ok && isTransient(r.status, r.msg)
-        // Resposta vazia ou erro transitório → tenta de novo (e depois o fallback).
-        if ((transient || (r.ok && !r.text)) && attempt === 0) {
-          await sleep(400)
-          continue
-        }
-        break // erro não-transitório ou tentativas esgotadas → próximo modelo
-      }
+    // 2) FALLBACK só se o principal falhou RÁPIDO (ex.: cota 4xx, ~1s). Se ele
+    //    demorou (timeout/lento), NÃO tentamos de novo — senão estoura o tempo
+    //    e cai em 504. Mantém a robustez sem arriscar o limite da função.
+    const elapsed = Date.now() - startTime
+    const failedFast = elapsed < 3000
+    const worthFallback = (!r.ok || !r.text) && requested !== FALLBACK_MODEL
+    if (failedFast && worthFallback) {
+      const r2 = await callGemini(FALLBACK_MODEL, prompt, generationConfig, geminiKey, 6000)
+      if (r2.ok && r2.text) { await logSuccess(FALLBACK_MODEL); return json(200, { text: r2.text }) }
+      usedModel = FALLBACK_MODEL
+      lastMsg = r2.ok ? 'A IA retornou vazio.' : r2.msg
     }
 
-    // Todos os modelos/tentativas falharam — registra e responde de forma amigável.
+    // Falhou — registra e responde de forma amigável.
     await admin.from('destravai_ai_generations').insert({
       user_id: user.id, prompt_type: promptType, model: usedModel, status: 'error', error_message: lastMsg,
     }).then(() => {}, () => {})
-    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { models })
+    await serverLog('destravai-gemini', lastMsg, 'error', user.id, { requested, fallback: FALLBACK_MODEL, ms: Date.now() - startTime })
 
-    // Erro de COTA (free tier do Google) é diferente de instabilidade: a mensagem
-    // precisa orientar o usuário a esperar — retry imediato não resolve.
+    // Mensagem conforme o tipo de falha:
+    // - cota (free tier do Google): orienta a aguardar
+    // - timeout: o modelo demorou demais (não adianta retry imediato)
+    // - resto: instabilidade momentânea
     const isQuota = /quota|billing|exceeded|resource_exhausted/i.test(lastMsg)
-    return json(isQuota ? 429 : 503, {
+    const isTimeout = /timeout/i.test(lastMsg)
+    return json(isQuota ? 429 : 504, {
       error: isQuota
         ? 'Muitas gerações em sequência agora. Aguarde cerca de 1 minuto e tente novamente.'
-        : 'A IA está instável no momento. Aguarde alguns segundos e tente novamente.',
+        : isTimeout
+          ? 'A IA demorou mais que o esperado. Tente novamente — costuma funcionar na 2ª vez.'
+          : 'A IA está instável no momento. Aguarde alguns segundos e tente novamente.',
     })
   } catch (err) {
     console.error('[destravai-gemini]', err?.message)

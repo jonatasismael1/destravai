@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calculadora de Custos de IA — Destravaí</title>
+<style>
+  :root {
+    --bg: #0E0B1A;
+    --bg-card: #1A1530;
+    --bg-input: #241D40;
+    --border: rgba(155,140,255,0.18);
+    --purple: #6D5DF6;
+    --purple-light: #9B8CFF;
+    --coral: #FF7A6B;
+    --amber: #F7B955;
+    --mint: #53D6A1;
+    --text: #F4F2FF;
+    --text-muted: #9990C4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 24px 16px 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 1.7rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--purple-light), var(--coral));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 6px;
+  }
+  .subtitle { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 28px; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 22px;
+    margin-bottom: 22px;
+  }
+  .card h2 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card .hint { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px; }
+  .controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  label { display: block; font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+  input[type="number"], select {
+    width: 100%;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--purple-light); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+  th, td { text-align: right; padding: 12px 10px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 700; }
+  td { font-variant-numeric: tabular-nums; }
+  tr.highlight td { background: rgba(109,93,246,0.12); }
+  .model-name { font-weight: 700; }
+  .model-tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+  }
+  .tag-best { background: rgba(83,214,161,0.18); color: var(--mint); }
+  .tag-cheap { background: rgba(247,185,85,0.18); color: var(--amber); }
+  .tag-premium { background: rgba(255,122,107,0.18); color: var(--coral); }
+  .cost-strong { font-weight: 800; color: var(--purple-light); }
+  .editable {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    width: 70px;
+    padding: 4px 6px;
+    text-align: right;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .editable:focus { outline: none; border-color: var(--purple-light); border-style: solid; }
+  .free-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .free-item {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 16px;
+  }
+  .free-item .name { font-weight: 700; margin-bottom: 4px; }
+  .free-item .desc { font-size: 0.82rem; color: var(--text-muted); }
+  .badge { display:inline-block; font-size:0.7rem; font-weight:700; color: var(--mint); background: rgba(83,214,161,0.15); padding: 2px 8px; border-radius: 12px; margin-bottom: 8px; }
+  .footnote { font-size: 0.8rem; color: var(--text-muted); margin-top: 14px; }
+  .summary-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 14px;
+    margin-top: 18px;
+  }
+  .summary-box {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+  }
+  .summary-box .val { font-size: 1.5rem; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+  .summary-box .lbl { font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-top: 2px; }
+  .currency-toggle { display: flex; gap: 8px; align-items: center; }
+  .currency-toggle button {
+    background: var(--bg-input); border: 1px solid var(--border); color: var(--text-muted);
+    border-radius: 10px; padding: 6px 14px; font-weight: 700; cursor: pointer; font-size: 0.85rem;
+  }
+  .currency-toggle button.active { background: var(--purple); color: #fff; border-color: var(--purple); }
+</style>
+</head>
+<body>
+  <h1>Calculadora de Custos de IA</h1>
+  <p class="subtitle">Destravaí — estime o custo de gerar roteiros com diferentes modelos. Compare modelos pagos do OpenRouter e veja as melhores opções gratuitas. Todos os preços são editáveis.</p>
+
+  <!-- Parâmetros -->
+  <div class="card">
+    <h2>⚙️ Parâmetros da geração</h2>
+    <p class="hint">Ajuste conforme o tamanho médio dos seus roteiros. Os valores padrão refletem um roteiro de story/reel típico.</p>
+    <div class="controls">
+      <div>
+        <label>Tokens de entrada (prompt)</label>
+        <input type="number" id="inputTokens" value="1800" min="0" step="100" />
+      </div>
+      <div>
+        <label>Tokens de saída (roteiro)</label>
+        <input type="number" id="outputTokens" value="900" min="0" step="100" />
+      </div>
+      <div>
+        <label>Gerações por usuário / mês</label>
+        <input type="number" id="genPerUser" value="30" min="1" step="1" />
+      </div>
+      <div>
+        <label>Usuários ativos</label>
+        <input type="number" id="activeUsers" value="100" min="1" step="10" />
+      </div>
+      <div>
+        <label>Câmbio USD → BRL</label>
+        <input type="number" id="fxRate" value="5.20" min="0" step="0.01" />
+      </div>
+      <div>
+        <label>Moeda exibida</label>
+        <div class="currency-toggle" style="margin-top:4px">
+          <button id="btnUSD" class="active" onclick="setCurrency('USD')">USD</button>
+          <button id="btnBRL" onclick="setCurrency('BRL')">BRL</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela de comparação -->
+  <div class="card">
+    <h2>💰 Comparativo de modelos pagos</h2>
+    <p class="hint">Preços por 1 milhão de tokens (clique nos valores para editar e atualizar). Custo por geração usa os tokens definidos acima.</p>
+    <div style="overflow-x:auto">
+      <table id="modelTable">
+        <thead>
+          <tr>
+            <th>Modelo</th>
+            <th>Entrada $/M</th>
+            <th>Saída $/M</th>
+            <th>Por geração</th>
+            <th>100 ger.</th>
+            <th>500 ger.</th>
+            <th>1.000 ger.</th>
+            <th>Mensal (estim.)</th>
+          </tr>
+        </thead>
+        <tbody id="modelBody"></tbody>
+      </table>
+    </div>
+    <p class="footnote">★ <strong>Mensal (estim.)</strong> = custo por geração × usuários ativos × gerações por usuário. Os preços vêm pré-carregados com valores de referência de jun/2026 e podem mudar — confirme em <a style="color:var(--purple-light)" href="https://openrouter.ai/models" target="_blank">openrouter.ai/models</a>.</p>
+  </div>
+
+  <!-- Resumo do modelo recomendado -->
+  <div class="card" style="border-color: rgba(83,214,161,0.4)">
+    <h2>✅ Recomendado para o Destravaí</h2>
+    <p class="hint" id="recoText">Gemini 2.0 Flash — melhor equilíbrio entre custo, velocidade e qualidade para roteiros de stories/reels.</p>
+    <div class="summary-row" id="recoSummary"></div>
+  </div>
+
+  <!-- Modelos gratuitos -->
+  <div class="card">
+    <h2>🆓 Melhores modelos gratuitos (OpenRouter)</h2>
+    <p class="hint">Ótimos para testes, MVP e validação. Limites típicos: ~20 req/min e ~200 req/dia. Para produção em escala, modelos pagos são mais estáveis.</p>
+    <div class="free-grid" id="freeGrid"></div>
+    <p class="footnote">Fontes: <a style="color:var(--purple-light)" href="https://openrouter.ai/collections/free-models" target="_blank">OpenRouter Free Models</a> · <a style="color:var(--purple-light)" href="https://openrouter.ai/collections/roleplay" target="_blank">Coleção Creative Writing</a></p>
+  </div>
+
+<script>
+  // ──────────────────────────────────────────────────────────────────────────
+  // CONFIGURAÇÃO DE MODELOS PAGOS — preços por 1M de tokens (USD). Edite à vontade.
+  // ──────────────────────────────────────────────────────────────────────────
+  const PAID_MODELS = [
+    { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash', input: 0.10, output: 0.40, tag: 'best', tagLabel: 'Recomendado', reco: true },
+    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', input: 0.075, output: 0.30, tag: 'cheap', tagLabel: 'Mais barato' },
+    { id: 'deepseek-v4', name: 'DeepSeek V4 Flash', input: 0.14, output: 0.28, tag: 'cheap', tagLabel: 'Custo-benefício' },
+    { id: 'gpt-mini', name: 'GPT-5 Mini', input: 0.25, output: 2.00, tag: '', tagLabel: '' },
+    { id: 'claude-haiku', name: 'Claude Haiku 4.5', input: 0.80, output: 4.00, tag: '', tagLabel: '' },
+    { id: 'gemini-pro', name: 'Gemini 2.5 Pro', input: 1.25, output: 5.00, tag: '', tagLabel: '' },
+    { id: 'claude-sonnet', name: 'Claude Sonnet 4.5', input: 3.00, output: 15.00, tag: 'premium', tagLabel: 'Qualidade máx.' },
+  ];
+
+  // ──────────────────────────────────────────────────────────────────────────
+  // MODELOS GRATUITOS recomendados para geração de texto/roteiro
+  // ──────────────────────────────────────────────────────────────────────────
+  const FREE_MODELS = [
+    { name: 'Llama 3.3 70B (free)', desc: 'Modelo grande e versátil. Boa qualidade de texto em português. Contexto 131K.' },
+    { name: 'Gemma 4 31B (free)', desc: 'Do Google, ótimo para texto criativo e instruções. Contexto 262K.' },
+    { name: 'Qwen3 Next 80B (free)', desc: 'Forte em raciocínio e escrita. Contexto longo (262K). Bom para roteiros estruturados.' },
+    { name: 'DeepSeek V4 Flash (free)', desc: 'Rápido, contexto de até 1M tokens. Boa coerência em textos longos.' },
+    { name: 'GLM-4.5 Air (free)', desc: 'Leve e rápido, bom para variações curtas de stories. Contexto 131K.' },
+    { name: 'Kimi K2.6 (free)', desc: 'Bom em linguagem natural e tom conversacional. Contexto 262K.' },
+  ];
+
+  let currency = 'USD';
+  function setCurrency(c) {
+    currency = c;
+    document.getElementById('btnUSD').classList.toggle('active', c === 'USD');
+    document.getElementById('btnBRL').classList.toggle('active', c === 'BRL');
+    render();
+  }
+
+  function fmt(usd) {
+    const fx = parseFloat(document.getElementById('fxRate').value) || 1;
+    const v = currency === 'BRL' ? usd * fx : usd;
+    const sym = currency === 'BRL' ? 'R$' : '$';
+    if (v < 0.01) return sym + v.toFixed(5);
+    if (v < 1) return sym + v.toFixed(4);
+    if (v < 100) return sym + v.toFixed(2);
+    return sym + v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function costPerGen(model) {
+    const inTok = parseFloat(document.getElementById('inputTokens').value) || 0;
+    const outTok = parseFloat(document.getElementById('outputTokens').value) || 0;
+    return (inTok / 1e6) * model.input + (outTok / 1e6) * model.output;
+  }
+
+  function render() {
+    const body = document.getElementById('modelBody');
+    const genPerUser = parseFloat(document.getElementById('genPerUser').value) || 0;
+    const users = parseFloat(document.getElementById('activeUsers').value) || 0;
+    body.innerHTML = '';
+
+    PAID_MODELS.forEach((m, idx) => {
+      const perGen = costPerGen(m);
+      const monthly = perGen * genPerUser * users;
+      const tr = document.createElement('tr');
+      if (m.reco) tr.className = 'highlight';
+      const tagHtml = m.tag ? `<span class="model-tag tag-${m.tag}">${m.tagLabel}</span>` : '';
+      tr.innerHTML = `
+        <td><span class="model-name">${m.name}</span>${tagHtml}</td>
+        <td><input class="editable" type="number" step="0.01" value="${m.input}" data-idx="${idx}" data-field="input" /></td>
+        <td><input class="editable" type="number" step="0.01" value="${m.output}" data-idx="${idx}" data-field="output" /></td>
+        <td class="cost-strong">${fmt(perGen)}</td>
+        <td>${fmt(perGen * 100)}</td>
+        <td>${fmt(perGen * 500)}</td>
+        <td>${fmt(perGen * 1000)}</td>
+        <td class="cost-strong">${fmt(monthly)}</td>
+      `;
+      body.appendChild(tr);
+    });
+
+    // Liga os inputs editáveis de preço
+    document.querySelectorAll('.editable').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const i = +e.target.dataset.idx;
+        const f = e.target.dataset.field;
+        PAID_MODELS[i][f] = parseFloat(e.target.value) || 0;
+        render();
+      });
+    });
+
+    // Resumo do recomendado
+    const reco = PAID_MODELS.find(m => m.reco) || PAID_MODELS[0];
+    const perGen = costPerGen(reco);
+    const monthly = perGen * genPerUser * users;
+    document.getElementById('recoText').textContent =
+      `${reco.name} — melhor equilíbrio entre custo, velocidade e qualidade para roteiros de stories/reels.`;
+    const sum = document.getElementById('recoSummary');
+    sum.innerHTML = `
+      <div class="summary-box"><div class="val">${fmt(perGen)}</div><div class="lbl">Por geração</div></div>
+      <div class="summary-box"><div class="val">${fmt(perGen * 1000)}</div><div class="lbl">1.000 gerações</div></div>
+      <div class="summary-box"><div class="val">${fmt(monthly)}</div><div class="lbl">Custo mensal estimado</div></div>
+      <div class="summary-box"><div class="val">${fmt(users > 0 ? monthly / users : 0)}</div><div class="lbl">Custo por usuário/mês</div></div>
+    `;
+  }
+
+  function renderFree() {
+    const grid = document.getElementById('freeGrid');
+    grid.innerHTML = FREE_MODELS.map(f => `
+      <div class="free-item">
+        <span class="badge">GRÁTIS</span>
+        <div class="name">${f.name}</div>
+        <div class="desc">${f.desc}</div>
+      </div>
+    `).join('');
+  }
+
+  // Recalcula ao mudar qualquer parâmetro
+  ['inputTokens','outputTokens','genPerUser','activeUsers','fxRate'].forEach(id => {
+    document.getElementById(id).addEventListener('input', render);
+  });
+
+  render();
+  renderFree();
+</script>
+</body>
+</html>

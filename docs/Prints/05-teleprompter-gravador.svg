@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844" viewBox="0 0 390 844" font-family="Manrope, sans-serif"><defs>
+    <linearGradient id="gPurple" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7C5CFF"/><stop offset="1" stop-color="#A78BFA"/>
+    </linearGradient>
+    <linearGradient id="gCoral" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF7A6B"/><stop offset="1" stop-color="#FFB547"/>
+    </linearGradient>
+    <linearGradient id="gMint" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#53D6A1"/><stop offset="1" stop-color="#3BB88A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#7C5CFF" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#7C5CFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs><rect width="390" height="844" fill="#08080D"/>
+    <text x="28" y="34" font-size="14" font-weight="700" fill="#F7F4FF">9:41</text>
+    <g transform="translate(322,22)" fill="#F7F4FF">
+      <rect x="0" y="3" width="17" height="11" rx="2.5" opacity="0.5"/>
+      <rect x="20" y="3" width="3" height="11" rx="1.5" opacity="0.5"/>
+      <rect x="34" y="0" width="22" height="11" rx="3" fill="none" stroke="#F7F4FF" stroke-width="1" opacity="0.6"/>
+      <rect x="36" y="2" width="16" height="7" rx="1.5"/>
+    </g><rect x="12" y="56" width="366" height="694" rx="28" fill="#0E0E16" stroke="rgba(255,122,107,0.5)" stroke-width="2"/><circle cx="40" cy="86" r="6" fill="#FF7A6B"/><text x="54" y="91" font-size="13" font-weight="700" fill="#FF7A6B" text-anchor="start" >REC  00:14</text><text x="366" y="91" font-size="12" font-weight="500" fill="rgba(247,244,255,0.55)" text-anchor="end" >Story · 2 min</text><rect x="28" y="300" width="334" height="240" rx="20" fill="rgba(0,0,0,0.55)"/><text x="195" y="340" font-size="19" font-weight="700" fill="#F7F4FF" text-anchor="middle" >Você sente que o dia nunca rende?</text><text x="195" y="374" font-size="19" font-weight="700" fill="#F7F4FF" text-anchor="middle" >Eu vivia assim. Até mudar 3 coisas</text><text x="195" y="408" font-size="19" font-weight="700" fill="#F7F4FF" text-anchor="middle" >simples na minha rotina.</text><text x="195" y="458" font-size="17" font-weight="700" fill="rgba(247,244,255,0.4)" text-anchor="middle" >A primeira foi parar de começar</text><text x="195" y="492" font-size="17" font-weight="700" fill="rgba(247,244,255,0.4)" text-anchor="middle" >o dia pelo celular...</text><circle cx="195" cy="734" r="34" fill="none" stroke="#fff" stroke-width="3"/><circle cx="195" cy="734" r="26" fill="#FF7A6B"/><rect x="187" y="726" width="16" height="16" rx="3" fill="#fff"/><text x="70" y="739" font-size="12" font-weight="500" fill="rgba(247,244,255,0.55)" text-anchor="start" >⚙ Velocidade</text><text x="320" y="739" font-size="12" font-weight="500" fill="rgba(247,244,255,0.55)" text-anchor="end" >🔄 Virar</text><rect x="128" y="835" width="134" height="5" rx="2.5" fill="rgba(247,244,255,0.25)"/></svg>

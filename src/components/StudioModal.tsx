@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { trackEvent } from '../services/eventsService'
+import { fixMp4Duration } from '../lib/fixMp4Duration'
 
 interface Props {
   idea: ContentIdea
@@ -214,6 +215,8 @@ export default function StudioModal({ idea, onClose }: Props) {
   const blobRef = useRef<Blob | null>(null)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Marca o instante de início para medir a duração REAL (usada ao corrigir o MP4).
+  const recordStartRef = useRef(0)
   const drawFrameRef = useRef<number | null>(null)
   const zoomSupportedRef = useRef(false)
   const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 14_000_000 })
@@ -446,16 +449,24 @@ export default function StudioModal({ idea, onClose }: Props) {
       }
     }
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
-    recorder.onstop = () => {
+    recorder.onstop = async () => {
       const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
-      const blob = new Blob(chunksRef.current, { type })
+      let blob = new Blob(chunksRef.current, { type })
+      // Corrige a duração do MP4 (MediaRecorder grava fMP4 com duração quebrada,
+      // o que fazia o Instagram cortar o vídeo em 3-4s). Medimos a duração real
+      // pelo relógio. Para WebM/erros, devolve o original sem alterar.
+      const realDuration = recordStartRef.current ? (Date.now() - recordStartRef.current) / 1000 : 0
+      blob = await fixMp4Duration(blob, realDuration)
       blobRef.current = blob
       setRecordedUrl(URL.createObjectURL(blob))
       stopStream()
       setPhase('preview')
     }
-    recorder.start(100)
+    // Sem timeslice: o MediaRecorder finaliza um arquivo único e mais íntegro
+    // (o timeslice fragmentava ainda mais e piorava os metadados de duração).
+    recorder.start()
     recorderRef.current = recorder
+    recordStartRef.current = Date.now()
     void trackEvent('recording_start', idea.id)
     setPhase('recording')
     setTimer(0)

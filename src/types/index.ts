@@ -3,7 +3,7 @@ export interface User {
   name: string
   email: string
   createdAt: string
-  plan: 'starter' | 'pro' | 'expert'
+  plan: 'destravai_completo'
   onboardingCompleted: boolean
 }
 

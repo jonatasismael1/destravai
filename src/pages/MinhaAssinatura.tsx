@@ -7,17 +7,23 @@ import { ArrowLeft, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   active:   { label: 'Ativa', color: '#53D6A1' },
-  trialing: { label: 'Período de teste', color: '#9B8CFF' },
+  trialing: { label: 'Periodo de teste', color: '#9B8CFF' },
   pending:  { label: 'Aguardando pagamento', color: '#FFB547' },
   past_due: { label: 'Pagamento atrasado', color: '#FF7A6B' },
+  overdue:  { label: 'Pagamento atrasado', color: '#FF7A6B' },
   canceled: { label: 'Cancelada', color: 'var(--text-muted)' },
   refunded: { label: 'Reembolsada', color: 'var(--text-muted)' },
   failed:   { label: 'Falha no pagamento', color: '#FF7A6B' },
 }
 
 function fmt(date?: string | null) {
-  if (!date) return '—'
+  if (!date) return '-'
   return new Date(date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+}
+
+function money(value?: number | null, fallback = '-') {
+  if (typeof value !== 'number') return fallback
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
 export default function MinhaAssinatura() {
@@ -59,24 +65,24 @@ export default function MinhaAssinatura() {
 
         {!sub?.hasSubscription ? (
           <div className="rounded-3xl p-6 text-center" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Você ainda não tem uma assinatura ativa.</p>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Voce ainda nao tem uma assinatura ativa.</p>
             <button onClick={() => navigate('/assinatura')} className="btn-primary px-6 py-3">Assinar agora</button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="rounded-3xl p-5 space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <Row label="Plano" value={sub.planName ?? '—'} />
-              <Row label="Status" value={st?.label ?? sub.status ?? '—'} valueColor={st?.color} />
-              <Row label="Valor" value={sub.price ? `R$ ${sub.price}/mês` : '—'} />
-              <Row label="Início" value={fmt(sub.startedAt)} />
-              <Row label="Garantia até" value={fmt(sub.refundDeadline)} />
+              <Row label="Plano" value={sub.planName ?? 'Destravai Completo'} />
+              <Row label="Status" value={st?.label ?? sub.status ?? '-'} valueColor={st?.color} />
+              <Row label="Primeiro mes" value={money(sub.firstMonthPrice, 'R$ 29,90')} />
+              <Row label="Valor recorrente" value={`${money(sub.recurringPrice ?? sub.price, 'R$ 49,90')}/mes`} />
+              <Row label="Inicio" value={fmt(sub.startedAt)} />
             </div>
 
             {withinGuarantee && (
               <div className="rounded-2xl p-3 flex items-start gap-2 text-xs"
                 style={{ background: 'rgba(83,214,161,0.08)', border: '1px solid rgba(83,214,161,0.2)', color: '#53D6A1' }}>
                 <ShieldCheck size={14} className="flex-shrink-0 mt-0.5" />
-                Você está dentro da garantia de 7 dias. Cancelando agora, o reembolso é solicitado.
+                Cancelamento solicitado dentro do prazo legal pode gerar reembolso conforme a politica da empresa.
               </div>
             )}
 
@@ -93,8 +99,8 @@ export default function MinhaAssinatura() {
                   <AlertTriangle size={16} style={{ color: '#FF7A6B' }} className="flex-shrink-0 mt-0.5" />
                   <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
                     {withinGuarantee
-                      ? 'Você ainda está dentro da garantia de 7 dias. Ao cancelar agora, sua assinatura será encerrada e o reembolso será solicitado.'
-                      : 'Sua assinatura será cancelada e você não será cobrado novamente. O valor do ciclo atual não será reembolsado.'}
+                      ? 'Sua assinatura sera encerrada e o reembolso sera solicitado conforme a politica da empresa.'
+                      : 'Sua assinatura sera cancelada e voce nao sera cobrado novamente. O valor do ciclo atual nao sera reembolsado.'}
                   </p>
                 </div>
                 <div className="flex gap-2">

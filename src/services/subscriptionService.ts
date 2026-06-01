@@ -12,6 +12,8 @@ export interface SubscriptionStatus {
   paymentStatus?: string
   planName?: string
   price?: number
+  firstMonthPrice?: number
+  recurringPrice?: number
   startedAt?: string | null
   refundDeadline?: string | null
   withinGuarantee?: boolean
@@ -45,6 +47,8 @@ export interface PublicPlan {
   name: string
   tagline: string
   price: number
+  firstMonthPrice: number
+  recurringPrice: number
   features: string[]
   highlight: boolean
 }
@@ -57,7 +61,7 @@ export async function fetchPlans(): Promise<PublicPlan[]> {
 }
 
 export interface CheckoutInput {
-  planId: string
+  planId?: string
   billingType: 'PIX' | 'CREDIT_CARD'
   name: string
   email: string
@@ -67,7 +71,7 @@ export interface CheckoutInput {
 
 export interface CheckoutResult {
   method: 'pix' | 'card'
-  subscriptionId: string
+  subscriptionId: string | null
   paymentId: string
   pix?: { qrCodeImage: string | null; copyPaste: string | null; expiration: string | null }
   checkoutUrl?: string
@@ -100,7 +104,7 @@ export interface CheckoutStatus {
 export async function createTester(
   name: string,
   email: string,
-  planId = 'pro',
+  planId = 'destravai_completo',
 ): Promise<{ ok: boolean; emailSent: boolean }> {
   const res = await fetch(`${FN}/admin-create-tester`, {
     method: 'POST',

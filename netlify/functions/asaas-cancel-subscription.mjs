@@ -1,6 +1,7 @@
 // POST /.netlify/functions/asaas-cancel-subscription
-// Cancela a assinatura do usuário. Dentro dos 7 dias de garantia: cancela e
-// estorna. Fora dos 7 dias: cancela a renovação futura (sem estorno).
+// Cancela a assinatura do usuario. Se estiver dentro do prazo de reembolso
+// configurado na assinatura, cancela e solicita estorno; fora dele, interrompe
+// cobrancas futuras.
 
 import { json, preflight, supabaseAdmin, getUser, asaas } from './_shared.mjs'
 
@@ -42,7 +43,7 @@ export const handler = async (event) => {
     let refundFailed = false
 
     if (withinGuarantee && sub.asaas_payment_id) {
-      // Dentro da garantia (≤ 7 dias e pagamento confirmado): estorna a cobrança.
+      // Dentro do prazo de reembolso e com pagamento confirmado: estorna a cobranca.
       // Só marca como "reembolsada" se o Asaas confirmar o estorno — assim o
       // status nunca diverge do dinheiro de verdade.
       try {
@@ -58,7 +59,7 @@ export const handler = async (event) => {
         updates.status = 'canceled'
       }
     } else {
-      // Fora da garantia: apenas cancela. Bloqueia o acesso imediatamente.
+      // Fora do prazo de reembolso: apenas cancela. Bloqueia o acesso imediatamente.
       updates.status = 'canceled'
     }
 

@@ -5,14 +5,29 @@
 
 import { createClient } from '@supabase/supabase-js'
 
-// ── Planos (fallback caso a tabela destravai_plans não responda) ─────────
-// A FONTE DA VERDADE é a tabela public.destravai_plans no Supabase.
-// Estes valores existem só para o serviço não cair se o banco estiver fora.
-const FALLBACK_PLANS = {
-  starter: { id: 'starter', name: 'Destravaí Starter', price: 29.0 },
-  pro:     { id: 'pro',     name: 'Destravaí Pro',     price: 49.0 },
-  expert:  { id: 'expert',  name: 'Destravaí Expert',  price: 69.0 },
+// Oferta unica. A cobranca inicial e avulsa; a recorrencia mensal e criada
+// depois que o primeiro pagamento for confirmado pelo webhook do Asaas.
+export const COMPLETE_PLAN_ID = 'destravai_completo'
+export const COMPLETE_PLAN = {
+  id: COMPLETE_PLAN_ID,
+  name: 'Destravai Completo',
+  firstMonthPrice: 29.9,
+  recurringPrice: 49.9,
+  price: 29.9,
+  tagline: 'R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
+  features: [
+    'Ideias e roteiros com IA',
+    'Teleprompter para gravar',
+    'CTAs personalizados',
+    'Legendas geradas por IA',
+    'Biblioteca de conteudos',
+    'Calendario editorial',
+    'Studio com teleprompter',
+  ],
+  asaasIdentifier: 'destravai-completo',
 }
+
+const LEGACY_PLAN_IDS = new Set(['starter', 'pro', 'expert', 'premium'])
 
 export const GUARANTEE_DAYS = 7
 
@@ -64,37 +79,16 @@ function supabaseAnon() {
   return createClient(url, key, { auth: { persistSession: false } })
 }
 
-// ── Planos: lê da tabela destravai_plans (com cache curto em memória) ────
-let _plansCache = null
-let _plansCacheAt = 0
-const PLANS_TTL_MS = 60_000
-
 export async function getPlans() {
-  if (_plansCache && Date.now() - _plansCacheAt < PLANS_TTL_MS) return _plansCache
-  try {
-    const admin = supabaseAdmin()
-    const { data, error } = await admin
-      .from('destravai_plans')
-      .select('id, name, monthly_price, asaas_identifier, is_active')
-      .eq('is_active', true)
-      .order('sort_order')
-    if (error || !data?.length) throw error || new Error('sem planos')
-    _plansCache = data.map((p) => ({
-      id: p.id,
-      name: p.name,
-      price: Number(p.monthly_price),
-      asaasIdentifier: p.asaas_identifier,
-    }))
-    _plansCacheAt = Date.now()
-    return _plansCache
-  } catch {
-    return Object.values(FALLBACK_PLANS)
-  }
+  return [COMPLETE_PLAN]
 }
 
 export async function getPlan(planId) {
-  const plans = await getPlans()
-  return plans.find((p) => p.id === planId) || null
+  const normalized = String(planId || COMPLETE_PLAN_ID).trim()
+  if (!normalized || normalized === COMPLETE_PLAN_ID || LEGACY_PLAN_IDS.has(normalized)) {
+    return COMPLETE_PLAN
+  }
+  return null
 }
 
 // Valida o JWT do usuário (header Authorization: Bearer <token>) e retorna o user.

@@ -1,29 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Check, ShieldCheck, ArrowRight, Loader2, QrCode, CreditCard,
-  Copy, CheckCircle2, Sparkles, ArrowUpRight,
+  Copy, CheckCircle2,
 } from 'lucide-react'
-import { PLANS as STATIC_PLANS, GUARANTEE_DAYS } from '../lib/plans'
+import { COMPLETE_PLAN } from '../lib/plans'
 import {
-  fetchPlans, createPublicCheckout, getCheckoutStatus,
-  type PublicPlan, type CheckoutResult,
+  createPublicCheckout, getCheckoutStatus,
+  type CheckoutResult,
 } from '../services/subscriptionService'
 
 type Step = 'form' | 'pix' | 'success'
 type Method = 'PIX' | 'CREDIT_CARD'
 
-// Planos estáticos servem de fallback enquanto a API responde.
-const FALLBACK: PublicPlan[] = STATIC_PLANS.map(p => ({
-  id: p.id, name: p.name, tagline: p.tagline, price: p.price,
-  features: p.features, highlight: !!p.highlight,
-}))
-
 function formatBRL(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-// Máscara leve de CPF/CNPJ conforme o tamanho.
 function maskDocument(raw: string) {
   const d = raw.replace(/\D/g, '').slice(0, 14)
   if (d.length <= 11) {
@@ -40,17 +33,11 @@ function maskPhone(raw: string) {
 
 export default function Checkout() {
   const navigate = useNavigate()
-  const [params] = useSearchParams()
-
-  const [plans, setPlans] = useState<PublicPlan[]>(FALLBACK)
-  const [selectedId, setSelectedId] = useState<string>(params.get('plan') || 'starter')
   const [method, setMethod] = useState<Method>('PIX')
-
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [doc, setDoc] = useState('')
-
   const [step, setStep] = useState<Step>('form')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -58,32 +45,6 @@ export default function Checkout() {
   const [copied, setCopied] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Carrega planos da API (fonte da verdade); mantém fallback se falhar.
-  useEffect(() => {
-    fetchPlans()
-      .then(p => { if (p?.length) setPlans(p) })
-      .catch(() => { /* mantém fallback */ })
-  }, [])
-
-  // Garante que o plano selecionado existe na lista carregada.
-  useEffect(() => {
-    if (plans.length && !plans.some(p => p.id === selectedId)) {
-      setSelectedId(plans[0].id)
-    }
-  }, [plans]) // eslint-disable-line
-
-  const selected = useMemo(
-    () => plans.find(p => p.id === selectedId) ?? plans[0],
-    [plans, selectedId],
-  )
-  const pro = useMemo(() => plans.find(p => p.id === 'pro'), [plans])
-  const maxPrice = useMemo(() => plans.reduce((m, p) => Math.max(m, p.price), 0), [plans])
-  // Só oferece upgrade para o Pro quando o plano escolhido é MAIS BARATO que ele
-  // (ex.: Starter). Se já escolheu o plano mais alto (Expert), parabeniza.
-  const showProUpsell = !!pro && !!selected && selected.price < pro.price
-  const isTopPlan = !!selected && plans.length > 1 && selected.price >= maxPrice
-
-  // Polling do Pix: confirma o pagamento e avança para a tela de sucesso.
   useEffect(() => {
     if (step !== 'pix' || !result?.paymentId) return
     const tick = async () => {
@@ -102,9 +63,9 @@ export default function Checkout() {
 
   const validate = () => {
     if (!name.trim()) return 'Informe seu nome completo.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail válido.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail valido.'
     const cleanDoc = doc.replace(/\D/g, '')
-    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return 'Informe um CPF ou CNPJ válido.'
+    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return 'Informe um CPF ou CNPJ valido.'
     return ''
   }
 
@@ -115,7 +76,6 @@ export default function Checkout() {
     setLoading(true)
     try {
       const res = await createPublicCheckout({
-        planId: selectedId,
         billingType: method,
         name: name.trim(),
         email: email.trim().toLowerCase(),
@@ -124,7 +84,6 @@ export default function Checkout() {
       })
       setResult(res)
       if (res.method === 'card' && res.checkoutUrl) {
-        // Cartão: o cliente preenche os dados na página segura do Asaas.
         window.location.href = res.checkoutUrl
         return
       }
@@ -142,10 +101,9 @@ export default function Checkout() {
       await navigator.clipboard.writeText(result.pix.copyPaste)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard pode falhar em http; usuário copia manualmente */ }
+    } catch { /* clipboard pode falhar em http; usuario copia manualmente */ }
   }
 
-  // ── Tela de sucesso ───────────────────────────────────────────────────
   if (step === 'success') {
     return (
       <Shell>
@@ -158,24 +116,20 @@ export default function Checkout() {
             Pagamento confirmado!
           </h1>
           <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Seu acesso ao Destravaí foi liberado.
+            Seu acesso ao Destravai foi liberado.
           </p>
           <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
             Enviamos um e-mail para <strong style={{ color: 'var(--text-primary)' }}>{email}</strong> com
-            o link para você <strong>criar sua senha</strong> e entrar.
+            o link para voce criar sua senha e entrar.
           </p>
           <button onClick={() => navigate('/login')} className="btn-primary w-full py-4 text-base">
-            Acessar Destravaí <ArrowRight size={18} />
+            Acessar Destravai <ArrowRight size={18} />
           </button>
-          <p className="text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
-            Não recebeu? Verifique a caixa de spam ou use “Esqueci a senha” na tela de login.
-          </p>
         </div>
       </Shell>
     )
   }
 
-  // ── Tela do Pix (QR + copia e cola) ───────────────────────────────────
   if (step === 'pix' && result?.pix) {
     return (
       <Shell>
@@ -185,10 +139,10 @@ export default function Checkout() {
             <QrCode size={13} /> Pague com Pix
           </div>
           <h1 className="text-xl font-extrabold mb-1" style={{ color: 'var(--text-primary)' }}>
-            {selected?.name} · {selected && formatBRL(selected.price)}/mês
+            Destravai Completo - {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
           </h1>
           <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
-            Escaneie o QR Code ou copie o código abaixo no app do seu banco.
+            Este e o primeiro mes. Depois, a assinatura continua por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mes.
           </p>
 
           {result.pix.qrCodeImage && (
@@ -215,113 +169,55 @@ export default function Checkout() {
             style={{ background: 'rgba(124,92,255,0.08)', border: '1px solid rgba(124,92,255,0.2)' }}>
             <Loader2 size={15} className="animate-spin" style={{ color: '#9B8CFF' }} />
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              Aguardando confirmação do pagamento...
+              Aguardando confirmacao do pagamento...
             </span>
           </div>
-
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            Após o pagamento, seu acesso será liberado automaticamente e você
-            receberá um e-mail para criar sua senha.
-          </p>
         </div>
       </Shell>
     )
   }
 
-  // ── Tela principal do checkout (formulário) ───────────────────────────
   return (
     <Shell>
       <div className="text-center mb-6">
-        <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-16 mx-auto mb-3"
+        <img src="/destravai-logo-completa.png" alt="Destravai" className="h-16 mx-auto mb-3"
           style={{ filter: 'drop-shadow(0 0 24px rgba(124,92,255,0.4))' }} />
         <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
           Finalize sua assinatura
         </h1>
         <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          {GUARANTEE_DAYS} dias de garantia. Cancele dentro do prazo se não fizer sentido.
+          R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.
         </p>
       </div>
 
-      {/* Resumo do plano */}
-      {selected && (
-        <div className="rounded-3xl p-5 mb-4 relative overflow-hidden"
-          style={{
-            background: 'linear-gradient(135deg, rgba(124,92,255,0.16), rgba(167,139,250,0.06))',
-            border: '1px solid rgba(124,92,255,0.4)',
-          }}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="font-extrabold text-lg" style={{ color: '#A78BFA' }}>{selected.name}</span>
+      <div className="rounded-3xl p-5 mb-5 relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(124,92,255,0.16), rgba(167,139,250,0.06))',
+          border: '1px solid rgba(124,92,255,0.4)',
+        }}>
+        <div className="flex items-start justify-between gap-4 mb-3">
+          <div>
+            <span className="font-extrabold text-lg" style={{ color: '#A78BFA' }}>{COMPLETE_PLAN.name}</span>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              Depois {formatBRL(COMPLETE_PLAN.recurringPrice)}/mes. Cancele quando quiser.
+            </p>
+          </div>
+          <div className="text-right flex-shrink-0">
             <span className="font-extrabold text-xl" style={{ color: 'var(--text-primary)' }}>
-              {formatBRL(selected.price)}<span className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>/mês</span>
+              {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
             </span>
+            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>primeiro mes</p>
           </div>
-          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>{selected.tagline}</p>
-          <ul className="space-y-1.5">
-            {selected.features.map(f => (
-              <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-                <Check size={13} style={{ color: '#53D6A1' }} /> {f}
-              </li>
-            ))}
-          </ul>
         </div>
-      )}
-
-      {/* Upsell discreto para o Pro (só quando o plano é mais barato que ele) */}
-      {showProUpsell && pro && (
-        <button onClick={() => setSelectedId('pro')}
-          className="w-full text-left rounded-2xl p-4 mb-4 transition-all duration-200"
-          style={{ background: 'var(--bg-card)', border: '1px dashed rgba(124,92,255,0.4)' }}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <Sparkles size={14} style={{ color: '#F7B955' }} />
-            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-              Quer mais por {formatBRL(pro.price - (selected?.price ?? 0))}/mês a mais?
-            </span>
-          </div>
-          <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>
-            O <strong>Pro</strong> inclui biblioteca de conteúdos, CTAs personalizados e legendas
-            geradas por IA — o que ajuda quem quer constância de verdade.
-          </p>
-          <span className="inline-flex items-center gap-1 text-xs font-bold" style={{ color: '#A78BFA' }}>
-            Mudar para o Pro <ArrowUpRight size={13} />
-          </span>
-        </button>
-      )}
-
-      {/* Já escolheu o plano mais completo: parabeniza em vez de oferecer upgrade */}
-      {!showProUpsell && isTopPlan && (
-        <div className="rounded-2xl p-4 mb-4"
-          style={{ background: 'rgba(83,214,161,0.08)', border: '1px solid rgba(83,214,161,0.25)' }}>
-          <div className="flex items-center gap-2 mb-1.5">
-            <Sparkles size={14} style={{ color: '#53D6A1' }} />
-            <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>
-              Excelente escolha! Você foi no plano mais completo.
-            </span>
-          </div>
-          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            Com o <strong>{selected?.name}</strong> você tem tudo para manter constância de verdade
-            e escalar sua presença — sem limites te travando.
-          </p>
-        </div>
-      )}
-
-      {/* Outros planos (trocar) */}
-      <div className="flex gap-2 mb-5">
-        {plans.map(p => {
-          const active = p.id === selectedId
-          return (
-            <button key={p.id} onClick={() => setSelectedId(p.id)}
-              className="flex-1 rounded-2xl px-2 py-2.5 text-center transition-all duration-200"
-              style={active ? {
-                background: 'rgba(124,92,255,0.18)', border: '1px solid rgba(124,92,255,0.5)',
-              } : { background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <p className="text-xs font-bold" style={{ color: active ? '#A78BFA' : 'var(--text-primary)' }}>{p.name}</p>
-              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{formatBRL(p.price)}</p>
-            </button>
-          )
-        })}
+        <ul className="space-y-1.5">
+          {COMPLETE_PLAN.features.map(f => (
+            <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
+              <Check size={13} style={{ color: '#53D6A1' }} /> {f}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {/* Dados do cliente */}
       <div className="space-y-3 mb-5">
         <div>
           <label className="label">Nome completo</label>
@@ -332,7 +228,7 @@ export default function Checkout() {
           <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)}
             placeholder="seu@email.com" />
           <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            É neste e-mail que você vai receber o acesso. Confira com atenção.
+            E neste e-mail que voce vai receber o acesso.
           </p>
         </div>
         <div>
@@ -343,18 +239,14 @@ export default function Checkout() {
         <div>
           <label className="label">CPF ou CNPJ</label>
           <input className="input" inputMode="numeric" value={doc}
-            onChange={e => setDoc(maskDocument(e.target.value))} placeholder="Somente números" />
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            Exigido pelo provedor de pagamento para emitir a cobrança.
-          </p>
+            onChange={e => setDoc(maskDocument(e.target.value))} placeholder="Somente numeros" />
         </div>
       </div>
 
-      {/* Forma de pagamento */}
       <label className="label">Forma de pagamento</label>
       <div className="flex gap-2 mb-5">
-        <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovação na hora" />
-        <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartão" sub="Crédito" />
+        <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovacao rapida" />
+        <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartao" sub="Credito" />
       </div>
 
       {error && (
@@ -367,22 +259,18 @@ export default function Checkout() {
       <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full py-4 text-base disabled:opacity-50">
         {loading
           ? <><Loader2 size={18} className="animate-spin" /> Gerando pagamento...</>
-          : <>Assinar agora · {selected && formatBRL(selected.price)}/mês <ArrowRight size={18} /></>}
+          : <>Comecar por {formatBRL(COMPLETE_PLAN.firstMonthPrice)} <ArrowRight size={18} /></>}
       </button>
 
       <div className="flex items-center justify-center gap-2 mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
         <ShieldCheck size={13} style={{ color: '#53D6A1' }} />
-        Pagamento processado com segurança · Garantia de {GUARANTEE_DAYS} dias
+        Sem fidelidade. Cancele quando quiser.
       </div>
     </Shell>
   )
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  // Fundo branco (passa mais confiança no checkout). Forçamos o tema claro só
-  // neste container com data-theme="light" — assim as CSS vars (texto, cards,
-  // bordas) resolvem para a paleta clara sem reescrever cor por cor.
-  // body/#root têm overflow:hidden — por isso altura fixa de viewport + scroll.
   return (
     <div data-theme="light" className="w-full" style={{ height: '100svh', overflowY: 'auto', background: '#FFFFFF' }}>
       <div className="max-w-md mx-auto px-5 py-8 pb-24">{children}</div>

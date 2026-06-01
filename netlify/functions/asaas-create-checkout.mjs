@@ -1,20 +1,16 @@
 // POST /.netlify/functions/asaas-create-checkout
-// Checkout PRÓPRIO do Destravaí (público — vem da landing, sem login).
-// Fluxo "paga primeiro, acesso depois":
-//   1. Valida o plano e RECALCULA o preço no servidor (nunca confia no front).
-//   2. Cria/reaproveita a conta no Supabase Auth pelo e-mail (sem senha ainda).
-//   3. Cria/reaproveita o customer no Asaas.
-//   4. Cria a assinatura mensal no Asaas com a forma de pagamento escolhida.
-//   5. Pix  → gera e retorna QR Code + copia e cola (exibidos dentro do app).
-//      Cartão → retorna a URL do Asaas para o cliente preencher o cartão.
-//   6. Salva o registro inicial (status pending) no Supabase.
-// O acesso só é liberado pelo webhook quando o pagamento é confirmado.
+// Checkout publico do Destravai para oferta unica:
+//   1. Cria/reaproveita a conta no Supabase Auth pelo e-mail.
+//   2. Cria/reaproveita o customer no Asaas.
+//   3. Cria uma cobranca inicial avulsa de R$29,90.
+//   4. O webhook, ao confirmar essa cobranca, cria a assinatura mensal de R$49,90.
+//
+// Esse fluxo evita depender de preco variavel em uma unica assinatura/link do Asaas.
+// O acesso so e liberado pelo webhook quando o primeiro pagamento e confirmado.
 
-import { getPlan, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
-// Checkout é público: limitar por IP para evitar spam de cadastros e abusos.
-// 10 tentativas por hora por IP é generoso para uso legítimo, mas impede bots.
 const CHECKOUT_LIMIT = 10
 const CHECKOUT_WINDOW_MS = 60 * 60 * 1000
 
@@ -24,10 +20,9 @@ function isValidEmail(email) {
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
-  if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
+  if (event.httpMethod !== 'POST') return json(405, { error: 'Metodo nao permitido' })
 
   try {
-    // Rate limit por IP (endpoint público — alvo de bots e scraping)
     const ip = getClientIp(event)
     const rl = await checkRateLimit(`checkout:ip:${ip}`, CHECKOUT_LIMIT, CHECKOUT_WINDOW_MS)
     if (!rl.allowed) {
@@ -35,11 +30,6 @@ export const handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}')
-
-    // ── Validação de entrada ──────────────────────────────────────────────
-    const plan = await getPlan(body.planId)
-    if (!plan) return json(400, { error: 'Plano inválido' })
-
     const billingType = body.billingType === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX'
     const name = String(body.name || '').trim()
     const email = String(body.email || '').trim().toLowerCase()
@@ -47,17 +37,14 @@ export const handler = async (event) => {
     const cpfCnpj = String(body.cpfCnpj || '').replace(/\D/g, '')
 
     if (!name) return json(400, { error: 'Informe seu nome completo.' })
-    if (!isValidEmail(email)) return json(400, { error: 'Informe um e-mail válido.' })
+    if (!isValidEmail(email)) return json(400, { error: 'Informe um e-mail valido.' })
     if (cpfCnpj.length !== 11 && cpfCnpj.length !== 14) {
-      return json(400, { error: 'Informe um CPF ou CNPJ válido.' })
+      return json(400, { error: 'Informe um CPF ou CNPJ valido.' })
     }
 
     const admin = supabaseAdmin()
-
-    // ── 1) Garante a conta no Supabase (idempotente por e-mail) ───────────
     const userId = await getOrCreateAuthUser(email, name)
 
-    // ── 2) Reaproveita customer do Asaas, se já houver ────────────────────
     const { data: existing } = await admin
       .from('subscriptions')
       .select('asaas_customer_id')
@@ -83,62 +70,53 @@ export const handler = async (event) => {
       customerId = customer.id
     }
 
-    // ── 3) Cria a assinatura mensal no Asaas (preço validado no servidor) ──
     const today = new Date().toISOString().slice(0, 10)
-    const subscription = await asaas('/subscriptions', {
+    const firstPayment = await asaas('/payments', {
       method: 'POST',
       body: JSON.stringify({
         customer: customerId,
-        billingType,                 // 'PIX' ou 'CREDIT_CARD'
-        value: plan.price,           // SEMPRE o preço do servidor
-        nextDueDate: today,
-        cycle: 'MONTHLY',
-        description: `${plan.name} — assinatura mensal`,
+        billingType,
+        value: COMPLETE_PLAN.firstMonthPrice,
+        dueDate: today,
+        description: `${COMPLETE_PLAN.name} - primeiro mes promocional`,
         externalReference: userId,
       }),
     })
 
-    // Primeira cobrança da assinatura.
-    const payments = await asaas(`/payments?subscription=${subscription.id}&limit=1`)
-    const firstPayment = payments?.data?.[0]
     if (!firstPayment?.id) {
-      return json(502, { error: 'Não foi possível gerar a cobrança. Tente novamente.' })
+      return json(502, { error: 'Nao foi possivel gerar a cobranca. Tente novamente.' })
     }
 
-    // ── 4) Monta a resposta conforme a forma de pagamento ─────────────────
     let pix = null
     let checkoutUrl = null
 
     if (billingType === 'PIX') {
-      // QR Code + copia e cola para exibir dentro do app.
       const qr = await asaas(`/payments/${firstPayment.id}/pixQrCode`)
       pix = {
-        qrCodeImage: qr?.encodedImage || null,   // base64 (sem prefixo data:)
+        qrCodeImage: qr?.encodedImage || null,
         copyPaste: qr?.payload || null,
         expiration: qr?.expirationDate || null,
       }
       if (!pix.copyPaste) {
-        return json(502, { error: 'Não foi possível gerar o Pix. Tente novamente.' })
+        return json(502, { error: 'Nao foi possivel gerar o Pix. Tente novamente.' })
       }
     } else {
-      // Cartão: o cliente preenche os dados na página segura do Asaas.
       checkoutUrl = firstPayment.invoiceUrl || firstPayment.bankSlipUrl || null
       if (!checkoutUrl) {
-        return json(502, { error: 'Não foi possível gerar o pagamento por cartão. Tente novamente.' })
+        return json(502, { error: 'Nao foi possivel gerar o pagamento por cartao. Tente novamente.' })
       }
     }
 
-    // ── 5) Salva o registro (pending) ─────────────────────────────────────
-    // Reaproveita uma assinatura pendente do mesmo usuário (evita acumular
-    // várias linhas pendentes a cada tentativa). Só cria nova se não houver.
     const subRecord = {
       user_id: userId,
       asaas_customer_id: customerId,
-      asaas_subscription_id: subscription.id,
+      asaas_subscription_id: null,
       asaas_payment_id: firstPayment.id,
-      plan_id: plan.id,
-      plan_name: plan.name,
-      price: plan.price,
+      plan_id: COMPLETE_PLAN.id,
+      plan_name: COMPLETE_PLAN.name,
+      price: COMPLETE_PLAN.recurringPrice,
+      first_month_price: COMPLETE_PLAN.firstMonthPrice,
+      recurring_price: COMPLETE_PLAN.recurringPrice,
       billing_cycle: 'MONTHLY',
       payment_method: billingType,
       status: 'pending',
@@ -171,8 +149,10 @@ export const handler = async (event) => {
 
     return json(200, {
       method: billingType === 'PIX' ? 'pix' : 'card',
-      subscriptionId: subscription.id,
+      subscriptionId: null,
       paymentId: firstPayment.id,
+      firstMonthPrice: COMPLETE_PLAN.firstMonthPrice,
+      recurringPrice: COMPLETE_PLAN.recurringPrice,
       ...(pix ? { pix } : {}),
       ...(checkoutUrl ? { checkoutUrl } : {}),
     })

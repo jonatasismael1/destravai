@@ -1,9 +1,8 @@
 // POST /.netlify/functions/admin-create-tester
-// Apenas o admin (ADMIN_EMAIL) pode criar usuários testadores com acesso grátis.
-// Cria/reaproveita a conta no Supabase, grava uma assinatura de cortesia ativa
-// (o paywall libera por status active + paid) e envia o e-mail para definir senha.
+// Apenas o admin (ADMIN_EMAIL) pode criar usuarios testadores com acesso gratis.
+// Mantem o fluxo atual de testadores, agora sempre no plano destravai_completo.
 
-import { json, preflight, supabaseAdmin, getUser, isAdminUser, getOrCreateAuthUser, sendAccessEmail, getPlan } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getUser, isAdminUser, getOrCreateAuthUser, sendAccessEmail } from './_shared.mjs'
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -11,38 +10,32 @@ function isValidEmail(email) {
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
-  if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
+  if (event.httpMethod !== 'POST') return json(405, { error: 'Metodo nao permitido' })
 
   try {
     const caller = await getUser(event)
-    if (!caller) return json(401, { error: 'Não autorizado' })
+    if (!caller) return json(401, { error: 'Nao autorizado' })
     if (!isAdminUser(caller)) return json(403, { error: 'Apenas o administrador pode liberar acessos.' })
 
     const body = JSON.parse(event.body || '{}')
     const email = String(body.email || '').trim().toLowerCase()
     const name = String(body.name || '').trim()
-    if (!isValidEmail(email)) return json(400, { error: 'Informe um e-mail válido.' })
+    if (!isValidEmail(email)) return json(400, { error: 'Informe um e-mail valido.' })
 
-    const plan = (await getPlan(body.planId)) || { id: 'pro', name: 'Destravaí Pro' }
     const admin = supabaseAdmin()
-
-    // 1) Garante a conta no Supabase Auth (idempotente por e-mail).
     const userId = await getOrCreateAuthUser(email, name)
 
-    // 2) Cria/atualiza o perfil. (O query builder do supabase-js não tem .catch,
-    // por isso usamos try/catch.)
     try {
       await admin.from('destravai_profiles').upsert({
         id: userId,
         ...(name ? { name } : {}),
         email,
-        plan: plan.id,
+        plan: COMPLETE_PLAN.id,
       }, { onConflict: 'id' })
     } catch (e) {
       console.error('[admin-create-tester] perfil', e?.message)
     }
 
-    // 3) Assinatura de cortesia ativa (acesso liberado sem pagamento).
     const { data: existing } = await admin
       .from('subscriptions')
       .select('id')
@@ -54,9 +47,11 @@ export const handler = async (event) => {
 
     const courtesy = {
       user_id: userId,
-      plan_id: plan.id,
-      plan_name: `${plan.name} (cortesia)`,
+      plan_id: COMPLETE_PLAN.id,
+      plan_name: `${COMPLETE_PLAN.name} (cortesia)`,
       price: 0,
+      first_month_price: 0,
+      recurring_price: 0,
       billing_cycle: 'MONTHLY',
       payment_method: 'COURTESY',
       status: 'active',
@@ -75,7 +70,6 @@ export const handler = async (event) => {
       await admin.from('subscriptions').insert(courtesy)
     }
 
-    // 4) Envia o e-mail para o testador definir a senha.
     let emailSent = true
     try { await sendAccessEmail(email) } catch { emailSent = false }
 

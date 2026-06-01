@@ -4,7 +4,7 @@
 // URL para cadastrar no painel do Asaas:
 //   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
 
-import { json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail, serverLog } from './_shared.mjs'
+import { COMPLETE_PLAN, json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail, serverLog, asaas } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
@@ -94,6 +94,20 @@ export const handler = async (event) => {
         deadline.setDate(deadline.getDate() + GUARANTEE_DAYS)
         updates.refund_deadline = deadline.toISOString()
 
+        if (subRow && !subRow.asaas_subscription_id && subRow.plan_id === COMPLETE_PLAN.id) {
+          try {
+            const recurring = await createRecurringSubscription(subRow)
+            if (recurring?.id) updates.asaas_subscription_id = recurring.id
+          } catch (e) {
+            console.error('[asaas-webhook] erro ao criar recorrencia no Asaas', e?.message)
+            await serverLog('asaas-webhook', 'Erro ao criar recorrencia no Asaas', 'error', subRow.user_id, {
+              subscriptionId: subRow.id,
+              asaasCustomerId: subRow.asaas_customer_id,
+              error: e?.message,
+            })
+          }
+        }
+
         // Libera o acesso apenas se ainda não foi liberado (idempotente).
         if (subRow && !subRow.access_granted) {
           updates.access_granted = true
@@ -144,7 +158,7 @@ async function grantAccess(admin, subRow) {
   try {
     const profilePatch = {
       id: subRow.user_id,
-      plan: subRow.plan_id || 'starter',
+      plan: COMPLETE_PLAN.id,
     }
     if (subRow.customer_name) profilePatch.name = subRow.customer_name
     if (subRow.customer_email) profilePatch.email = subRow.customer_email
@@ -165,4 +179,25 @@ async function grantAccess(admin, subRow) {
       // Não bloqueia: o acesso já está liberado; o e-mail pode ser reenviado depois.
     }
   }
+}
+
+async function createRecurringSubscription(subRow) {
+  return asaas('/subscriptions', {
+    method: 'POST',
+    body: JSON.stringify({
+      customer: subRow.asaas_customer_id,
+      billingType: subRow.payment_method === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX',
+      value: COMPLETE_PLAN.recurringPrice,
+      nextDueDate: nextMonthDate(),
+      cycle: 'MONTHLY',
+      description: `${COMPLETE_PLAN.name} - assinatura mensal`,
+      externalReference: subRow.user_id,
+    }),
+  })
+}
+
+function nextMonthDate() {
+  const d = new Date()
+  d.setMonth(d.getMonth() + 1)
+  return d.toISOString().slice(0, 10)
 }

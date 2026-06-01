@@ -141,7 +141,7 @@ export default function Configuracoes() {
   const isAdmin = (state.supabaseUser?.email ?? '').toLowerCase() === ADMIN_EMAIL
   const [testerName, setTesterName] = useState('')
   const [testerEmail, setTesterEmail] = useState('')
-  const [testerPlan, setTesterPlan] = useState('pro')
+  const [testerPlan] = useState('destravai_completo')
   const [creatingTester, setCreatingTester] = useState(false)
 
   const handleCreateTester = async () => {
@@ -304,7 +304,7 @@ export default function Configuracoes() {
           <MenuItem
             icon={CreditCard}
             label="Gerenciar assinatura"
-            sublabel="Ver status, garantia e cancelar"
+            sublabel="Ver status e cancelar"
             onClick={() => navigate('/minha-assinatura')}
           />
         </div>
@@ -327,12 +327,8 @@ export default function Configuracoes() {
               onChange={e => setTesterName(e.target.value)} />
             <input className="input" type="email" placeholder="E-mail do testador" value={testerEmail}
               onChange={e => setTesterEmail(e.target.value)} />
-            <div className="relative">
-              <select className="input appearance-none" value={testerPlan} onChange={e => setTesterPlan(e.target.value)}>
-                <option value="starter">Starter</option>
-                <option value="pro">Pro</option>
-                <option value="expert">Expert</option>
-              </select>
+            <div className="input text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>
+              Plano: Destravaí Completo
             </div>
             <button onClick={handleCreateTester} disabled={creatingTester}
               className="btn-primary w-full py-2.5 text-sm disabled:opacity-50">

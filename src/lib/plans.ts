@@ -1,51 +1,33 @@
-// Planos do Destravaí (espelha os preços do servidor em netlify/functions/_shared.mjs).
-// A fonte da verdade do PREÇO cobrado é o servidor; aqui é só para exibição.
+// Oferta unica do Destravai (espelha os valores do servidor em netlify/functions/_shared.mjs).
+// A fonte da verdade do PRECO cobrado e o servidor; aqui e so para exibicao.
 
 export interface Plan {
-  id: 'starter' | 'pro' | 'expert'
+  id: 'destravai_completo'
   name: string
-  price: number
+  firstMonthPrice: number
+  recurringPrice: number
   tagline: string
   features: string[]
   highlight?: boolean
 }
 
-export const PLANS: Plan[] = [
-  {
-    id: 'starter',
-    name: 'Starter',
-    price: 29,
-    tagline: 'Para começar a postar sem travar.',
-    features: [
-      'Ideias e roteiros com IA',
-      'Teleprompter para gravar',
-      'Missão do dia',
-    ],
-  },
-  {
-    id: 'pro',
-    name: 'Pro',
-    price: 49,
-    tagline: 'Para quem quer constância de verdade.',
-    features: [
-      'Tudo do Starter',
-      'CTAs personalizados',
-      'Biblioteca de conteúdos',
-      'Legendas geradas por IA',
-    ],
-    highlight: true,
-  },
-  {
-    id: 'expert',
-    name: 'Expert',
-    price: 69,
-    tagline: 'Para escalar sua presença digital.',
-    features: [
-      'Tudo do Pro',
-      'Geração ampliada de ideias',
-      'Prioridade nas novidades',
-    ],
-  },
-]
+export const COMPLETE_PLAN: Plan = {
+  id: 'destravai_completo',
+  name: 'Destravai Completo',
+  firstMonthPrice: 29.9,
+  recurringPrice: 49.9,
+  tagline: 'R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
+  features: [
+    'Ideias e roteiros com IA',
+    'Teleprompter para gravar',
+    'CTAs personalizados',
+    'Legendas geradas por IA',
+    'Biblioteca de conteudos',
+    'Calendario editorial',
+    'Studio com teleprompter',
+  ],
+  highlight: true,
+}
 
+export const PLANS: Plan[] = [COMPLETE_PLAN]
 export const GUARANTEE_DAYS = 7

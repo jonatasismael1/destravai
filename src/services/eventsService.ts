@@ -44,6 +44,66 @@ export interface ActivationStatus {
   recordedCount: number
 }
 
+export interface ConsistencyData {
+  // Datas únicas (YYYY-MM-DD) em que o usuário produziu conteúdo de verdade.
+  // Fonte: mission_done + posted + recording_save events.
+  contentDays: string[]
+  // Quantos dias únicos de conteúdo o usuário tem (independente de serem consecutivos).
+  totalContentDays: number
+  // Os primeiros 7 dias únicos de produção de conteúdo, em ordem cronológica.
+  first7Days: string[]
+  // Número de dias completos dentro dos primeiros 7 (para a barra de progresso).
+  daysCompleted: number
+  // Data do primeiro conteúdo produzido.
+  firstContentAt: string | null
+}
+
+// Eventos que indicam produção real de conteúdo (NÃO conta login, geração de ideia,
+// abertura de tela, etc.). Apenas ações explícitas de execução do usuário.
+const CONTENT_PRODUCTION_EVENTS: ExecutionEventType[] = ['mission_done', 'posted', 'recording_save']
+
+/**
+ * Carrega os dados de constância baseados em eventos reais de produção de conteúdo.
+ * Retorna os primeiros 7 dias únicos em que o usuário produziu conteúdo.
+ */
+export async function loadConsistencyData(): Promise<ConsistencyData | null> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return null
+
+    const { data, error } = await supabase
+      .from('destravai_execution_events')
+      .select('event_type, created_at')
+      .eq('user_id', user.id)
+      .in('event_type', CONTENT_PRODUCTION_EVENTS)
+      .order('created_at', { ascending: true })
+      .limit(1000)
+
+    if (error || !data) return null
+
+    // Coleta dias únicos em que houve produção de conteúdo
+    const daySet = new Set<string>()
+    for (const ev of data) {
+      const day = String(ev.created_at).slice(0, 10)
+      daySet.add(day)
+    }
+
+    const contentDays = Array.from(daySet).sort()
+    const first7Days = contentDays.slice(0, 7)
+    const daysCompleted = first7Days.length
+
+    return {
+      contentDays,
+      totalContentDays: contentDays.length,
+      first7Days,
+      daysCompleted,
+      firstContentAt: contentDays[0] ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 export async function loadActivationStatus(): Promise<ActivationStatus | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser()

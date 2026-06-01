@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
@@ -271,6 +271,9 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [activation, setActivation] = useState<ActivationStatus | null>(null)
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
+  // Guard de idempotência: impede que o mesmo conteúdo incremente o streak duas vezes
+  // (ex: clique duplo ou re-render antes do estado atualizar).
+  const doneIdeaIds = useRef(new Set<string>())
   const [captionIdea, setCaptionIdea] = useState<ContentIdea | null>(null)
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
@@ -439,6 +442,11 @@ export default function Home() {
   }
 
   const handleDone = (idea: ContentIdea) => {
+    // Impede double-counting: ignora se a ideia já foi marcada como feita nesta sessão
+    // ou se o estado já reflete 'done' (proteção contra cliques rápidos e re-renders).
+    if (idea.status === 'done' || doneIdeaIds.current.has(idea.id)) return
+    doneIdeaIds.current.add(idea.id)
+
     updateIdea(idea.id, { status: 'done' })
     const m = state.missions.find(m => m.content?.id === idea.id)
     if (m) updateMission(m.id, { status: 'done' })

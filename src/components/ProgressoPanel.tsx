@@ -1,10 +1,71 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Flame, Check, TrendingUp, Award, Target, Zap, Lock, Users, ChevronRight, Shield } from 'lucide-react'
+import { Flame, Check, TrendingUp, Award, Target, Zap, Lock, Users, ChevronRight, Shield, Star, X } from 'lucide-react'
 import { ACHIEVEMENTS } from '../lib/achievements'
 import { MAX_STREAK_SHIELDS } from '../lib/progress'
 import { loadAchievements, checkAndUnlockAchievements, type UnlockedAchievement } from '../services/achievementsService'
+import { loadConsistencyData, type ConsistencyData } from '../services/eventsService'
+
+const STREAK7_KEY = 'destravai-streak7-celebrated'
+
+function Day7Popup({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[300] flex items-center justify-center p-5"
+      style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(16px)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        className="w-full max-w-sm rounded-3xl p-7 text-center relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(247,185,85,0.2))',
+          border: '1px solid rgba(247,185,85,0.5)',
+          boxShadow: '0 0 60px rgba(247,185,85,0.3)',
+        }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(247,185,85,0.8), transparent)' }} />
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 opacity-50 hover:opacity-100 transition-opacity"
+          style={{ color: 'var(--text-muted)' }}
+          aria-label="Fechar"
+        >
+          <X size={18} />
+        </button>
+
+        <div
+          className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-5 animate-float"
+          style={{
+            background: 'linear-gradient(135deg, #F7B955, #FF7A6B)',
+            boxShadow: '0 0 40px rgba(247,185,85,0.6)',
+          }}
+        >
+          <Star size={36} className="text-white" fill="white" />
+        </div>
+
+        <p className="text-[11px] font-bold uppercase tracking-widest mb-2" style={{ color: '#F7B955' }}>
+          7 dias de constância
+        </p>
+        <h2 className="font-extrabold text-2xl mb-3" style={{ color: 'var(--text-primary)' }}>
+          Você chegou ao Dia 7!
+        </h2>
+        <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text-secondary)' }}>
+          Você produziu conteúdo por 7 dias. Isso é o que separa quem fala em fazer de quem realmente faz. Continue — a constância é a sua maior vantagem.
+        </p>
+
+        <button
+          onClick={onClose}
+          className="btn-primary w-full py-3.5 text-sm"
+          style={{ background: 'linear-gradient(135deg, #F7B955, #FF7A6B)', boxShadow: '0 4px 24px rgba(247,185,85,0.4)' }}
+        >
+          Continuar produzindo
+        </button>
+      </div>
+    </div>
+  )
+}
 
 // Painel de progresso reutilizável (sem cabeçalho de página). Usado dentro de
 // "Meu Espaço" para deixar o progresso visível e motivar o usuário.
@@ -48,6 +109,10 @@ export default function ProgressoPanel() {
   const [unlocked, setUnlocked] = useState<UnlockedAchievement[]>([])
   const [justUnlocked, setJustUnlocked] = useState<UnlockedAchievement[]>([])
 
+  // Constância: dados dos primeiros 7 dias de produção de conteúdo real.
+  const [consistency, setConsistency] = useState<ConsistencyData | null>(null)
+  const [showDay7Popup, setShowDay7Popup] = useState(false)
+
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -65,6 +130,29 @@ export default function ProgressoPanel() {
     return () => { cancelled = true }
     // Reavalia quando o nº de missões concluídas muda (proxy de progresso).
   }, [progress.missionsCompleted, progress.currentStreak]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Carrega dados de constância (dias únicos de produção de conteúdo real).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      const data = await loadConsistencyData()
+      if (cancelled) return
+      setConsistency(data)
+      // Mostra popup ao completar 7 dias pela primeira vez.
+      if (data && data.daysCompleted >= 7) {
+        const alreadyCelebrated = localStorage.getItem(STREAK7_KEY) === 'true'
+        if (!alreadyCelebrated) {
+          setShowDay7Popup(true)
+        }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [progress.missionsCompleted]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDay7PopupClose = () => {
+    localStorage.setItem(STREAK7_KEY, 'true')
+    setShowDay7Popup(false)
+  }
 
   const unlockedKeys = new Set(unlocked.map(a => a.key))
 
@@ -103,6 +191,9 @@ export default function ProgressoPanel() {
 
   return (
     <div className="space-y-5">
+      {/* Popup do Dia 7 */}
+      {showDay7Popup && <Day7Popup onClose={handleDay7PopupClose} />}
+
       {/* Level card */}
       <div
         className="relative rounded-3xl p-5 overflow-hidden"
@@ -173,6 +264,87 @@ export default function ProgressoPanel() {
             })}
           </div>
         </div>
+      </div>
+
+      {/* Jornada 7 dias: mostra os primeiros 7 dias de produção real de conteúdo */}
+      <div className="rounded-3xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>
+              Jornada de constância
+            </p>
+            <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>
+              {consistency
+                ? consistency.daysCompleted >= 7
+                  ? 'Semana completa!'
+                  : `Dia ${consistency.daysCompleted} de 7`
+                : 'Começando...'}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Flame size={16} style={{ color: '#FF7A6B' }} />
+            <span className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>
+              {consistency?.daysCompleted ?? 0}
+              <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/7</span>
+            </span>
+          </div>
+        </div>
+
+        {/* 7 bolhas de dia */}
+        <div className="flex justify-between gap-1.5">
+          {Array.from({ length: 7 }).map((_, i) => {
+            const done = consistency ? i < consistency.daysCompleted : false
+            const isCurrent = consistency ? i === consistency.daysCompleted && i < 7 : i === 0
+            return (
+              <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
+                <div
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300"
+                  style={
+                    done
+                      ? {
+                          background: 'linear-gradient(135deg, #F7B955, #FF7A6B)',
+                          boxShadow: '0 0 16px rgba(247,185,85,0.5)',
+                        }
+                      : isCurrent
+                      ? {
+                          background: 'rgba(247,185,85,0.12)',
+                          border: '2px dashed rgba(247,185,85,0.5)',
+                        }
+                      : {
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-color)',
+                          opacity: 0.5,
+                        }
+                  }
+                >
+                  {done ? (
+                    <Check size={14} className="text-white" />
+                  ) : isCurrent ? (
+                    <Flame size={13} style={{ color: '#F7B955' }} />
+                  ) : (
+                    <span className="text-[9px] font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
+                  )}
+                </div>
+                <span className="text-[9px] font-bold uppercase" style={{ color: done ? '#F7B955' : 'var(--text-muted)' }}>
+                  Dia {i + 1}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {consistency && consistency.daysCompleted < 7 && (
+          <p className="text-xs text-center mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
+            {consistency.daysCompleted === 0
+              ? 'Marque sua primeira missão como feita para começar a jornada.'
+              : `Faltam ${7 - consistency.daysCompleted} dias para completar sua primeira semana.`}
+          </p>
+        )}
+        {consistency && consistency.daysCompleted >= 7 && (
+          <p className="text-xs text-center mt-3 font-bold" style={{ color: '#F7B955' }}>
+            Primeira semana completa! Continue assim.
+          </p>
+        )}
       </div>
 
       {/* Banner de conquista recém-desbloqueada */}

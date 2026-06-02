@@ -78,7 +78,12 @@ export const handler = async (event) => {
     // Cortesia é gerenciada pelo admin (sem cobrança). Nunca deixamos um evento do
     // Asaas rebaixar o acesso de um testador — apenas registramos o evento.
     const isCourtesy = subRow?.payment_method === 'COURTESY'
-    const mapped = (!isCourtesy && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
+    // 'canceled'/'refunded' são estados definidos por AÇÃO DO USUÁRIO (terminais).
+    // Ao cancelar, deletamos a assinatura no Asaas, o que apaga a cobrança futura
+    // pendente e dispara PAYMENT_DELETED. Sem este guard, esse evento rebaixaria o
+    // status para 'failed' e encurtaria indevidamente o acesso/carência.
+    const terminalStatus = !!subRow && ['canceled', 'refunded'].includes(subRow.status)
+    const mapped = (!isCourtesy && !terminalStatus && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
     const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
 
     // Indica que, ao confirmar o pagamento, precisamos liberar acesso + e-mail.

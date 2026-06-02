@@ -101,6 +101,30 @@ Deno.serve(async (req: Request) => {
     const prompt = (body.prompt ?? '').trim()
     if (!prompt) return errorResponse('Parametro prompt obrigatorio', 400)
 
+    // Gating de assinatura: só quem tem acesso (assinatura ativa, cortesia ou admin)
+    // usa a IA. Fail-open: se a checagem falhar, libera (nunca bloqueia por bug).
+    // Desligavel por env: AI_ENFORCE_SUBSCRIPTION=false.
+    const enforceAccess = (Deno.env.get('AI_ENFORCE_SUBSCRIPTION') ?? 'true') !== 'false'
+    if (enforceAccess) {
+      const adminEmail = (Deno.env.get('ADMIN_EMAIL') || 'assessoriadbe@gmail.com').toLowerCase()
+      const allowed = await (async () => {
+        if ((user.email ?? '').toLowerCase() === adminEmail) return true
+        const { data: sub } = await supabase
+          .from('subscriptions')
+          .select('status, payment_status, payment_method, access_granted, current_period_end')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (!sub) return false
+        if (sub.payment_method === 'COURTESY' && sub.access_granted) return true
+        if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') return true
+        if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
+        return false
+      })().catch(() => true) // fail-open
+      if (!allowed) return errorResponse('Sua assinatura não está ativa. Reative para continuar usando a IA.', 402)
+    }
+
     // Limite mensal: conta geracoes bem-sucedidas no mes corrente
     const now = new Date()
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()

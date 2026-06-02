@@ -39,6 +39,25 @@ export function isAdminUser(user) {
   return !!user?.email && user.email.toLowerCase() === ADMIN_EMAIL
 }
 
+// Verifica se o usuário tem acesso liberado: admin, cortesia (testador), assinatura
+// ativa e paga, ou cancelada mas ainda dentro do período já pago. Espelha a regra
+// de asaas-subscription-status. Usado para bloquear a IA de quem não tem acesso.
+export async function userHasActiveAccess(admin, user) {
+  if (isAdminUser(user)) return true
+  const { data: sub } = await admin
+    .from('subscriptions')
+    .select('status, payment_status, payment_method, access_granted, current_period_end')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (!sub) return false
+  if (sub.payment_method === 'COURTESY' && sub.access_granted) return true
+  if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') return true
+  if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
+  return false
+}
+
 // CORS: o checkout é público (vem da landing), mas só liberamos a origem do app.
 // Como a tela de checkout vive no mesmo domínio (destravai.dbe.digital), isso
 // não afeta o uso normal — apenas impede que outros sites disparem requisições.

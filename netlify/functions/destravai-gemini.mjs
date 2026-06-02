@@ -4,8 +4,12 @@
 // Substitui a Edge Function do Supabase para não depender do projeto certo
 // estar configurado no MCP nem de secret separado.
 
-import { json, preflight, getUser, supabaseAdmin, serverLog } from './_shared.mjs'
+import { json, preflight, getUser, supabaseAdmin, serverLog, userHasActiveAccess } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
+
+// Gating de assinatura para a IA. Pode ser desligado por env (interruptor de
+// emergência) sem deploy: AI_ENFORCE_SUBSCRIPTION=false.
+const ENFORCE_AI_ACCESS = (process.env.AI_ENFORCE_SUBSCRIPTION ?? 'true') !== 'false'
 
 // ── Provedor de IA ───────────────────────────────────────────────────────────
 // Modelo padrão: DEFAULT_AI_MODEL (ex.: 'openrouter/free'). Mantém compat com as
@@ -162,6 +166,13 @@ export const handler = async (event) => {
     if (!prompt) return json(400, { error: 'Parâmetro prompt obrigatório' })
 
     const admin = supabaseAdmin()
+
+    // Gating de assinatura: só quem tem acesso (assinatura ativa, cortesia ou admin)
+    // usa a IA. Fail-open: se a checagem falhar, libera — nunca bloqueia por bug nosso.
+    if (ENFORCE_AI_ACCESS) {
+      const allowed = await userHasActiveAccess(admin, user).catch(() => true)
+      if (!allowed) return json(402, { error: 'Sua assinatura não está ativa. Reative para continuar usando a IA.' })
+    }
 
     // Limite mensal por usuário (gerações bem-sucedidas no mês corrente).
     const now = new Date()

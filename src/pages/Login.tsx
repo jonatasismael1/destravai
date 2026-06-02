@@ -22,6 +22,14 @@ export default function Login() {
   // Mensagem de sucesso/informativa (e-mail enviado, confirme seu e-mail, etc.)
   const [notice, setNotice] = useState('')
 
+  // Escape hatch: se o login travar (sessão/cache corrompido no PWA), o usuário
+  // limpa o estado local e recarrega — costuma resolver na hora.
+  const handleClearSession = async () => {
+    try { await supabase.auth.signOut() } catch { /* ignora */ }
+    try { localStorage.clear() } catch { /* ignora */ }
+    window.location.reload()
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -267,6 +275,13 @@ export default function Login() {
           <Link to="/termos" className="font-semibold underline" style={{ color: '#A78BFA' }}>Termos de Uso</Link>
           {' '}e a{' '}
           <Link to="/privacidade" className="font-semibold underline" style={{ color: '#A78BFA' }}>Política de Privacidade</Link>.
+        </p>
+
+        <p className="text-center text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
+          Travou ao entrar?{' '}
+          <button type="button" onClick={handleClearSession} className="font-semibold underline" style={{ color: '#A78BFA' }}>
+            Limpar sessão e recarregar
+          </button>
         </p>
       </div>
       </div>

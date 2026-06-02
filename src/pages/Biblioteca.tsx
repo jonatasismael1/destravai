@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import {
@@ -361,6 +361,8 @@ export default function Biblioteca() {
   // Ideia enviada ao teleprompter. Para sequência, é UM story específico; senão,
   // é o item inteiro convertido em ideia.
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
+  // Evita rodar a geração inicial duas vezes (StrictMode / re-render).
+  const didInitRef = useRef(false)
 
   const loadItems = useCallback(async (reset = false, pageOverride?: number) => {
     try {
@@ -386,6 +388,9 @@ export default function Biblioteca() {
 
   useEffect(() => {
     const init = async () => {
+      // Idempotência: roda só uma vez (evita gerar biblioteca em duplicidade).
+      if (didInitRef.current) return
+      didInitRef.current = true
       setLoading(true)
       try {
         // Verificar se tem essência
@@ -404,6 +409,14 @@ export default function Biblioteca() {
           setGenerating(true)
           try {
             const generated = await generateLibraryItems(essence)
+            // Re-checa antes de inserir: outra aba/dispositivo pode ter gerado
+            // enquanto a IA respondia. Evita duplicar a biblioteca inteira.
+            const recheck = await getLibraryItems({ pageSize: 30 })
+            if (recheck.items.length > 0) {
+              setItems(recheck.items)
+              setTotal(recheck.total)
+              return
+            }
             const saved = await createLibraryItemsBatch(
               generated.map(g => ({
                 essence_id: essence.id,

@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Melhorias Prioritárias - Destravaí</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4efe6;
+      --paper: #fffaf1;
+      --ink: #201a16;
+      --muted: #6f665d;
+      --line: #ddd0bf;
+      --critical: #b42318;
+      --critical-bg: #fff1ef;
+      --high: #b54708;
+      --high-bg: #fff5e6;
+      --medium: #175cd3;
+      --medium-bg: #edf4ff;
+      --low: #067647;
+      --low-bg: #ecfdf3;
+      --done: #1f7a4d;
+      --done-bg: #eefaf3;
+      --decision: #7a2e8a;
+      --decision-bg: #f8effb;
+      --shadow: 0 18px 48px rgba(65, 47, 25, 0.14);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.72), rgba(244,239,230,0.96)), var(--bg);
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 38px 0 64px;
+    }
+
+    header,
+    .stats,
+    .grid,
+    .split {
+      display: grid;
+      gap: 16px;
+    }
+
+    header {
+      grid-template-columns: 1.25fr 0.75fr;
+      margin-bottom: 18px;
+    }
+
+    .hero,
+    .panel,
+    .card,
+    .meta {
+      background: rgba(255, 250, 241, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero,
+    .meta,
+    .panel {
+      padding: 24px;
+    }
+
+    .meta {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 12px;
+      font-size: clamp(2.15rem, 5vw, 4.7rem);
+      line-height: 0.96;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 1rem;
+      line-height: 1.25;
+    }
+
+    p {
+      color: var(--muted);
+      font-size: 1rem;
+    }
+
+    .eyebrow {
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin: 18px 0;
+    }
+
+    .stat {
+      min-height: 106px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.62);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 2rem;
+      line-height: 1;
+    }
+
+    .stat span {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .panel {
+      margin-top: 16px;
+    }
+
+    .grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .split {
+      grid-template-columns: 0.95fr 1.05fr;
+    }
+
+    .card {
+      position: relative;
+      padding: 18px 18px 18px 20px;
+      box-shadow: none;
+      overflow: hidden;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 5px;
+      background: var(--medium);
+    }
+
+    .critical { background: var(--critical-bg); }
+    .critical::before { background: var(--critical); }
+    .high { background: var(--high-bg); }
+    .high::before { background: var(--high); }
+    .medium { background: var(--medium-bg); }
+    .medium::before { background: var(--medium); }
+    .low { background: var(--low-bg); }
+    .low::before { background: var(--low); }
+    .done { background: var(--done-bg); }
+    .done::before { background: var(--done); }
+    .decision { background: var(--decision-bg); }
+    .decision::before { background: var(--decision); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      margin-bottom: 10px;
+      padding: 4px 9px;
+      border-radius: 999px;
+      color: #fff;
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .critical .tag { background: var(--critical); }
+    .high .tag { background: var(--high); }
+    .medium .tag { background: var(--medium); }
+    .low .tag { background: var(--low); }
+    .done .tag { background: var(--done); }
+    .decision .tag { background: var(--decision); }
+
+    ul, ol {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: var(--muted);
+    }
+
+    li + li { margin-top: 8px; }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      counter-reset: action;
+    }
+
+    .action {
+      display: grid;
+      grid-template-columns: 38px 1fr;
+      gap: 12px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.66);
+    }
+
+    .action::before {
+      counter-increment: action;
+      content: counter(action);
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: var(--ink);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    .action strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .action span {
+      color: var(--muted);
+      font-size: 0.93rem;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    footer {
+      margin-top: 28px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    @media (max-width: 860px) {
+      main {
+        width: min(100% - 20px, 680px);
+        padding-top: 20px;
+      }
+
+      header,
+      .stats,
+      .grid,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
+      .hero,
+      .meta,
+      .panel {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <section class="hero">
+        <div class="eyebrow">Resumo atualizado</div>
+        <h1>O que ainda precisa melhorar</h1>
+        <p>Após suas decisões, o cenário ficou mais claro: garantia legal de 7 dias, sem boleto, 1000 requisições por usuário, admin único e webhook já testado. Agora os pontos mais importantes são segurança de arquivos temporários, paywall, IA, banco e monitoramento do checkout.</p>
+      </section>
+
+      <aside class="meta">
+        <div>
+          <div class="eyebrow">Verificação</div>
+          <h2>Type-check passou</h2>
+          <p>`npx tsc --noEmit` passou sem erros. RLS ao vivo não foi reexecutado porque o token não estava carregado no ambiente.</p>
+        </div>
+        <p class="small">Este resumo não contém valores de credenciais.</p>
+      </aside>
+    </header>
+
+    <section class="stats" aria-label="Resumo de prioridades">
+      <div class="stat">
+        <strong>4</strong>
+        <span>itens críticos antes de vender com segurança</span>
+      </div>
+      <div class="stat">
+        <strong>5</strong>
+        <span>ajustes altos em banco, PWA, webhook e legal</span>
+      </div>
+      <div class="stat">
+        <strong>3</strong>
+        <span>melhorias recentes que reduziram complexidade</span>
+      </div>
+      <div class="stat">
+        <strong>7</strong>
+        <span>decisões respondidas e limpezas para estabilizar operação</span>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>O que já melhorou</h2>
+      <div class="grid">
+        <article class="card done">
+          <span class="tag">Melhorou</span>
+          <h3>Plano único</h3>
+          <ul>
+            <li>Oferta `destravai_completo` substitui a grade antiga de planos.</li>
+            <li>Checkout cobra primeiro mês promocional e recorrência depois.</li>
+            <li>Planos legados são migrados/desativados por migration.</li>
+          </ul>
+        </article>
+
+        <article class="card done">
+          <span class="tag">Melhorou</span>
+          <h3>Cancelamento</h3>
+          <ul>
+            <li>Fora da garantia, o acesso continua até o fim do período pago.</li>
+            <li>Dentro da garantia, o fluxo tenta reembolso e encerra acesso.</li>
+            <li>`current_period_end` virou parte da regra de negócio.</li>
+          </ul>
+        </article>
+
+        <article class="card done">
+          <span class="tag">Melhorou</span>
+          <h3>IA</h3>
+          <ul>
+            <li>OpenRouter é chamado no servidor, não no frontend.</li>
+            <li>Edge Function Supabase é caminho principal.</li>
+            <li>Netlify Function fica como fallback.</li>
+          </ul>
+        </article>
+
+        <article class="card done">
+          <span class="tag">Melhorou</span>
+          <h3>Login/PWA</h3>
+          <ul>
+            <li>Cliente Supabase ganhou lock com timeout.</li>
+            <li>Reduz risco de login preso em tela de carregamento.</li>
+            <li>Type-check passou após a mudança.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Fazer primeiro</h2>
+      <div class="actions">
+        <div class="action">
+          <div>
+            <strong>Remover o arquivo temporário com credenciais</strong>
+            <span>`tmp-login-test.mjs` contém credencial hardcoded. O `.gitignore` foi atualizado; ainda falta remover o arquivo local e rotacionar a senha/chaves envolvidas.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Ligar paywall em produção</strong>
+            <span>Confirmar `VITE_PAYWALL_ENABLED=true` no Netlify antes de cobrar. Localmente a flag está comentada.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Bloquear IA por assinatura no backend</strong>
+            <span>As funções de IA validam login, mas não validam assinatura ativa. Esse é o maior risco de custo.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Aplicar migrations e regenerar types</strong>
+            <span>As funções usam novas colunas em `subscriptions`, mas os types locais ainda não refletem isso.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Criar baseline da tabela `subscriptions`</strong>
+            <span>As migrations ainda alteram a tabela, mas não mostram sua criação completa.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Ignorar Netlify Functions no service worker</strong>
+            <span>O PWA ainda pode cachear GETs de `/.netlify/functions`, incluindo status de checkout.</span>
+          </div>
+        </div>
+        <div class="action">
+          <div>
+            <strong>Documentar webhook testado e criar alerta</strong>
+            <span>Você informou que o webhook funcionou. Agora falta checklist de envs, alerta para pagamento sem acesso e alerta para recorrência não criada.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Riscos por área</h2>
+      <div class="grid">
+        <article class="card critical">
+          <span class="tag">Crítico</span>
+          <h3>Segurança</h3>
+          <ul>
+            <li>Arquivo temporário contém credenciais.</li>
+            <li>Credenciais usadas em teste devem ser rotacionadas.</li>
+            <li>O `.gitignore` agora cobre scripts temporários `tmp-*`.</li>
+          </ul>
+        </article>
+
+        <article class="card critical">
+          <span class="tag">Crítico</span>
+          <h3>Acesso e receita</h3>
+          <ul>
+            <li>Paywall depende de env pública.</li>
+            <li>IA não confere assinatura no backend.</li>
+            <li>Admin foi definido como o e-mail autorizado.</li>
+          </ul>
+        </article>
+
+        <article class="card critical">
+          <span class="tag">Crítico</span>
+          <h3>Banco</h3>
+          <ul>
+            <li>`subscriptions` não tem criação completa nas migrations.</li>
+            <li>Types não refletem as novas colunas usadas nas funções.</li>
+            <li>`destravai_subscriptions` pode ser removida se estiver vazia, sem uso ou duplicada.</li>
+          </ul>
+        </article>
+
+        <article class="card high">
+          <span class="tag">Alto</span>
+          <h3>Pagamentos</h3>
+          <ul>
+            <li>Webhook é o ponto único de liberação de acesso.</li>
+            <li>Recorrência pode falhar após primeiro pagamento.</li>
+            <li>Precisa de reprocessamento e painel operacional.</li>
+          </ul>
+        </article>
+
+        <article class="card high">
+          <span class="tag">Alto</span>
+          <h3>PWA</h3>
+          <ul>
+            <li>Service worker ainda intercepta GET same-origin.</li>
+            <li>Isso inclui Netlify Functions.</li>
+            <li>Status de pagamento pode ficar desatualizado no app instalado.</li>
+          </ul>
+        </article>
+
+        <article class="card high">
+          <span class="tag">Alto</span>
+          <h3>Produto</h3>
+          <ul>
+            <li>Home ainda promete salvar na biblioteca sem salvar.</li>
+            <li>Biblioteca ainda pode carregar página antiga.</li>
+            <li>Geração inicial continua sem idempotência.</li>
+          </ul>
+        </article>
+
+        <article class="card medium">
+          <span class="tag">Médio</span>
+          <h3>Legal e landing</h3>
+          <ul>
+            <li>Footer da landing usa links legais como `#`.</li>
+            <li>FAQ cita boleto, mas a decisão comercial é não oferecer boleto.</li>
+            <li>Privacidade precisa citar OpenRouter/Gemini corretamente.</li>
+          </ul>
+        </article>
+
+        <article class="card medium">
+          <span class="tag">Médio</span>
+          <h3>Organização</h3>
+          <ul>
+            <li>Agente CLI OpenRouter pode confundir com a IA real do app.</li>
+            <li>Docs antigas ainda falam de arquitetura anterior.</li>
+            <li>Não há `.env.example` atualizado.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Decisões já respondidas</h2>
+      <div class="split">
+        <article class="card decision">
+          <span class="tag">Definido</span>
+          <h3>Comercial</h3>
+          <ul>
+            <li>Garantia legal de 7 dias, não trial grátis.</li>
+            <li>Sem boleto; remover essa menção da landing.</li>
+            <li>1000 requisições por usuário.</li>
+          </ul>
+        </article>
+
+        <article class="card decision">
+          <span class="tag">Definido</span>
+          <h3>Operação</h3>
+          <ul>
+            <li>Admin apenas: assessoriadbe@gmail.com.</li>
+            <li>Webhook testado e funcionando.</li>
+            <li>`destravai_subscriptions` removível se vazia/sem uso/duplicada.</li>
+            <li>Ainda falta definir o formato do reprocessamento de webhook.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Pode esperar</h2>
+      <div class="grid">
+        <article class="card low">
+          <span class="tag">Baixo</span>
+          <h3>Limpeza técnica</h3>
+          <ul>
+            <li>Remover dependências não usadas após confirmar imports.</li>
+            <li>Renomear arquivos "gemini" para nome neutro.</li>
+            <li>Arquivar documentos antigos.</li>
+          </ul>
+        </article>
+
+        <article class="card low">
+          <span class="tag">Baixo</span>
+          <h3>Acabamento</h3>
+          <ul>
+            <li>Refinar textos sem acento.</li>
+            <li>Revalidar encoding da landing no navegador.</li>
+            <li>Separar Configurações em áreas menores.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <footer>
+      Resumo atualizado a partir da nova auditoria. Sem exposição de credenciais.
+    </footer>
+  </main>
+</body>
+</html>

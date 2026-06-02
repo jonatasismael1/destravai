@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Check, ShieldCheck, ArrowRight, Loader2, QrCode, CreditCard,
-  Copy, CheckCircle2,
+  Copy, CheckCircle2, RefreshCw, Mail, Sparkles, Heart,
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
 import {
@@ -12,6 +12,18 @@ import {
 
 type Step = 'form' | 'pix' | 'success'
 type Method = 'PIX' | 'CREDIT_CARD'
+
+// Benefícios exibidos na coluna esquerda — copy do guia de redesign (seção 27).
+// Mantidos aqui para o tom comercial, sem alterar a fonte da verdade do preço.
+const CHECKOUT_BENEFITS = [
+  'Ideias e roteiros com IA',
+  'Missão do dia para postar sem travar',
+  'Studio com teleprompter',
+  'Legendas e CTAs personalizados',
+  'Biblioteca de conteúdos',
+  'Calendário editorial',
+  'Progresso de constância',
+]
 
 function formatBRL(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -63,9 +75,9 @@ export default function Checkout() {
 
   const validate = () => {
     if (!name.trim()) return 'Informe seu nome completo.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail valido.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail válido.'
     const cleanDoc = doc.replace(/\D/g, '')
-    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return 'Informe um CPF ou CNPJ valido.'
+    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return 'Informe um CPF ou CNPJ válido.'
     return ''
   }
 
@@ -104,49 +116,52 @@ export default function Checkout() {
     } catch { /* clipboard pode falhar em http; usuario copia manualmente */ }
   }
 
+  // ─── Sucesso ──────────────────────────────────────────────────────
   if (step === 'success') {
     return (
-      <Shell>
-        <div className="text-center py-6">
+      <Shell narrow>
+        <div className="checkout-card text-center px-7 py-9">
           <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6 mx-auto"
-            style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)' }}>
+            style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 16px 38px rgba(83,214,161,0.35)' }}>
             <CheckCircle2 size={30} className="text-white" />
           </div>
-          <h1 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl font-extrabold mb-2 tracking-tight" style={{ color: 'var(--text-primary)' }}>
             Pagamento confirmado!
           </h1>
           <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Seu acesso ao Destravai foi liberado.
+            Seu acesso ao Destravaí foi liberado.
           </p>
           <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
             Enviamos um e-mail para <strong style={{ color: 'var(--text-primary)' }}>{email}</strong> com
-            o link para voce criar sua senha e entrar.
+            o link para você criar sua senha e entrar.
           </p>
           <button onClick={() => navigate('/login')} className="btn-primary w-full py-4 text-base">
-            Acessar Destravai <ArrowRight size={18} />
+            Acessar Destravaí <ArrowRight size={18} />
           </button>
         </div>
       </Shell>
     )
   }
 
+  // ─── Pix (aguardando pagamento) ───────────────────────────────────
   if (step === 'pix' && result?.pix) {
     return (
-      <Shell>
-        <div className="text-center">
+      <Shell narrow>
+        <div className="checkout-card text-center px-7 py-8">
           <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
-            style={{ background: 'rgba(124,92,255,0.15)', border: '1px solid rgba(124,92,255,0.3)', color: '#A78BFA' }}>
+            style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.25)', color: '#6D5DF6' }}>
             <QrCode size={13} /> Pague com Pix
           </div>
-          <h1 className="text-xl font-extrabold mb-1" style={{ color: 'var(--text-primary)' }}>
-            Destravai Completo - {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
+          <h1 className="text-xl font-extrabold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
+            {COMPLETE_PLAN.name} — {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
           </h1>
           <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
-            Este e o primeiro mes. Depois, a assinatura continua por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mes.
+            Este é o primeiro mês. Depois, a assinatura continua por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês.
           </p>
 
           {result.pix.qrCodeImage && (
-            <div className="inline-block p-3 rounded-2xl bg-white mb-4">
+            <div className="inline-block p-3 rounded-2xl bg-white mb-4"
+              style={{ boxShadow: '0 18px 60px rgba(109,93,246,0.12)' }}>
               <img src={`data:image/png;base64,${result.pix.qrCodeImage}`} alt="QR Code Pix"
                 className="w-52 h-52" />
             </div>
@@ -155,21 +170,21 @@ export default function Checkout() {
           {result.pix.copyPaste && (
             <button onClick={copyPix}
               className="w-full flex items-center justify-between gap-2 rounded-2xl px-4 py-3 mb-4 text-left"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
               <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
                 {result.pix.copyPaste}
               </span>
-              <span className="flex items-center gap-1 text-xs font-bold flex-shrink-0" style={{ color: '#A78BFA' }}>
+              <span className="flex items-center gap-1 text-xs font-bold flex-shrink-0" style={{ color: '#6D5DF6' }}>
                 {copied ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar</>}
               </span>
             </button>
           )}
 
-          <div className="rounded-2xl p-3 flex items-center justify-center gap-2 mb-4"
-            style={{ background: 'rgba(124,92,255,0.08)', border: '1px solid rgba(124,92,255,0.2)' }}>
-            <Loader2 size={15} className="animate-spin" style={{ color: '#9B8CFF' }} />
+          <div className="rounded-2xl p-3 flex items-center justify-center gap-2"
+            style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)' }}>
+            <Loader2 size={15} className="animate-spin" style={{ color: '#6D5DF6' }} />
             <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              Aguardando confirmacao do pagamento...
+              Aguardando confirmação do pagamento...
             </span>
           </div>
         </div>
@@ -177,103 +192,188 @@ export default function Checkout() {
     )
   }
 
+  // ─── Formulário (duas colunas no desktop) ─────────────────────────
   return (
     <Shell>
-      <div className="text-center mb-6">
-        <img src="/destravai-logo-completa.png" alt="Destravai" className="h-16 mx-auto mb-3"
-          style={{ filter: 'drop-shadow(0 0 24px rgba(124,92,255,0.4))' }} />
-        <h1 className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Finalize sua assinatura
+      {/* Topo: logo centralizada + headline curta (aparece cedo no mobile) */}
+      <header className="text-center mb-8">
+        <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-12 sm:h-14 mx-auto mb-5"
+          style={{ filter: 'drop-shadow(0 0 24px rgba(109,93,246,0.35))' }} />
+        <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight"
+          style={{ color: 'var(--text-primary)' }}>
+          Finalize seu acesso ao <span className="gradient-text">Destravaí</span>
         </h1>
-        <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
-          R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.
+        <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
+          Primeiro mês por {formatBRL(COMPLETE_PLAN.firstMonthPrice)}. Depois {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês. Sem fidelidade.
         </p>
-      </div>
+      </header>
 
-      <div className="rounded-3xl p-5 mb-5 relative overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(124,92,255,0.16), rgba(167,139,250,0.06))',
-          border: '1px solid rgba(124,92,255,0.4)',
-        }}>
-        <div className="flex items-start justify-between gap-4 mb-3">
-          <div>
-            <span className="font-extrabold text-lg" style={{ color: '#A78BFA' }}>{COMPLETE_PLAN.name}</span>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              Depois {formatBRL(COMPLETE_PLAN.recurringPrice)}/mes. Cancele quando quiser.
+      <div className="grid lg:grid-cols-2 gap-6 items-start">
+        {/* ── Coluna esquerda: oferta + confiança ──────────────────── */}
+        {/* order-2 no mobile (vem depois do formulário), order-1 no desktop */}
+        <aside className="order-2 lg:order-1 space-y-5">
+          <div className="checkout-card p-6 relative overflow-hidden">
+            {/* Ícone decorativo no canto */}
+            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-60 pointer-events-none"
+              style={{ background: 'radial-gradient(circle, rgba(155,140,255,0.35), transparent 70%)' }} />
+            <Sparkles size={22} className="absolute right-5 top-5" style={{ color: '#9B8CFF' }} />
+
+            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+              style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.22)', color: '#6D5DF6' }}>
+              <Sparkles size={12} /> Acesso completo
+            </span>
+
+            <p className="text-sm font-bold mb-3" style={{ color: 'var(--text-primary)' }}>
+              Você está levando:
+            </p>
+            <ul className="space-y-2.5">
+              {CHECKOUT_BENEFITS.map(f => (
+                <li key={f} className="flex items-center gap-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+                    style={{ background: 'rgba(83,214,161,0.15)', border: '1px solid rgba(83,214,161,0.4)' }}>
+                    <Check size={12} style={{ color: '#53D6A1' }} strokeWidth={3} />
+                  </span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Faixa de confiança */}
+          <div className="grid grid-cols-3 gap-3">
+            <TrustItem icon={ShieldCheck} title="Pagamento seguro" sub="Seus dados protegidos" />
+            <TrustItem icon={RefreshCw} title="Cancele fácil" sub="Quando quiser" />
+            <TrustItem icon={Mail} title="Acesso por e-mail" sub="Rápido e automático" />
+          </div>
+
+          {/* Box final emocional */}
+          <div className="checkout-card flex items-center gap-3 p-4">
+            <span className="flex-shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(255,122,107,0.10))' }}>
+              <Heart size={18} style={{ color: '#FF7A6B' }} />
+            </span>
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+              Feito para quem quer aparecer com constância sem perder horas pensando no que postar.
             </p>
           </div>
-          <div className="text-right flex-shrink-0">
-            <span className="font-extrabold text-xl" style={{ color: 'var(--text-primary)' }}>
-              {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
-            </span>
-            <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>primeiro mes</p>
+        </aside>
+
+        {/* ── Coluna direita: card do plano + formulário ───────────── */}
+        <div className="order-1 lg:order-2 checkout-card p-6">
+          {/* Card resumo do plano */}
+          <div className="rounded-2xl p-4 mb-5 flex items-center justify-between gap-4"
+            style={{
+              background: 'linear-gradient(135deg, rgba(109,93,246,0.10), rgba(155,140,255,0.05))',
+              border: '1px solid rgba(109,93,246,0.20)',
+            }}>
+            <div className="flex items-center gap-3">
+              <span className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg"
+                style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 8px 20px rgba(109,93,246,0.35)' }}>
+                D
+              </span>
+              <div>
+                <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>{COMPLETE_PLAN.name}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Acesso total a todas as ferramentas</p>
+              </div>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="font-extrabold text-lg leading-none" style={{ color: 'var(--text-primary)' }}>
+                {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
+              </p>
+              <p className="text-[10px] mt-1" style={{ color: 'var(--text-muted)' }}>primeiro mês</p>
+            </div>
+          </div>
+
+          {/* Campos */}
+          <div className="space-y-3 mb-5">
+            <div>
+              <label className="label">Nome completo</label>
+              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Digite seu nome completo" />
+            </div>
+            <div>
+              <label className="label">E-mail</label>
+              <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)}
+                placeholder="seu@email.com" />
+              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                É neste e-mail que você vai receber o acesso.
+              </p>
+            </div>
+            <div>
+              <label className="label">WhatsApp</label>
+              <input className="input" inputMode="numeric" value={phone}
+                onChange={e => setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
+              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                Enviaremos informações importantes no seu WhatsApp.
+              </p>
+            </div>
+            <div>
+              <label className="label">CPF ou CNPJ</label>
+              <input className="input" inputMode="numeric" value={doc}
+                onChange={e => setDoc(maskDocument(e.target.value))} placeholder="Somente números" />
+            </div>
+          </div>
+
+          {/* Forma de pagamento */}
+          <label className="label">Forma de pagamento</label>
+          <div className="flex gap-2 mb-5">
+            <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovação imediata" />
+            <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartão" sub="Crédito" />
+          </div>
+
+          {error && (
+            <div className="rounded-xl px-4 py-3 text-sm font-semibold mb-4"
+              style={{ background: 'rgba(255,122,107,0.10)', border: '1px solid rgba(255,122,107,0.25)', color: '#E25C4D' }}>
+              {error}
+            </div>
+          )}
+
+          <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full text-base disabled:opacity-50"
+            style={{ height: 58 }}>
+            {loading
+              ? <><Loader2 size={18} className="animate-spin" /> Gerando pagamento...</>
+              : <>Começar meu primeiro mês por {formatBRL(COMPLETE_PLAN.firstMonthPrice)} <ArrowRight size={18} /></>}
+          </button>
+
+          {/* Microcopy abaixo do botão */}
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-center gap-2 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              <Mail size={13} style={{ color: '#6D5DF6' }} className="flex-shrink-0" />
+              Acesso liberado no e-mail informado após a confirmação do pagamento.
+            </div>
+            <div className="flex items-center justify-center gap-2 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              <Check size={13} style={{ color: '#53D6A1' }} strokeWidth={3} />
+              Sem fidelidade • Cancele quando quiser
+            </div>
           </div>
         </div>
-        <ul className="space-y-1.5">
-          {COMPLETE_PLAN.features.map(f => (
-            <li key={f} className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
-              <Check size={13} style={{ color: '#53D6A1' }} /> {f}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className="space-y-3 mb-5">
-        <div>
-          <label className="label">Nome completo</label>
-          <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Seu nome completo" />
-        </div>
-        <div>
-          <label className="label">E-mail</label>
-          <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)}
-            placeholder="seu@email.com" />
-          <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-            E neste e-mail que voce vai receber o acesso.
-          </p>
-        </div>
-        <div>
-          <label className="label">WhatsApp</label>
-          <input className="input" inputMode="numeric" value={phone}
-            onChange={e => setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
-        </div>
-        <div>
-          <label className="label">CPF ou CNPJ</label>
-          <input className="input" inputMode="numeric" value={doc}
-            onChange={e => setDoc(maskDocument(e.target.value))} placeholder="Somente numeros" />
-        </div>
-      </div>
-
-      <label className="label">Forma de pagamento</label>
-      <div className="flex gap-2 mb-5">
-        <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovacao rapida" />
-        <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartao" sub="Credito" />
-      </div>
-
-      {error && (
-        <div className="rounded-xl px-4 py-3 text-sm font-semibold mb-4"
-          style={{ background: 'rgba(255,122,107,0.1)', border: '1px solid rgba(255,122,107,0.2)', color: '#FF7A6B' }}>
-          {error}
-        </div>
-      )}
-
-      <button onClick={handleSubmit} disabled={loading} className="btn-primary w-full py-4 text-base disabled:opacity-50">
-        {loading
-          ? <><Loader2 size={18} className="animate-spin" /> Gerando pagamento...</>
-          : <>Comecar por {formatBRL(COMPLETE_PLAN.firstMonthPrice)} <ArrowRight size={18} /></>}
-      </button>
-
-      <div className="flex items-center justify-center gap-2 mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
-        <ShieldCheck size={13} style={{ color: '#53D6A1' }} />
-        Sem fidelidade. Cancele quando quiser.
       </div>
     </Shell>
   )
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+// Casca da página com tema claro premium e orbs suaves de fundo (guia, seção 26).
+function Shell({ children, narrow = false }: { children: React.ReactNode; narrow?: boolean }) {
   return (
-    <div data-theme="light" className="w-full" style={{ height: '100svh', overflowY: 'auto', background: '#FFFFFF' }}>
-      <div className="max-w-md mx-auto px-5 py-8 pb-24">{children}</div>
+    <div data-theme="light" className="w-full" style={{
+      height: '100svh', overflowY: 'auto',
+      background: `
+        radial-gradient(circle at 10% 20%, rgba(155,140,255,0.18), transparent 28%),
+        radial-gradient(circle at 90% 55%, rgba(109,93,246,0.14), transparent 30%),
+        linear-gradient(180deg, #FAF8FF 0%, #F6F2FF 45%, #FFFFFF 100%)`,
+    }}>
+      <div className={`${narrow ? 'max-w-md' : 'max-w-[1180px]'} mx-auto px-5 py-10 pb-24 ${narrow ? 'min-h-full flex items-center' : ''}`}>
+        <div className="w-full">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+function TrustItem({ icon: Icon, title, sub }: { icon: React.ElementType; title: string; sub: string }) {
+  return (
+    <div className="checkout-card flex flex-col items-center text-center gap-1.5 px-2 py-4">
+      <Icon size={18} style={{ color: '#6D5DF6' }} />
+      <p className="text-xs font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{title}</p>
+      <p className="text-[10px] leading-tight" style={{ color: 'var(--text-muted)' }}>{sub}</p>
     </div>
   )
 }
@@ -283,15 +383,22 @@ function MethodTab({ active, onClick, icon: Icon, label, sub }: {
 }) {
   return (
     <button onClick={onClick}
-      className="flex-1 flex items-center gap-2 rounded-2xl px-3 py-3 transition-all duration-200"
+      className="flex-1 flex items-center gap-2.5 rounded-2xl px-3 py-3 transition-all duration-200 relative"
       style={active ? {
-        background: 'rgba(124,92,255,0.18)', border: '1px solid rgba(124,92,255,0.5)',
-      } : { background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-      <Icon size={18} style={{ color: active ? '#A78BFA' : 'var(--text-muted)' }} />
-      <div className="text-left">
-        <p className="text-sm font-bold" style={{ color: active ? '#A78BFA' : 'var(--text-primary)' }}>{label}</p>
+        background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.5)',
+        boxShadow: '0 0 0 3px rgba(109,93,246,0.10)',
+      } : { background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+      <Icon size={18} style={{ color: active ? '#6D5DF6' : 'var(--text-muted)' }} />
+      <div className="text-left flex-1">
+        <p className="text-sm font-bold" style={{ color: active ? '#6D5DF6' : 'var(--text-primary)' }}>{label}</p>
         <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>
       </div>
+      {active && (
+        <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+          style={{ background: '#6D5DF6' }}>
+          <Check size={12} className="text-white" strokeWidth={3} />
+        </span>
+      )}
     </button>
   )
 }

@@ -1,6 +1,11 @@
 # Local Netlify folder
 .netlify
 
+# Landing page: é um repositório PRÓPRIO (github.com/jonatasismael1/lpdestravai)
+# clonado aqui só por conveniência. Edite e dê push dentro dela (vai pro Netlify
+# da landing); o projeto principal não a versiona.
+landing-page/
+
 # Dependencies
 node_modules/
 

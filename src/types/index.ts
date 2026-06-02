@@ -24,6 +24,12 @@ export interface ProfessionalProfile {
   preferredWords: string[]
   avoidedWords: string[]
   availableMoments: string[]
+  // Campos da Essência que personalizam ainda mais o conteúdo (opcionais para não
+  // quebrar quem constrói o perfil sem eles, ex.: onboarding inicial).
+  differentials?: string          // o que diferencia este profissional
+  frequentQuestions?: string[]    // dúvidas que o público sempre faz
+  commonObjections?: string[]     // objeções a quebrar antes da venda
+  positioning?: string            // posicionamento sintetizado pela IA (ai_positioning)
 }
 
 export type ExposureLevel =

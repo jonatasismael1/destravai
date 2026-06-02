@@ -184,7 +184,7 @@ export default function MeuEspaco() {
           ))}
         </div>
 
-        {tab === 'progresso' && <ProgressoPanel />}
+        {tab === 'progresso' && <ProgressoPanel onOpenRanking={() => setTab('ranking')} />}
 
         {/* Ranking: reaproveita a página de Grupos dentro de uma aba dedicada.
             O wrapper neutraliza o padding-top próprio da página (já estamos numa

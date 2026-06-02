@@ -341,6 +341,13 @@ function buildCheckinPrompt(profile: ProfessionalProfile, checkinKey: string, va
   const tone = profile.voiceTone.join(', ') || 'natural, humano, próximo'
   const exposure = EXPOSURE_LABELS[profile.exposureLevel] ?? ''
 
+  // Campos da Essência que tornam o conteúdo "só desta pessoa". Entram no prompt
+  // apenas quando preenchidos — é o "porquê" do produto (posicionamento real).
+  const positioning = (profile.positioning ?? '').trim()
+  const differentials = (profile.differentials ?? '').trim()
+  const questions = (profile.frequentQuestions ?? []).slice(0, 4).join('; ')
+  const objections = (profile.commonObjections ?? []).slice(0, 4).join('; ')
+
   return `Você é um consultor de presença digital especializado em Instagram. Crie UMA ideia de conteúdo específica e executável agora para este profissional.
 
 PROFISSIONAL
@@ -351,6 +358,10 @@ Como aparece no conteúdo: ${exposure}
 Pilares de conteúdo: ${pillars}
 Serviços/produtos: ${services}
 ${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
+${positioning ? `Posicionamento: ${positioning}` : ''}
+${differentials ? `Diferenciais (o que só ele(a) tem): ${differentials}` : ''}
+${questions ? `Dúvidas frequentes do público: ${questions}` : ''}
+${objections ? `Objeções a quebrar: ${objections}` : ''}
 
 CONTEXTO AGORA
 ${cfg.ctx}
@@ -360,7 +371,8 @@ FORMATO OBRIGATÓRIO: ${cfg.formatInstruction}
 Tempo disponível: ${cfg.time}
 
 DIRETRIZES
-- A ideia deve soar como algo SÓ ESTA PESSOA poderia fazer — use a área de atuação e o tom dela
+- A ideia deve soar como algo SÓ ESTA PESSOA poderia fazer — use a área de atuação, o tom e o posicionamento dela
+- Quando fizer sentido, baseie a ideia em um diferencial, responda uma dúvida frequente ou quebre uma objeção listada acima
 - Seja específico: sugira a FRASE EXATA a ser dita ou escrita na tela
 - Para foto: diga o que fotografar + a frase de legenda/sobreposição
 - Para story falado: escreva o roteiro como ela falaria, em primeira pessoa, natural

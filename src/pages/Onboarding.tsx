@@ -454,9 +454,18 @@ export default function Onboarding() {
             />
             <span className="font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravaí</span>
           </div>
-          <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
-            {step + 1} / {TOTAL_STEPS}
-          </span>
+          <div className="flex items-center gap-2">
+            {/* Expectativa de tempo logo no início, para reduzir o atrito de começar */}
+            {step === 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: 'rgba(83,214,161,0.12)', border: '1px solid rgba(83,214,161,0.25)', color: '#53D6A1' }}>
+                ~2 min
+              </span>
+            )}
+            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
+              {step + 1} / {TOTAL_STEPS}
+            </span>
+          </div>
         </div>
 
         <StepIndicator current={step} total={TOTAL_STEPS} />

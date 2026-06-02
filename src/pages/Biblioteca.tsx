@@ -554,7 +554,7 @@ export default function Biblioteca() {
             Organizando sua biblioteca personalizada...
           </h2>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Isso só precisa acontecer uma vez.
+            Costuma levar ~10–15s e só precisa acontecer uma vez.
           </p>
         </div>
         <span className="w-8 h-8 rounded-full animate-spin"

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee } from 'lucide-react'
+import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
@@ -366,6 +366,7 @@ function CTACard({ text, typeLabel, colors }: { text: string; typeLabel: string;
 export default function Criar() {
   const { state, addIdea, updateIdea } = useApp()
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
 
   const paramType = searchParams.get('type') as 'story' | 'sequence' | 'reel' | null
   const paramTheme = searchParams.get('theme') ?? ''
@@ -502,6 +503,26 @@ export default function Criar() {
           Escolha o formato, defina o tema e receba o roteiro.
         </p>
       </div>
+
+      {/* Atalho para a Essência quando incompleta — roteiros ficam muito mais
+          personalizados com ela preenchida. (Essência saiu da navbar.) */}
+      {!profile?.pillars?.length && (
+        <button onClick={() => navigate('/essencia')}
+          className="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
+          style={{ background: 'linear-gradient(135deg, rgba(247,185,85,0.12), rgba(255,122,107,0.06))', border: '1px solid rgba(247,185,85,0.3)' }}>
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)' }}>
+            <Star size={17} style={{ color: '#F7B955' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Melhore sua Essência</p>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+              Roteiros ficam muito mais personalizados quando você preenche sua Essência.
+            </p>
+          </div>
+          <ChevronRight size={16} style={{ color: '#F7B955', flexShrink: 0 }} />
+        </button>
+      )}
 
       {/* Tab switcher — 4 abas, com scroll horizontal em telas estreitas */}
       <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>

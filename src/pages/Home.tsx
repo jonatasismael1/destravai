@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight,
   Settings, Camera, Wand2, FileText, Copy, X,
-  Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp
+  Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp, CalendarDays
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
@@ -662,7 +662,7 @@ export default function Home() {
           <div className="flex-1 min-w-0">
             <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Pode continuar navegando — sua missão aparece aqui quando ficar pronta.
+              Costuma levar ~10–15s. Pode continuar navegando — sua missão aparece aqui quando ficar pronta.
             </p>
           </div>
           <div className="flex gap-1 flex-shrink-0">
@@ -786,6 +786,21 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* Atalho para a Agenda — planejar a semana sem precisar caçar na navbar */}
+      <button onClick={() => navigate('/calendario')}
+        className="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}>
+          <CalendarDays size={17} style={{ color: '#9B8CFF' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Planejar minha semana</p>
+          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Organize o que postar na Agenda.</p>
+        </div>
+        <ChevronRight size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+      </button>
 
       {studioIdea && (
         <StudioModal idea={studioIdea} onClose={() => setStudioIdea(null)} />

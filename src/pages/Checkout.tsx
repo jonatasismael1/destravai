@@ -5,6 +5,7 @@ import {
   Copy, CheckCircle2, RefreshCw, Mail, Sparkles, Heart, Lock, Clock, Info,
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
+import { supabase } from '../lib/supabase/client'
 import {
   createPublicCheckout, getCheckoutStatus,
   type CheckoutResult,
@@ -59,6 +60,19 @@ export default function Checkout() {
   const [copied, setCopied] = useState(false)
   const [now, setNow] = useState(() => Date.now())
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Pré-preenche nome/e-mail quando o usuário já está logado (ex.: voltou para
+  // assinar). Não sobrescreve o que ele já digitou.
+  useEffect(() => {
+    let active = true
+    supabase.auth.getUser().then(({ data }) => {
+      if (!active || !data.user) return
+      if (data.user.email) setEmail(prev => prev || data.user!.email!)
+      const metaName = (data.user.user_metadata?.name as string | undefined) ?? ''
+      if (metaName) setName(prev => prev || metaName)
+    }).catch(() => { /* visitante anônimo: segue com os campos vazios */ })
+    return () => { active = false }
+  }, [])
 
   // Polling do status do Pix (lógica de pagamento — inalterada).
   useEffect(() => {

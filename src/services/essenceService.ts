@@ -39,6 +39,11 @@ export function essenceToProfile(essence: BrandEssence, name = ''): Professional
     preferredWords: [],
     avoidedWords: strArr(raw.avoided_words),
     availableMoments: [],
+    // Campos antes ignorados — agora alimentam a personalização do conteúdo.
+    differentials: essence.differentials ?? '',
+    frequentQuestions: essence.frequent_questions ?? [],
+    commonObjections: essence.common_objections ?? [],
+    positioning: essence.ai_positioning ?? '',
   }
 }
 

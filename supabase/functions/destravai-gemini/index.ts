@@ -102,27 +102,56 @@ Deno.serve(async (req: Request) => {
     if (!prompt) return errorResponse('Parametro prompt obrigatorio', 400)
 
     // Gating de assinatura: só quem tem acesso (assinatura ativa, cortesia ou admin)
-    // usa a IA. Fail-open: se a checagem falhar, libera (nunca bloqueia por bug).
+    // usa a IA. FAIL-CLOSED: se a consulta de assinatura FALHAR (bug/instabilidade),
+    // o usuário comum é BLOQUEADO — não liberamos IA paga por erro nosso. Exceção:
+    // admin segue (fail-open só para ele) e a falha vira um alerta no log.
     // Desligavel por env: AI_ENFORCE_SUBSCRIPTION=false.
     const enforceAccess = (Deno.env.get('AI_ENFORCE_SUBSCRIPTION') ?? 'true') !== 'false'
     if (enforceAccess) {
       const adminEmail = (Deno.env.get('ADMIN_EMAIL') || 'assessoriadbe@gmail.com').toLowerCase()
-      const allowed = await (async () => {
-        if ((user.email ?? '').toLowerCase() === adminEmail) return true
-        const { data: sub } = await supabase
-          .from('subscriptions')
-          .select('status, payment_status, payment_method, access_granted, current_period_end')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        if (!sub) return false
-        if (sub.payment_method === 'COURTESY' && sub.access_granted) return true
-        if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') return true
-        if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
-        return false
-      })().catch(() => true) // fail-open
-      if (!allowed) return errorResponse('Sua assinatura não está ativa. Reative para continuar usando a IA.', 402)
+      const isAdmin = (user.email ?? '').toLowerCase() === adminEmail
+      let allowed = false
+      let checkFailed = false
+      try {
+        if (isAdmin) {
+          allowed = true
+        } else {
+          const { data: sub, error: subErr } = await supabase
+            .from('subscriptions')
+            .select('status, payment_status, payment_method, access_granted, current_period_end')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+          if (subErr) throw subErr
+          if (sub) {
+            if (sub.payment_method === 'COURTESY' && sub.access_granted) allowed = true
+            else if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') allowed = true
+            else if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) allowed = true
+          }
+        }
+      } catch (err) {
+        // Falha na consulta: bloqueia usuário comum; admin passa. Registra alerta.
+        checkFailed = true
+        allowed = isAdmin
+        try {
+          await supabase.rpc('destravai_log_error', {
+            p_source: 'edge:gemini:access-check',
+            p_message: `Falha ao consultar assinatura (fail-closed${allowed ? ', liberado p/ admin' : ', bloqueado'}): ${err instanceof Error ? err.message : String(err)}`.slice(0, 2000),
+            p_level: 'alert',
+            p_user_id: user.id,
+            p_details: null,
+          })
+        } catch { /* log nunca derruba o serviço */ }
+      }
+      if (!allowed) {
+        return errorResponse(
+          checkFailed
+            ? 'Não foi possível confirmar sua assinatura agora. Tente novamente em instantes.'
+            : 'Sua assinatura não está ativa. Reative para continuar usando a IA.',
+          402,
+        )
+      }
     }
 
     // Limite mensal: conta geracoes bem-sucedidas no mes corrente

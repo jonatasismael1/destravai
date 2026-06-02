@@ -281,9 +281,9 @@ export default function Grupos() {
   return (
     <div className="p-5 space-y-6 pb-28">
       <div className="pt-4">
-        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Grupos</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Ranking &amp; Grupos</h1>
         <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Constância é mais fácil com amigos. Crie ou entre em um grupo e disputem quem mais aparece.
+          Aqui você cria ou entra em grupos, disputa o <strong>ranking</strong> da semana e conversa no <strong>chat</strong> de cada grupo.
         </p>
       </div>
 

@@ -469,13 +469,13 @@ export default function Home() {
     )
 
     if (alreadySaved) {
-      addToast('Essa ideia já está na sua biblioteca.', 'info')
+      addToast('Essa ideia já está na sua Biblioteca (em Espaço).', 'info')
       return
     }
     // Cria o item na biblioteca de verdade e só confirma se gravou.
     void persistIdeaToLibrary(idea).then(ok => {
       addToast(
-        ok ? 'Ideia salva na biblioteca!' : 'Não consegui salvar na biblioteca. Tente de novo.',
+        ok ? 'Ideia salva na Biblioteca (em Espaço)!' : 'Não consegui salvar na biblioteca. Tente de novo.',
         ok ? 'success' : 'error',
       )
     })

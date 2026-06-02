@@ -4,7 +4,7 @@
 // Substitui a Edge Function do Supabase para não depender do projeto certo
 // estar configurado no MCP nem de secret separado.
 
-import { json, preflight, getUser, supabaseAdmin, serverLog, userHasActiveAccess } from './_shared.mjs'
+import { json, preflight, getUser, supabaseAdmin, serverLog, userHasActiveAccess, isAdminUser } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 // Gating de assinatura para a IA. Pode ser desligado por env (interruptor de
@@ -168,10 +168,32 @@ export const handler = async (event) => {
     const admin = supabaseAdmin()
 
     // Gating de assinatura: só quem tem acesso (assinatura ativa, cortesia ou admin)
-    // usa a IA. Fail-open: se a checagem falhar, libera — nunca bloqueia por bug nosso.
+    // usa a IA. FAIL-CLOSED: se a consulta de assinatura FALHAR (bug/instabilidade),
+    // o usuário comum é BLOQUEADO — não liberamos IA paga por erro nosso. Exceção:
+    // admin segue (fail-open só para ele, para o dono nunca se trancar fora) e a
+    // falha vira um alerta no log para investigação.
     if (ENFORCE_AI_ACCESS) {
-      const allowed = await userHasActiveAccess(admin, user).catch(() => true)
-      if (!allowed) return json(402, { error: 'Sua assinatura não está ativa. Reative para continuar usando a IA.' })
+      let allowed = false
+      let checkFailed = false
+      try {
+        allowed = await userHasActiveAccess(admin, user)
+      } catch (err) {
+        checkFailed = true
+        allowed = isAdminUser(user) // só o admin passa quando a checagem quebra
+        await serverLog(
+          'gemini:access-check',
+          `Falha ao consultar assinatura (fail-closed${allowed ? ', liberado p/ admin' : ', bloqueado'}): ${err?.message || err}`,
+          'alert',
+          user.id,
+        )
+      }
+      if (!allowed) {
+        return json(402, {
+          error: checkFailed
+            ? 'Não foi possível confirmar sua assinatura agora. Tente novamente em instantes.'
+            : 'Sua assinatura não está ativa. Reative para continuar usando a IA.',
+        })
+      }
     }
 
     // Limite mensal por usuário (gerações bem-sucedidas no mês corrente).

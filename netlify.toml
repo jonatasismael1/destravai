@@ -6,6 +6,23 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# ── Headers de segurança (aplicados a todas as respostas) ─────────────────────
+# CSP "mínima" calibrada para o que o app realmente usa:
+#  - script-src 'self'         → o bundle é externo (Vite), sem inline.
+#  - style-src 'unsafe-inline' → React usa estilos inline (style={{}}) + Google Fonts.
+#  - img-src https: data: blob:→ avatares (Supabase Storage), QR Pix, preview local.
+#  - connect-src supabase.co   → REST/Edge Functions/Realtime (as Netlify Functions
+#                                são same-origin, cobertas por 'self').
+#  - frame-ancestors 'none'    → impede o app de ser embutido em iframe (clickjacking).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
 # As Netlify Functions têm precedência sobre o redirect SPA abaixo,
 # então /.netlify/functions/* funciona normalmente.
 [[redirects]]

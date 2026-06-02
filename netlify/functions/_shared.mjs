@@ -182,6 +182,33 @@ export async function serverLog(source, message, level = 'error', userId = null,
   }
 }
 
+// Libera o acesso após pagamento confirmado: garante o perfil no Supabase e
+// dispara o e-mail nativo com o link para definir a senha. Idempotente — pode ser
+// chamado pelo webhook (na hora) e pela rotina de monitoramento (reprocesso).
+// NÃO marca access_granted aqui (quem chama decide isso), apenas efetua os efeitos.
+export async function grantAccess(admin, subRow) {
+  // 1) Cria/atualiza o destravai_profiles (não há trigger automático para ele).
+  try {
+    const profilePatch = { id: subRow.user_id, plan: COMPLETE_PLAN_ID }
+    if (subRow.customer_name) profilePatch.name = subRow.customer_name
+    if (subRow.customer_email) profilePatch.email = subRow.customer_email
+    await admin.from('destravai_profiles').upsert(profilePatch, { onConflict: 'id' })
+  } catch (e) {
+    console.error('[grantAccess] erro ao salvar profile', e?.message)
+  }
+
+  // 2) Envia o e-mail de acesso (link para definir a senha) uma única vez.
+  if (subRow.customer_email && !subRow.access_email_sent) {
+    try {
+      await sendAccessEmail(subRow.customer_email)
+      await admin.from('subscriptions').update({ access_email_sent: true }).eq('id', subRow.id)
+    } catch (e) {
+      console.error('[grantAccess] erro ao enviar e-mail de acesso', e?.message)
+      // Não bloqueia: o acesso já está liberado; o e-mail pode ser reenviado depois.
+    }
+  }
+}
+
 // ── Chamada à API do Asaas (autenticada com a API key no header access_token).
 export async function asaas(path, options = {}) {
   const baseUrl = process.env.ASAAS_BASE_URL || 'https://api.asaas.com/v3'

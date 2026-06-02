@@ -782,10 +782,12 @@ export default function Criar() {
       {/* Resultado da IA — vale para 'Roteiro' e 'Momento livre' */}
       {(activeTab === 'criar' || activeTab === 'livre') && <>
         {result && !loading && result.id !== 'error' && (
-          <div className="flex items-center justify-center gap-1.5 text-xs font-semibold -mb-1"
+          <button
+            onClick={() => navigate('/espaco', { state: { tab: 'biblioteca' } })}
+            className="flex items-center justify-center gap-1.5 text-xs font-semibold -mb-1 mx-auto hover:underline"
             style={{ color: savedNotice ? '#53D6A1' : 'var(--text-muted)' }}>
-            <Check size={12} /> {savedNotice ? 'Salvo na biblioteca!' : 'Salvo automaticamente na biblioteca'}
-          </div>
+            <Check size={12} /> {savedNotice ? 'Salvo!' : 'Salvo automaticamente'} na Biblioteca (em Espaço) · ver
+          </button>
         )}
 
         {result && !loading && (

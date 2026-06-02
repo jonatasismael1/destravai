@@ -4,7 +4,7 @@
 // URL para cadastrar no painel do Asaas:
 //   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
 
-import { COMPLETE_PLAN, json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, sendAccessEmail, serverLog, asaas } from './_shared.mjs'
+import { COMPLETE_PLAN, json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, serverLog, asaas, grantAccess } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
@@ -176,37 +176,6 @@ export const handler = async (event) => {
     // Responde 200 para o Asaas não reenviar infinitamente em erro nosso não-crítico;
     // o evento fica registrado e pode ser reprocessado manualmente se necessário.
     return json(200, { ok: false, error: err?.message })
-  }
-}
-
-// Libera o acesso após pagamento confirmado: garante o perfil no Supabase e
-// dispara o e-mail nativo com o link para o usuário definir a senha.
-// Idempotente: só é chamado quando access_granted estava false.
-async function grantAccess(admin, subRow) {
-  // 1) Cria/atualiza o destravai_profiles (não há trigger automático para ele).
-  try {
-    const profilePatch = {
-      id: subRow.user_id,
-      plan: COMPLETE_PLAN.id,
-    }
-    if (subRow.customer_name) profilePatch.name = subRow.customer_name
-    if (subRow.customer_email) profilePatch.email = subRow.customer_email
-    await admin.from('destravai_profiles').upsert(profilePatch, { onConflict: 'id' })
-  } catch (e) {
-    console.error('[asaas-webhook] erro ao salvar profile', e?.message)
-  }
-
-  // 2) Envia o e-mail de acesso (link para definir a senha) uma única vez.
-  if (subRow.customer_email && !subRow.access_email_sent) {
-    try {
-      await sendAccessEmail(subRow.customer_email)
-      await admin.from('subscriptions')
-        .update({ access_email_sent: true })
-        .eq('id', subRow.id)
-    } catch (e) {
-      console.error('[asaas-webhook] erro ao enviar e-mail de acesso', e?.message)
-      // Não bloqueia: o acesso já está liberado; o e-mail pode ser reenviado depois.
-    }
   }
 }
 

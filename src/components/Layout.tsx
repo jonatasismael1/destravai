@@ -12,8 +12,8 @@ import { useTheme } from '../context/ThemeContext'
 const navItems = [
   { to: '/', icon: Home, label: 'Hoje' },
   { to: '/criar', icon: Sparkles, label: 'Criar' },
-  { to: '/calendario', icon: CalendarDays, label: 'Agenda' },
   { to: '/espaco', icon: NotebookPen, label: 'Espaço' },
+  { to: '/calendario', icon: CalendarDays, label: 'Agenda' },
   { to: '/grupos', icon: Trophy, label: 'Ranking' },
   { to: '/configuracoes', icon: Settings, label: 'Ajustes' },
 ]

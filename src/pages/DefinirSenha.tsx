@@ -51,7 +51,8 @@ export default function DefinirSenha() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center p-6" style={{ minHeight: '100svh', background: '#0B0B12' }}>
+    <div className="overflow-y-auto" style={{ height: '100svh', background: '#0B0B12' }}>
+      <div className="flex flex-col items-center justify-center min-h-full p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
           <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-20 mx-auto mb-4"
@@ -128,6 +129,7 @@ export default function DefinirSenha() {
             </form>
           </div>
         )}
+      </div>
       </div>
     </div>
   )

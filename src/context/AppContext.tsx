@@ -140,14 +140,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // SÍNCRONO. Chamar métodos do supabase (getUser, queries) aqui dentro trava
   // o cliente de auth (deadlock) — por isso a busca de dados fica no efeito 2.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState(s => ({
-        ...s,
-        supabaseUser: session?.user ?? null,
-        session,
-        authLoading: false,
-      }))
-    })
+    // Rede segura: se getSession falhar ou travar (token corrompido no PWA, rede
+    // instável), nunca deixamos o app preso no spinner — liberamos a tela de login.
+    let settled = false
+    const stopSpinner = () => { settled = true; setState(s => (s.authLoading ? { ...s, authLoading: false } : s)) }
+    const timeout = setTimeout(() => { if (!settled) stopSpinner() }, 8000)
+
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        settled = true
+        setState(s => ({
+          ...s,
+          supabaseUser: session?.user ?? null,
+          session,
+          authLoading: false,
+        }))
+      })
+      .catch(() => stopSpinner())
+      .finally(() => clearTimeout(timeout))
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setState(s => ({
@@ -162,7 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }))
     })
 
-    return () => subscription.unsubscribe()
+    return () => { clearTimeout(timeout); subscription.unsubscribe() }
   }, [])
 
   // 2) Quando o usuário muda, busca profile + essência do banco (fora do lock do

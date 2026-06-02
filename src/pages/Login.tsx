@@ -79,8 +79,8 @@ export default function Login() {
 
   return (
     <div
-      className="flex flex-col items-center justify-center p-6 relative overflow-y-auto"
-      style={{ minHeight: '100svh', background: '#0B0B12' }}
+      className="relative overflow-y-auto"
+      style={{ height: '100svh', background: '#0B0B12' }}
     >
       {/* Background orbs */}
       <div className="absolute inset-0 pointer-events-none">
@@ -90,6 +90,10 @@ export default function Login() {
           style={{ background: 'radial-gradient(circle, rgba(255,181,71,0.12) 0%, transparent 65%)', filter: 'blur(60px)' }} />
       </div>
 
+      {/* Centraliza quando cabe na tela; rola quando o conteúdo (modo "criar conta")
+          é mais alto que a tela. min-h-full dentro de um container de ALTURA FIXA
+          é o que permite rolar até o fim sem cortar o campo de senha. */}
+      <div className="flex flex-col items-center justify-center min-h-full p-6">
       <div className="w-full max-w-sm relative z-10 animate-fade-up">
 
         {/* ── Hero / Pitch ────────────────────────────────── */}
@@ -269,6 +273,7 @@ export default function Login() {
           {' '}e a{' '}
           <Link to="/privacidade" className="font-semibold underline" style={{ color: '#A78BFA' }}>Política de Privacidade</Link>.
         </p>
+      </div>
       </div>
     </div>
   )

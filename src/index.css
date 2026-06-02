@@ -191,6 +191,15 @@
     border-color: rgba(124, 92, 255, 0.5);
     box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12), 0 0 20px rgba(124, 92, 255, 0.1);
   }
+  /* Estado de erro: borda/realce coral para validação inline por campo. */
+  .input-error {
+    border-color: rgba(255, 122, 107, 0.7);
+    background: rgba(255, 122, 107, 0.06);
+  }
+  .input-error:focus {
+    border-color: rgba(255, 122, 107, 0.8);
+    box-shadow: 0 0 0 3px rgba(255, 122, 107, 0.14);
+  }
 
   select.input option {
     background: var(--bg-base);

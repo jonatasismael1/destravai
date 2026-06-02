@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Check, ShieldCheck, ArrowRight, Loader2, QrCode, CreditCard,
-  Copy, CheckCircle2, RefreshCw, Mail, Sparkles, Heart,
+  Copy, CheckCircle2, RefreshCw, Mail, Sparkles, Heart, Lock, Clock, Info,
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
 import {
@@ -12,6 +12,7 @@ import {
 
 type Step = 'form' | 'pix' | 'success'
 type Method = 'PIX' | 'CREDIT_CARD'
+type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
 
 // Benefícios exibidos na coluna esquerda — copy do guia de redesign (seção 27).
 // Mantidos aqui para o tom comercial, sem alterar a fonte da verdade do preço.
@@ -53,10 +54,13 @@ export default function Checkout() {
   const [step, setStep] = useState<Step>('form')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [result, setResult] = useState<CheckoutResult | null>(null)
   const [copied, setCopied] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Polling do status do Pix (lógica de pagamento — inalterada).
   useEffect(() => {
     if (step !== 'pix' || !result?.paymentId) return
     const tick = async () => {
@@ -73,17 +77,35 @@ export default function Checkout() {
     return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [step, result?.paymentId])
 
-  const validate = () => {
-    if (!name.trim()) return 'Informe seu nome completo.'
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return 'Informe um e-mail válido.'
+  // Relógio de 1s só enquanto o Pix está na tela (alimenta o contador de expiração).
+  useEffect(() => {
+    if (step !== 'pix') return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [step])
+
+  // Validação por campo. WhatsApp é opcional, mas se preenchido precisa ser válido.
+  const validate = (): FieldErrors => {
+    const e: FieldErrors = {}
+    if (!name.trim()) e.name = 'Informe seu nome completo.'
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'Informe um e-mail válido.'
+    const cleanPhone = phone.replace(/\D/g, '')
+    if (cleanPhone.length > 0 && cleanPhone.length < 10) e.phone = 'WhatsApp incompleto.'
     const cleanDoc = doc.replace(/\D/g, '')
-    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) return 'Informe um CPF ou CNPJ válido.'
-    return ''
+    if (cleanDoc.length !== 11 && cleanDoc.length !== 14) e.doc = 'Informe um CPF ou CNPJ válido.'
+    return e
   }
 
+  // Limpa o erro de um campo assim que o usuário começa a corrigi-lo.
+  const clearErr = (k: keyof FieldErrors) => setFieldErrors(prev => {
+    if (!prev[k]) return prev
+    const next = { ...prev }; delete next[k]; return next
+  })
+
   const handleSubmit = async () => {
-    const v = validate()
-    if (v) { setError(v); return }
+    const errs = validate()
+    setFieldErrors(errs)
+    if (Object.keys(errs).length) { setError(''); return }
     setError('')
     setLoading(true)
     try {
@@ -145,6 +167,13 @@ export default function Checkout() {
 
   // ─── Pix (aguardando pagamento) ───────────────────────────────────
   if (step === 'pix' && result?.pix) {
+    const expMs = result.pix.expiration ? new Date(result.pix.expiration).getTime() : null
+    const remaining = expMs ? Math.max(0, Math.floor((expMs - now) / 1000)) : null
+    const expired = remaining === 0
+    const mmss = remaining != null
+      ? `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
+      : null
+
     return (
       <Shell narrow>
         <div className="checkout-card text-center px-7 py-8">
@@ -155,13 +184,24 @@ export default function Checkout() {
           <h1 className="text-xl font-extrabold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
             {COMPLETE_PLAN.name} — {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
           </h1>
-          <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
             Este é o primeiro mês. Depois, a assinatura continua por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês.
           </p>
 
+          {/* Contador de expiração do QR (usa a expiração real do Asaas). */}
+          {mmss && (
+            <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
+              style={expired
+                ? { background: 'rgba(255,122,107,0.10)', border: '1px solid rgba(255,122,107,0.3)', color: '#E25C4D' }
+                : { background: 'rgba(247,185,85,0.12)', border: '1px solid rgba(247,185,85,0.3)', color: '#C98A1E' }}>
+              <Clock size={13} />
+              {expired ? 'QR Code expirado — gere um novo' : `Expira em ${mmss}`}
+            </div>
+          )}
+
           {result.pix.qrCodeImage && (
             <div className="inline-block p-3 rounded-2xl bg-white mb-4"
-              style={{ boxShadow: '0 18px 60px rgba(109,93,246,0.12)' }}>
+              style={{ boxShadow: '0 18px 60px rgba(109,93,246,0.12)', opacity: expired ? 0.4 : 1 }}>
               <img src={`data:image/png;base64,${result.pix.qrCodeImage}`} alt="QR Code Pix"
                 className="w-52 h-52" />
             </div>
@@ -169,7 +209,7 @@ export default function Checkout() {
 
           {result.pix.copyPaste && (
             <button onClick={copyPix}
-              className="w-full flex items-center justify-between gap-2 rounded-2xl px-4 py-3 mb-4 text-left"
+              className="w-full flex items-center justify-between gap-2 rounded-2xl px-4 py-3 mb-3 text-left"
               style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
               <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
                 {result.pix.copyPaste}
@@ -179,6 +219,12 @@ export default function Checkout() {
               </span>
             </button>
           )}
+
+          {/* Ajuda: como pagar pelo app do banco. */}
+          <p className="text-xs leading-relaxed mb-4 text-left" style={{ color: 'var(--text-muted)' }}>
+            Abra o app do seu banco, escolha <strong style={{ color: 'var(--text-secondary)' }}>Pix › Pix Copia e Cola</strong>,
+            cole o código e confirme. A liberação é automática.
+          </p>
 
           <div className="rounded-2xl p-3 flex items-center justify-center gap-2"
             style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)' }}>
@@ -263,8 +309,8 @@ export default function Checkout() {
           {/* Card resumo do plano */}
           <div className="rounded-2xl p-4 mb-5 flex items-center justify-between gap-4"
             style={{
-              background: 'linear-gradient(135deg, rgba(109,93,246,0.10), rgba(155,140,255,0.05))',
-              border: '1px solid rgba(109,93,246,0.20)',
+              background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(155,140,255,0.06))',
+              border: '1px solid rgba(109,93,246,0.22)',
             }}>
             <div className="flex items-center gap-3">
               <span className="flex-shrink-0 w-11 h-11 rounded-2xl flex items-center justify-center text-white font-extrabold text-lg"
@@ -286,39 +332,56 @@ export default function Checkout() {
 
           {/* Campos */}
           <div className="space-y-3 mb-5">
-            <div>
-              <label className="label">Nome completo</label>
-              <input className="input" value={name} onChange={e => setName(e.target.value)} placeholder="Digite seu nome completo" />
-            </div>
-            <div>
-              <label className="label">E-mail</label>
-              <input className="input" type="email" value={email} onChange={e => setEmail(e.target.value)}
+            <Field label="Nome completo" htmlFor="ck-name" error={fieldErrors.name}>
+              <input id="ck-name" name="name" autoComplete="name"
+                className={`input ${fieldErrors.name ? 'input-error' : ''}`}
+                aria-invalid={!!fieldErrors.name}
+                value={name} onChange={e => { setName(e.target.value); clearErr('name') }}
+                placeholder="Digite seu nome completo" />
+            </Field>
+
+            <Field label="E-mail" htmlFor="ck-email" error={fieldErrors.email}
+              hint="É neste e-mail que você vai receber o acesso.">
+              <input id="ck-email" name="email" type="email" autoComplete="email" inputMode="email"
+                className={`input ${fieldErrors.email ? 'input-error' : ''}`}
+                aria-invalid={!!fieldErrors.email}
+                value={email} onChange={e => { setEmail(e.target.value); clearErr('email') }}
                 placeholder="seu@email.com" />
-              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                É neste e-mail que você vai receber o acesso.
-              </p>
-            </div>
-            <div>
-              <label className="label">WhatsApp</label>
-              <input className="input" inputMode="numeric" value={phone}
-                onChange={e => setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000" />
-              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                Enviaremos informações importantes no seu WhatsApp.
-              </p>
-            </div>
-            <div>
-              <label className="label">CPF ou CNPJ</label>
-              <input className="input" inputMode="numeric" value={doc}
-                onChange={e => setDoc(maskDocument(e.target.value))} placeholder="Somente números" />
-            </div>
+            </Field>
+
+            <Field label="WhatsApp (opcional)" htmlFor="ck-phone" error={fieldErrors.phone}
+              hint="Enviaremos informações importantes no seu WhatsApp.">
+              <input id="ck-phone" name="phone" type="tel" autoComplete="tel" inputMode="numeric"
+                className={`input ${fieldErrors.phone ? 'input-error' : ''}`}
+                aria-invalid={!!fieldErrors.phone}
+                value={phone} onChange={e => { setPhone(maskPhone(e.target.value)); clearErr('phone') }}
+                placeholder="(00) 00000-0000" />
+            </Field>
+
+            <Field label="CPF ou CNPJ" htmlFor="ck-doc" error={fieldErrors.doc}>
+              <input id="ck-doc" name="document" autoComplete="off" inputMode="numeric"
+                className={`input ${fieldErrors.doc ? 'input-error' : ''}`}
+                aria-invalid={!!fieldErrors.doc}
+                value={doc} onChange={e => { setDoc(maskDocument(e.target.value)); clearErr('doc') }}
+                placeholder="Somente números" />
+            </Field>
           </div>
 
           {/* Forma de pagamento */}
           <label className="label">Forma de pagamento</label>
-          <div className="flex gap-2 mb-5">
+          <div className="flex gap-2 mb-4">
             <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovação imediata" />
             <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartão" sub="Crédito" />
           </div>
+
+          {/* Aviso de redirecionamento do cartão (ambiente seguro do Asaas). */}
+          {method === 'CREDIT_CARD' && (
+            <div className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2 text-xs"
+              style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)', color: 'var(--text-secondary)' }}>
+              <Info size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#6D5DF6' }} />
+              Você será direcionado ao ambiente seguro do Asaas para informar os dados do cartão.
+            </div>
+          )}
 
           {error && (
             <div className="rounded-xl px-4 py-3 text-sm font-semibold mb-4"
@@ -345,6 +408,15 @@ export default function Checkout() {
               Sem fidelidade • Cancele quando quiser
             </div>
           </div>
+
+          {/* Selo de pagamento seguro */}
+          <div className="flex items-center justify-center gap-2 mt-4 pt-4"
+            style={{ borderTop: '1px solid var(--border-color)' }}>
+            <Lock size={13} style={{ color: 'var(--text-muted)' }} />
+            <span className="text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+              Pagamento seguro processado pelo Asaas
+            </span>
+          </div>
         </div>
       </div>
     </Shell>
@@ -364,6 +436,23 @@ function Shell({ children, narrow = false }: { children: React.ReactNode; narrow
       <div className={`${narrow ? 'max-w-md' : 'max-w-[1180px]'} mx-auto px-5 py-10 pb-24 ${narrow ? 'min-h-full flex items-center' : ''}`}>
         <div className="w-full">{children}</div>
       </div>
+    </div>
+  )
+}
+
+// Campo de formulário: liga <label> ao <input> (acessibilidade) e exibe hint/erro.
+function Field({ label, htmlFor, error, hint, children }: {
+  label: string; htmlFor: string; error?: string; hint?: string; children: React.ReactNode
+}) {
+  return (
+    <div>
+      <label className="label" htmlFor={htmlFor}>{label}</label>
+      {children}
+      {error
+        ? <p className="text-[11px] mt-1.5 font-semibold" style={{ color: '#E25C4D' }}>{error}</p>
+        : hint
+          ? <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>{hint}</p>
+          : null}
     </div>
   )
 }

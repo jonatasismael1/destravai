@@ -22,10 +22,13 @@ export default function Login() {
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // Mensagem de sucesso/informativa (e-mail enviado, confirme seu e-mail, etc.)
+  const [notice, setNotice] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setNotice('')
 
     if (!email || !password) { setError('Preencha todos os campos.'); return }
     if (mode === 'register' && !name) { setError('Digite seu nome.'); return }
@@ -34,12 +37,22 @@ export default function Login() {
     setLoading(true)
     try {
       if (mode === 'register') {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { name } },
+          // emailRedirectTo: para onde o link de confirmação leva (se a confirmação
+          // de e-mail estiver ativa no Supabase). Volta para a raiz do app já logado.
+          options: { data: { name }, emailRedirectTo: `${window.location.origin}/` },
         })
         if (signUpError) throw signUpError
+
+        // Se a confirmação de e-mail estiver ATIVA, ainda não há sessão: avisamos
+        // o usuário para confirmar pelo e-mail. Se estiver desativada, a sessão já
+        // vem pronta e o AppContext redireciona normalmente.
+        if (!data.session) {
+          setNotice(`Enviamos um e-mail de confirmação para ${email}. Confirme para entrar.`)
+          return
+        }
 
         await new Promise(r => setTimeout(r, 800))
         const profile = await getCurrentProfile()
@@ -134,7 +147,7 @@ export default function Login() {
             {(['login', 'register'] as Mode[]).map(m => (
               <button
                 key={m}
-                onClick={() => { setMode(m); setError('') }}
+                onClick={() => { setMode(m); setError(''); setNotice('') }}
                 className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300"
                 style={mode === m ? {
                   background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))',
@@ -194,6 +207,15 @@ export default function Login() {
               </div>
             )}
 
+            {notice && (
+              <div
+                className="rounded-xl px-4 py-3 text-sm font-semibold"
+                style={{ background: 'rgba(83,214,161,0.1)', border: '1px solid rgba(83,214,161,0.25)', color: '#53D6A1' }}
+              >
+                {notice}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
@@ -214,14 +236,19 @@ export default function Login() {
             <p className="text-center text-xs mt-4" style={{ color: 'var(--text-muted)' }}>
               Esqueceu a senha?{' '}
               <button
+                type="button"
                 className="font-bold"
                 style={{ color: '#A78BFA' }}
                 onClick={async () => {
+                  setError(''); setNotice('')
                   if (!email) { setError('Digite seu e-mail acima primeiro.'); return }
-                  const { error } = await supabase.auth.resetPasswordForEmail(email)
-                  if (error) setError('Erro ao enviar e-mail de recuperação.')
-                  else setError('')
-                  alert('E-mail de recuperação enviado!')
+                  // redirectTo precisa estar na lista de Redirect URLs do Supabase.
+                  // É a página onde o usuário define a nova senha (/definir-senha).
+                  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/definir-senha`,
+                  })
+                  if (error) setError('Erro ao enviar o e-mail de recuperação. Tente novamente.')
+                  else setNotice('Enviamos um e-mail com o link para você redefinir sua senha.')
                 }}
               >
                 Recuperar

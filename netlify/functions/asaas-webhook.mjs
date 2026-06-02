@@ -157,6 +157,14 @@ export const handler = async (event) => {
         .eq('event_id', eventId)
     } else {
       console.warn('[asaas-webhook] assinatura não encontrada para', { asaasSubscriptionId, asaasPaymentId })
+      // ALERTA CRÍTICO: pagamento confirmado mas sem assinatura local = cliente
+      // pagou e pode não receber acesso. Registra para reprocessamento manual.
+      const level = mapped?.payment_status === 'paid' ? 'error' : 'warn'
+      await serverLog('asaas-webhook', 'Evento sem assinatura local', level, null, {
+        eventType, asaasSubscriptionId, asaasPaymentId,
+        customer: payment?.customer || subscriptionObj?.customer || null,
+        externalReference: payment?.externalReference || subscriptionObj?.externalReference || null,
+      })
     }
 
     return json(200, { ok: true })

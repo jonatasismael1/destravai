@@ -4,12 +4,22 @@
 // dado sensível. O id do pagamento é opaco e só quem iniciou o checkout o conhece.
 
 import { json, preflight, supabaseAdmin } from './_shared.mjs'
+import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
+
+// Status é público (polling do Pix antes do login). Limite generoso por IP: o
+// polling roda ~15x/min; 60/min cobre uso normal e barra abuso/varredura de IDs.
+const STATUS_LIMIT = 60
+const STATUS_WINDOW_MS = 60 * 1000
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
   if (event.httpMethod !== 'GET') return json(405, { error: 'Método não permitido' })
 
   try {
+    const ip = getClientIp(event)
+    const rl = await checkRateLimit(`checkout-status:ip:${ip}`, STATUS_LIMIT, STATUS_WINDOW_MS)
+    if (!rl.allowed) return rateLimitExceeded(rl.resetAt, 'Muitas consultas. Aguarde um momento.')
+
     const paymentId = event.queryStringParameters?.paymentId
     const subscriptionId = event.queryStringParameters?.subscriptionId
     if (!paymentId && !subscriptionId) {

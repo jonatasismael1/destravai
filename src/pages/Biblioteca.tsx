@@ -362,9 +362,11 @@ export default function Biblioteca() {
   // é o item inteiro convertido em ideia.
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
 
-  const loadItems = useCallback(async (reset = false) => {
+  const loadItems = useCallback(async (reset = false, pageOverride?: number) => {
     try {
-      const currentPage = reset ? 1 : page
+      // pageOverride evita o bug de usar a página antiga do closure após setPage
+      // (setPage é assíncrono). "Carregar mais" passa a próxima página explicitamente.
+      const currentPage = reset ? 1 : (pageOverride ?? page)
       if (reset) setPage(1)
 
       const { items: newItems, total: newTotal } = await getLibraryItems({
@@ -648,7 +650,7 @@ export default function Biblioteca() {
           {/* Load more */}
           {items.length < total && (
             <button
-              onClick={() => { setPage(p => p + 1); loadItems() }}
+              onClick={() => { const next = page + 1; setPage(next); loadItems(false, next) }}
               className="w-full py-3 rounded-2xl text-sm font-bold"
               style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
               Carregar mais ({total - items.length} restantes)

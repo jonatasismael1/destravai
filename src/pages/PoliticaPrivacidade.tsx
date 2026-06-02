@@ -25,7 +25,7 @@ export default function PoliticaPrivacidade() {
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>3. Compartilhamento</h2>
-            <p>Compartilhamos dados apenas com provedores essenciais à operação: <strong>Supabase</strong> (banco de dados e autenticação), <strong>Asaas</strong> (pagamentos) e <strong>Google Gemini</strong> (geração de conteúdo por IA). Não vendemos seus dados.</p>
+            <p>Compartilhamos dados apenas com provedores essenciais à operação: <strong>Supabase</strong> (banco de dados e autenticação), <strong>Asaas</strong> (pagamentos) e provedores de IA — <strong>OpenRouter</strong> e <strong>Google Gemini</strong> — para a geração de conteúdo. Não vendemos seus dados.</p>
           </section>
 
           <section>

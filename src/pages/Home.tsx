@@ -8,8 +8,39 @@ import {
   Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
+import type { LibraryItemType } from '../lib/supabase/types'
 import { generateCheckinIdea, generateCaption } from '../lib/ai'
+import { createLibraryItem } from '../services/libraryService'
 import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
+
+// Persiste uma ideia da Home na biblioteca do Supabase (o botão "salvar" antes só
+// mudava o estado local e mostrava o toast, sem criar o item de verdade).
+function ideaToLibraryType(type: ContentIdea['type']): LibraryItemType {
+  if (type === 'reel') return 'reels_script'
+  if (type === 'sequence') return 'story_sequence'
+  return 'content_idea'
+}
+
+async function persistIdeaToLibrary(idea: ContentIdea): Promise<boolean> {
+  try {
+    await createLibraryItem({
+      essence_id: null,
+      type: ideaToLibraryType(idea.type),
+      title: idea.theme,
+      content: idea.content,
+      category: idea.objective || null,
+      format: null,
+      status: 'saved',
+      source: 'ai',
+      tags: idea.tags ?? [],
+      metadata: { cta: idea.cta, timeEstimate: idea.timeEstimate, exposureLevel: idea.exposureLevel },
+      is_favorite: false,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
 import { trackEvent, loadActivationStatus } from '../services/eventsService'
@@ -486,6 +517,11 @@ export default function Home() {
   }
 
   const handleSave = (idea: ContentIdea) => {
+    // Evita salvar duas vezes a mesma ideia já marcada como salva.
+    const alreadySaved =
+      (dayState.mission?.id === idea.id && dayState.mission?.status === 'saved') ||
+      dayState.extras.some(i => i.id === idea.id && i.status === 'saved')
+
     updateIdea(idea.id, { favorite: true, status: 'saved' })
     if (dayState.mission?.id === idea.id) {
       setDayState(prev => {
@@ -500,7 +536,18 @@ export default function Home() {
         return next
       })
     }
-    addToast('Ideia salva na biblioteca!', 'info')
+
+    if (alreadySaved) {
+      addToast('Essa ideia já está na sua biblioteca.', 'info')
+      return
+    }
+    // Cria o item na biblioteca de verdade e só confirma se gravou.
+    void persistIdeaToLibrary(idea).then(ok => {
+      addToast(
+        ok ? 'Ideia salva na biblioteca!' : 'Não consegui salvar na biblioteca. Tente de novo.',
+        ok ? 'success' : 'error',
+      )
+    })
   }
 
   const handleVariation = async (idea: ContentIdea, hint: string) => {

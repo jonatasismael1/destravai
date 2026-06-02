@@ -128,8 +128,10 @@ function AppRoutes() {
         {/* Autenticadas, sem exigir assinatura ativa */}
         <Route path="/assinatura" element={requireAuth(<Assinatura />)} />
         <Route path="/minha-assinatura" element={requireAuth(<MinhaAssinatura />)} />
-        <Route path="/pagamento/sucesso" element={requireAuth(<PagamentoSucesso />)} />
-        <Route path="/pagamento/erro" element={requireAuth(<PagamentoErro />)} />
+        {/* Públicas: retorno do checkout (cartão volta do Asaas SEM sessão; a
+            página trata o caso anônimo mostrando "confira seu e-mail"). */}
+        <Route path="/pagamento/sucesso" element={<PagamentoSucesso />} />
+        <Route path="/pagamento/erro" element={<PagamentoErro />} />
 
         {/* App principal (com gating de assinatura) */}
         <Route path="/*" element={<ProtectedRoutes />} />

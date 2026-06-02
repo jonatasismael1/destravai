@@ -70,6 +70,11 @@ export const handler = async (event) => {
       customerId = customer.id
     }
 
+    // URL de retorno: quando o pagamento é por CARTÃO, o cliente é levado à página
+    // do Asaas e, após pagar, volta para a tela de sucesso do app. Para Pix o QR é
+    // exibido dentro do app (o callback não atrapalha).
+    const appUrl = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
+
     const today = new Date().toISOString().slice(0, 10)
     const firstPayment = await asaas('/payments', {
       method: 'POST',
@@ -80,6 +85,10 @@ export const handler = async (event) => {
         dueDate: today,
         description: `${COMPLETE_PLAN.name} - primeiro mes promocional`,
         externalReference: userId,
+        callback: {
+          successUrl: `${appUrl}/pagamento/sucesso`,
+          autoRedirect: true,
+        },
       }),
     })
 

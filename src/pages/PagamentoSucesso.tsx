@@ -8,8 +8,15 @@ export default function PagamentoSucesso() {
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)
 
-  // Faz polling do status: o acesso só libera quando o webhook confirmar o pagamento.
+  // Quem volta do pagamento por CARTÃO chega aqui SEM sessão (o checkout é anônimo;
+  // o acesso é liberado pelo webhook + e-mail). Sem usuário logado, não dá para
+  // consultar a assinatura — mostramos a orientação para checar o e-mail.
+  const loggedIn = !!state.supabaseUser
+
+  // Faz polling do status só quando há sessão: o acesso libera quando o webhook
+  // confirma o pagamento.
   useEffect(() => {
+    if (!loggedIn) { setChecking(false); return }
     let tries = 0
     let timer: ReturnType<typeof setTimeout>
 
@@ -24,9 +31,9 @@ export default function PagamentoSucesso() {
     }
     poll()
     return () => clearTimeout(timer)
-  }, []) // eslint-disable-line
+  }, [loggedIn]) // eslint-disable-line
 
-  const confirmed = state.subscription?.hasAccess
+  const confirmed = loggedIn && state.subscription?.hasAccess
 
   // Quando confirmar, para de checar
   useEffect(() => { if (confirmed) setChecking(false) }, [confirmed])
@@ -34,13 +41,26 @@ export default function PagamentoSucesso() {
   return (
     <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: '#0B0B12' }}>
       <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6"
-        style={{ background: confirmed ? 'linear-gradient(135deg, #53D6A1, #3BB88A)' : 'rgba(124,92,255,0.15)', border: '1px solid rgba(124,92,255,0.3)' }}>
-        {confirmed
+        style={{ background: (confirmed || !loggedIn) ? 'linear-gradient(135deg, #53D6A1, #3BB88A)' : 'rgba(124,92,255,0.15)', border: '1px solid rgba(124,92,255,0.3)' }}>
+        {(confirmed || !loggedIn)
           ? <CheckCircle2 size={30} className="text-white" />
           : <Loader2 size={28} style={{ color: '#9B8CFF' }} className="animate-spin" />}
       </div>
 
-      {confirmed ? (
+      {!loggedIn ? (
+        <>
+          <h1 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Pagamento recebido!
+          </h1>
+          <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
+            Enviamos um e-mail para você criar sua senha e entrar no Destravaí.
+            Assim que o pagamento for confirmado, seu acesso é liberado.
+          </p>
+          <button onClick={() => navigate('/login')} className="btn-primary px-8 py-3.5">
+            Ir para o login <ArrowRight size={18} />
+          </button>
+        </>
+      ) : confirmed ? (
         <>
           <h1 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>
             Pagamento recebido!

@@ -72,9 +72,9 @@ export async function generateText(prompt: string, opts: GenerateOptions = {}): 
 
   // 2) FALLBACK: Netlify Function (Edge Function indisponível/sem config — 5xx/rede).
   const net = await callFn(NETLIFY_FN, token, body).catch(() => null)
-  if (!net) throw new Error('Não foi possível falar com o servidor de IA. Verifique sua conexão.')
+  if (!net) throw new Error('Não foi possível falar com o servidor da Deby. Verifique sua conexão.')
   if (!net.ok) throw new Error(net.error ?? `Erro ${net.status} ao gerar conteúdo.`)
-  if (!net.text) throw new Error('A IA retornou vazio.')
+  if (!net.text) throw new Error('A Deby retornou vazio.')
   return net.text
 }
 

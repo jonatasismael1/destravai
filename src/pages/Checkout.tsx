@@ -18,7 +18,7 @@ type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
 // Benefícios exibidos na coluna esquerda — copy do guia de redesign (seção 27).
 // Mantidos aqui para o tom comercial, sem alterar a fonte da verdade do preço.
 const CHECKOUT_BENEFITS = [
-  'Ideias e roteiros com IA',
+  'Ideias e roteiros com a Deby AI',
   'Missão do dia para postar sem travar',
   'Studio com teleprompter',
   'Legendas e CTAs personalizados',

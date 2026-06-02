@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight } from 'lucide-react'
+import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
@@ -302,7 +302,7 @@ function PersonalizedCTABrowser() {
           </div>
           <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>CTAs do seu jeito</p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            A IA gera chamadas para ação com o seu tom de voz, área e serviços — não uma lista genérica.
+            A Deby gera chamadas para ação com o seu tom de voz, área e serviços — não uma lista genérica.
           </p>
           <button
             onClick={handleGenerate}
@@ -524,13 +524,13 @@ export default function Criar() {
         </button>
       )}
 
-      {/* Tab switcher — 4 abas, com scroll horizontal em telas estreitas */}
+      {/* Tab switcher — 3 abas principais (ações do dia a dia). CTAs saíram daqui
+          para não disputar espaço: viraram uma entrada secundária no fim do Roteiro. */}
       <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
         {([
           { key: 'criar', label: 'Roteiro', Icon: Sparkles },
           { key: 'livre', label: 'Momento livre', Icon: Coffee },
           { key: 'roteiro', label: 'Meu roteiro', Icon: PenLine },
-          { key: 'ctas', label: 'CTAs', Icon: Zap },
         ] as const).map(({ key, label, Icon }) => (
           <button
             key={key}
@@ -547,7 +547,14 @@ export default function Criar() {
         ))}
       </div>
 
-      {activeTab === 'ctas' && <PersonalizedCTABrowser />}
+      {activeTab === 'ctas' && (
+        <div className="space-y-3">
+          <button onClick={() => setActiveTab('criar')} className="flex items-center gap-1.5 text-sm font-bold" style={{ color: '#9B8CFF' }}>
+            <ChevronLeft size={16} /> Voltar para Roteiro
+          </button>
+          <PersonalizedCTABrowser />
+        </div>
+      )}
 
       {/* ── Aba: Momento livre ── */}
       {activeTab === 'livre' && <>
@@ -557,7 +564,7 @@ export default function Criar() {
             <Coffee size={16} style={{ color: '#F7B955' }} /> Fala o que está na sua cabeça
           </p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Um tema do momento, mesmo fora da sua área (uma opinião, um desabafo, algo do dia). A IA mantém a sua voz, com tom leve — sem forçar venda.
+            Um tema do momento, mesmo fora da sua área (uma opinião, um desabafo, algo do dia). A Deby mantém a sua voz, com tom leve — sem forçar venda.
           </p>
         </div>
 
@@ -606,7 +613,7 @@ export default function Criar() {
         {!profile && (
           <div className="rounded-2xl p-4 text-sm font-semibold text-center"
             style={{ background: 'rgba(247,185,85,0.1)', border: '1px solid rgba(247,185,85,0.2)', color: '#F7B955' }}>
-            Complete o onboarding para a IA conhecer a sua voz.
+            Complete o onboarding para a Deby conhecer a sua voz.
           </div>
         )}
       </>}
@@ -619,7 +626,7 @@ export default function Criar() {
             <PenLine size={16} style={{ color: '#53D6A1' }} /> Já tenho o que falar
           </p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Escreva ou cole o seu próprio roteiro e vá direto para o teleprompter gravar. Sem IA — do seu jeito.
+            Escreva ou cole o seu próprio roteiro e vá direto para o teleprompter gravar. Sem a Deby — do seu jeito.
           </p>
         </div>
 
@@ -753,6 +760,22 @@ export default function Criar() {
             Complete o onboarding para gerar conteúdo personalizado.
           </div>
         )}
+
+        {/* Entrada secundária para CTAs — saiu das abas principais para não poluir
+            a barra superior; quem precisar de só um CTA acessa por aqui. */}
+        <button onClick={() => setActiveTab('ctas')}
+          className="w-full rounded-2xl p-3.5 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}>
+            <Zap size={15} style={{ color: '#9B8CFF' }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Só precisa de um CTA?</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Gere chamadas para ação no seu tom.</p>
+          </div>
+          <ChevronRight size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+        </button>
 
       </>}
 

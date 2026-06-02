@@ -18,10 +18,10 @@ export const COMPLETE_PLAN: Plan = {
   recurringPrice: 49.9,
   tagline: 'R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
   features: [
-    'Ideias e roteiros com IA',
+    'Ideias e roteiros com a Deby AI',
     'Teleprompter para gravar',
     'CTAs personalizados',
-    'Legendas geradas por IA',
+    'Legendas geradas pela Deby AI',
     'Biblioteca de conteudos',
     'Calendario editorial',
     'Studio com teleprompter',

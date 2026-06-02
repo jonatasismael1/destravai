@@ -51,15 +51,15 @@ const SERVICE_SUGGESTIONS = [
   'Pacote de serviços', 'Avaliação inicial', 'Acompanhamento', 'Produto digital',
 ]
 
-// Por que este step importa para a IA
+// Por que este step importa para a Deby
 const STEP_CONTEXT = [
   'Isso personaliza cada roteiro com o seu nome, área e estilo de comunicação.',
   'Seu objetivo guia o tipo e o tom de cada conteúdo gerado.',
-  'A IA adapta o formato de story pro seu nível de conforto — sem forçar.',
+  'A Deby adapta o formato de story pro seu nível de conforto — sem forçar.',
   'Seu tom de voz faz cada roteiro soar como você, não como um robô.',
-  'Os pilares definem os temas que a IA vai priorizar nas sugestões.',
-  'Com seus serviços, a IA cria CTAs naturais que convertem sem parecer venda.',
-  'A IA vai respeitar esses limites em todos os roteiros gerados.',
+  'Os pilares definem os temas que a Deby vai priorizar nas sugestões.',
+  'Com seus serviços, a Deby cria CTAs naturais que convertem sem parecer venda.',
+  'A Deby vai respeitar esses limites em todos os roteiros gerados.',
   'Bordão e palavras preferidas fazem a diferença entre parecer você ou qualquer um.',
 ]
 
@@ -250,12 +250,12 @@ export default function Onboarding() {
 
   const STEP_SUBTITLES = [
     'Sua área e nome moldam cada roteiro gerado.',
-    'A IA prioriza o tipo de conteúdo mais certo pro seu momento.',
+    'A Deby prioriza o tipo de conteúdo mais certo pro seu momento.',
     'Sem pressão. Você pode evoluir isso quando quiser.',
     'Escolha os atributos que definem como você se comunica.',
     'Os temas que sustentam sua presença e geram autoridade.',
-    'Com seus serviços, a IA cria CTAs que vendem sem parecer venda.',
-    'A IA vai respeitar esses limites em todos os roteiros.',
+    'Com seus serviços, a Deby cria CTAs que vendem sem parecer venda.',
+    'A Deby vai respeitar esses limites em todos os roteiros.',
     'Bordão e palavras deixam cada ideia com a sua identidade.',
   ]
 
@@ -387,7 +387,7 @@ export default function Onboarding() {
       <div>
         <label className="label">Temas que não quer abordar</label>
         <input className="input" value={avoidTopics} onChange={e => setAvoidTopics(e.target.value)} placeholder="Ex: Política, religião (separados por vírgula)" />
-        <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>Opcional — mas importante para a IA nunca errar o tom.</p>
+        <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>Opcional — mas importante para a Deby nunca errar o tom.</p>
       </div>
       <div>
         <label className="label">Palavras que evita</label>
@@ -405,7 +405,7 @@ export default function Onboarding() {
         <label className="label">Bordão principal <span style={{ color: 'var(--text-muted)' }}>(opcional)</span></label>
         <input className="input" value={catchphrase} onChange={e => setCatchphrase(e.target.value)} placeholder='Ex: "Descomplica!", "Bora pra cima!", "Simples assim."' />
         <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>
-          A IA vai usar isso no final dos roteiros quando fizer sentido.
+          A Deby vai usar isso no final dos roteiros quando fizer sentido.
         </p>
       </div>
 

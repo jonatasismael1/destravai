@@ -152,7 +152,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
                 O que está acontecendo na sua vida agora?
               </h3>
               <p className="text-sm mb-3" style={{ color: '#6B6487' }}>
-                Pode ser pessoal ou profissional. A IA vai usar isso para criar conteúdos mais autênticos.
+                Pode ser pessoal ou profissional. A Deby vai usar isso para criar conteúdos mais autênticos.
               </p>
               <textarea
                 value={form.lifeMoment}

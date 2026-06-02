@@ -8,7 +8,7 @@ type Mode = 'login' | 'register'
 const BENEFITS = [
   { icon: Zap, label: 'Roteiro pronto em 30s', color: '#FFB547' },
   { icon: Video, label: 'Teleprompter integrado', color: '#7C5CFF' },
-  { icon: Sparkles, label: 'IA personalizada pro seu jeito', color: '#A78BFA' },
+  { icon: Sparkles, label: 'Deby AI personalizada pro seu jeito', color: '#A78BFA' },
 ]
 
 export default function Login() {

@@ -20,7 +20,7 @@ export default function PoliticaPrivacidade() {
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>2. Como usamos seus dados</h2>
-            <p>Usamos seus dados para: criar e personalizar seu conteúdo com IA; operar sua assinatura e liberar o acesso; melhorar a plataforma; e nos comunicar com você sobre o serviço.</p>
+            <p>Usamos seus dados para: criar e personalizar seu conteúdo com a Deby AI; operar sua assinatura e liberar o acesso; melhorar a plataforma; e nos comunicar com você sobre o serviço.</p>
           </section>
 
           <section>

@@ -296,7 +296,7 @@ export default function Essencia() {
       case 'limites':
         return (
           <div className="space-y-4">
-            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>A IA vai respeitar isso em todas as sugestões.</p>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>A Deby vai respeitar isso em todas as sugestões.</p>
             <TagInput
               label="Temas que não quer abordar"
               values={form.restrictions}
@@ -396,7 +396,7 @@ export default function Essencia() {
                 ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                 : state.essence?.ai_summary ? <RefreshCw size={14} /> : <Sparkles size={14} />
               }
-              {generating ? 'Gerando...' : state.essence?.ai_summary ? 'Atualizar IA' : 'Gerar com IA'}
+              {generating ? 'Gerando...' : state.essence?.ai_summary ? 'Atualizar com a Deby' : 'Gerar com a Deby'}
             </button>
           </div>
         </div>
@@ -405,7 +405,7 @@ export default function Essencia() {
         {aiSummary && (
           <div className="mb-3 rounded-2xl p-4"
             style={{ background: 'rgba(109,93,246,0.08)', border: '1px solid rgba(109,93,246,0.2)' }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#9B8CFF' }}>Resumo gerado pela IA</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: '#9B8CFF' }}>Resumo gerado pela Deby</p>
             <p className="text-xs leading-relaxed whitespace-pre-line" style={{ color: 'var(--text-secondary)' }}>
               {summaryExpanded || aiSummary.length <= 200
                 ? aiSummary

@@ -286,48 +286,6 @@ export default function Configuracoes() {
         />
       </div>
 
-      {/* Plan */}
-      <div>
-        <SectionHeader title="Plano" />
-        <div
-          className="rounded-2xl p-4"
-          style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.2)' }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.25)' }}>
-                <Star size={17} style={{ color: '#F7B955' }} />
-              </div>
-              <div>
-                <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{planLabel}</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{planDescription}</p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)', color: '#F7B955' }}>
-              {planBadge}
-            </span>
-          </div>
-
-          <div className="mt-3 flex items-start gap-2">
-            <CheckCircle size={13} style={{ color: '#53D6A1', flexShrink: 0, marginTop: 1 }} />
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              As gerações usam a configuração de IA do projeto. Chaves e integrações sensíveis ficam fora da interface do cliente.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-2">
-          <MenuItem
-            icon={CreditCard}
-            label="Gerenciar assinatura"
-            sublabel="Ver status e cancelar"
-            onClick={() => navigate('/minha-assinatura')}
-          />
-        </div>
-      </div>
-
       {/* Admin — só para o administrador (assessoriadbe) */}
       {isAdmin && (
         <div className="space-y-2">
@@ -533,6 +491,49 @@ export default function Configuracoes() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Plano — fica no rodapé, perto de "Sair": acesso continua existindo, mas
+          sem destaque no topo (para não puxar a atenção para cancelar). */}
+      <div>
+        <SectionHeader title="Plano" />
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.2)' }}
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.25)' }}>
+                <Star size={17} style={{ color: '#F7B955' }} />
+              </div>
+              <div>
+                <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{planLabel}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{planDescription}</p>
+              </div>
+            </div>
+            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
+              style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)', color: '#F7B955' }}>
+              {planBadge}
+            </span>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2">
+            <CheckCircle size={13} style={{ color: '#53D6A1', flexShrink: 0, marginTop: 1 }} />
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              As gerações usam a Deby AI configurada no projeto. Chaves e integrações sensíveis ficam fora da interface do cliente.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-2">
+          <MenuItem
+            icon={CreditCard}
+            label="Gerenciar assinatura"
+            sublabel="Ver status e cancelar"
+            onClick={() => navigate('/minha-assinatura')}
+          />
+        </div>
       </div>
 
       {/* Logout */}

@@ -213,7 +213,7 @@ export default function MeuEspaco() {
                   Personalize sua experiência
                 </p>
                 <p className="text-xs leading-relaxed mb-3" style={{ color: 'var(--text-secondary)' }}>
-                  Leva 2 minutinhos. Conta um pouco sobre você para a IA criar conteúdos muito mais autênticos e alinhados com quem você é.
+                  Leva 2 minutinhos. Conta um pouco sobre você para a Deby criar conteúdos muito mais autênticos e alinhados com quem você é.
                 </p>
                 <button
                   onClick={() => setShowSetup(true)}
@@ -629,7 +629,7 @@ export default function MeuEspaco() {
               </h2>
             </div>
             <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
-              A IA combina o que você é como pessoa com o que você faz profissionalmente.
+              A Deby combina o que você é como pessoa com o que você faz profissionalmente.
             </p>
 
             {!profile ? (
@@ -685,7 +685,7 @@ export default function MeuEspaco() {
                 >
                   <p className="text-xs leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
                     {hasSetup
-                      ? `A IA vai criar sugestões baseadas no seu momento de vida, seus hobbies e valores — tudo conectado à sua identidade como ${profile.specialty}.`
+                      ? `A Deby vai criar sugestões baseadas no seu momento de vida, seus hobbies e valores — tudo conectado à sua identidade como ${profile.specialty}.`
                       : 'Configure seu espaço pessoal para sugestões ainda mais precisas e autênticas. Ou clique abaixo para sugestões básicas.'}
                   </p>
                 </div>

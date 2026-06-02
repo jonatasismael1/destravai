@@ -35,7 +35,7 @@ export default function TermosDeUso() {
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>5. Uso da plataforma</h2>
-            <p>Você se compromete a usar o Destravaí de forma lícita e a não compartilhar suas credenciais. O conteúdo gerado pela IA é uma sugestão e deve ser revisado por você antes de publicar. Você é o único responsável pelo conteúdo que publica em suas redes.</p>
+            <p>Você se compromete a usar o Destravaí de forma lícita e a não compartilhar suas credenciais. O conteúdo gerado pela Deby AI é uma sugestão e deve ser revisado por você antes de publicar. Você é o único responsável pelo conteúdo que publica em suas redes.</p>
           </section>
 
           <section>

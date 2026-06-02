@@ -189,6 +189,20 @@ export default function ProgressoPanel() {
   if (balance.humor < 1) tips.push('Um toque de humor torna o perfil mais humano.')
   if (balance.authority < 3) tips.push('Reforce autoridade com uma sequência técnica.')
 
+  // ── Jornada de constância contínua ───────────────────────────────────────
+  // A primeira semana (Dia 1→7) forma o hábito. DEPOIS dela, a jornada NÃO pode
+  // estagnar em "7/7" — ela vira uma escada de marcos (selos) que sempre tem um
+  // próximo objetivo, e o total de dias de conteúdo nunca para de crescer.
+  const CONSISTENCY_MILESTONES = [7, 14, 30, 60, 90, 180, 365]
+  const totalDays = consistency?.totalContentDays ?? 0          // dias de conteúdo (vida toda)
+  const firstWeekDays = Math.min(consistency?.daysCompleted ?? 0, 7)
+  const firstWeekDone = totalDays >= 7
+  const nextMilestone = CONSISTENCY_MILESTONES.find(m => m > totalDays) ?? null
+  const prevMilestone = [...CONSISTENCY_MILESTONES].reverse().find(m => m <= totalDays) ?? 0
+  const milestoneProgress = nextMilestone
+    ? Math.round(((totalDays - prevMilestone) / (nextMilestone - prevMilestone)) * 100)
+    : 100
+
   return (
     <div className="space-y-5">
       {/* Popup do Dia 7 */}
@@ -266,84 +280,132 @@ export default function ProgressoPanel() {
         </div>
       </div>
 
-      {/* Jornada 7 dias: mostra os primeiros 7 dias de produção real de conteúdo */}
+      {/* Jornada de constância: 1ª semana (Dia 1→7) e, depois dela, marcos
+          crescentes (selos) — assim nunca estagna e sempre há um próximo objetivo. */}
       <div className="rounded-3xl p-5" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>
-              Jornada de constância
-            </p>
-            <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>
-              {consistency
-                ? consistency.daysCompleted >= 7
-                  ? 'Semana completa!'
-                  : `Dia ${consistency.daysCompleted} de 7`
-                : 'Começando...'}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Flame size={16} style={{ color: '#FF7A6B' }} />
-            <span className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>
-              {consistency?.daysCompleted ?? 0}
-              <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/7</span>
-            </span>
-          </div>
-        </div>
-
-        {/* 7 bolhas de dia */}
-        <div className="flex justify-between gap-1.5">
-          {Array.from({ length: 7 }).map((_, i) => {
-            const done = consistency ? i < consistency.daysCompleted : false
-            const isCurrent = consistency ? i === consistency.daysCompleted && i < 7 : i === 0
-            return (
-              <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
-                <div
-                  className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300"
-                  style={
-                    done
-                      ? {
-                          background: 'linear-gradient(135deg, #F7B955, #FF7A6B)',
-                          boxShadow: '0 0 16px rgba(247,185,85,0.5)',
-                        }
-                      : isCurrent
-                      ? {
-                          background: 'rgba(247,185,85,0.12)',
-                          border: '2px dashed rgba(247,185,85,0.5)',
-                        }
-                      : {
-                          background: 'var(--bg-card)',
-                          border: '1px solid var(--border-color)',
-                          opacity: 0.5,
-                        }
-                  }
-                >
-                  {done ? (
-                    <Check size={14} className="text-white" />
-                  ) : isCurrent ? (
-                    <Flame size={13} style={{ color: '#F7B955' }} />
-                  ) : (
-                    <span className="text-[9px] font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
-                  )}
-                </div>
-                <span className="text-[9px] font-bold uppercase" style={{ color: done ? '#F7B955' : 'var(--text-muted)' }}>
-                  Dia {i + 1}
+        {!firstWeekDone ? (
+          /* ─── Primeira semana: forma o hábito (Dia 1 a 7) ─── */
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Jornada de constância
+                </p>
+                <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {consistency ? `Dia ${firstWeekDays} de 7` : 'Começando...'}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Flame size={16} style={{ color: '#FF7A6B' }} />
+                <span className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>
+                  {firstWeekDays}
+                  <span className="text-xs font-normal" style={{ color: 'var(--text-muted)' }}>/7</span>
                 </span>
               </div>
-            )
-          })}
-        </div>
+            </div>
 
-        {consistency && consistency.daysCompleted < 7 && (
-          <p className="text-xs text-center mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
-            {consistency.daysCompleted === 0
-              ? 'Marque sua primeira missão como feita para começar a jornada.'
-              : `Faltam ${7 - consistency.daysCompleted} dias para completar sua primeira semana.`}
-          </p>
-        )}
-        {consistency && consistency.daysCompleted >= 7 && (
-          <p className="text-xs text-center mt-3 font-bold" style={{ color: '#F7B955' }}>
-            Primeira semana completa! Continue assim.
-          </p>
+            {/* 7 bolhas de dia */}
+            <div className="flex justify-between gap-1.5">
+              {Array.from({ length: 7 }).map((_, i) => {
+                const done = i < firstWeekDays
+                const isCurrent = i === firstWeekDays && i < 7
+                return (
+                  <div key={i} className="flex flex-col items-center gap-1.5 flex-1">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300"
+                      style={
+                        done
+                          ? { background: 'linear-gradient(135deg, #F7B955, #FF7A6B)', boxShadow: '0 0 16px rgba(247,185,85,0.5)' }
+                          : isCurrent
+                          ? { background: 'rgba(247,185,85,0.12)', border: '2px dashed rgba(247,185,85,0.5)' }
+                          : { background: 'var(--bg-card)', border: '1px solid var(--border-color)', opacity: 0.5 }
+                      }
+                    >
+                      {done ? <Check size={14} className="text-white" />
+                        : isCurrent ? <Flame size={13} style={{ color: '#F7B955' }} />
+                        : <span className="text-[9px] font-bold" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>}
+                    </div>
+                    <span className="text-[9px] font-bold uppercase" style={{ color: done ? '#F7B955' : 'var(--text-muted)' }}>
+                      Dia {i + 1}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="text-xs text-center mt-3 font-medium" style={{ color: 'var(--text-muted)' }}>
+              {firstWeekDays === 0
+                ? 'Marque sua primeira missão como feita para começar a jornada.'
+                : `Faltam ${7 - firstWeekDays} ${7 - firstWeekDays === 1 ? 'dia' : 'dias'} para completar sua primeira semana.`}
+            </p>
+          </>
+        ) : (
+          /* ─── Depois da 1ª semana: escada de marcos (sempre há um próximo) ─── */
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                  Jornada de constância
+                </p>
+                <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>
+                  {totalDays} {totalDays === 1 ? 'dia' : 'dias'} de conteúdo
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Flame size={16} style={{ color: '#FF7A6B' }} />
+                <span className="font-extrabold text-lg tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                  {totalDays}
+                </span>
+              </div>
+            </div>
+
+            {/* Barra rumo ao próximo selo */}
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                {nextMilestone ? `Próximo selo: ${nextMilestone} dias` : 'Todos os selos conquistados'}
+              </p>
+              <p className="text-[10px] font-bold tabular-nums" style={{ color: '#F7B955' }}>
+                {milestoneProgress}%
+              </p>
+            </div>
+            <div className="progress-bar">
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${milestoneProgress}%`, background: 'linear-gradient(90deg, #F7B955, #FF7A6B)' }} />
+            </div>
+
+            {/* Selos: conquistados, próximo (em destaque) e os bloqueados */}
+            <div className="flex justify-between gap-1.5 mt-4">
+              {CONSISTENCY_MILESTONES.map(m => {
+                const conquered = totalDays >= m
+                const isNext = m === nextMilestone
+                return (
+                  <div key={m} className="flex flex-col items-center gap-1.5 flex-1">
+                    <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all duration-300"
+                      style={
+                        conquered
+                          ? { background: 'linear-gradient(135deg, #F7B955, #FF7A6B)', boxShadow: '0 0 16px rgba(247,185,85,0.5)' }
+                          : isNext
+                          ? { background: 'rgba(247,185,85,0.12)', border: '2px dashed rgba(247,185,85,0.5)' }
+                          : { background: 'var(--bg-card)', border: '1px solid var(--border-color)', opacity: 0.5 }
+                      }>
+                      {conquered ? <Check size={14} className="text-white" />
+                        : isNext ? <Flame size={13} style={{ color: '#F7B955' }} />
+                        : <Lock size={12} style={{ color: 'var(--text-muted)' }} />}
+                    </div>
+                    <span className="text-[9px] font-bold uppercase" style={{ color: conquered ? '#F7B955' : 'var(--text-muted)' }}>
+                      {m}d
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <p className="text-xs text-center mt-3 font-bold" style={{ color: '#F7B955' }}>
+              {nextMilestone
+                ? `Faltam ${nextMilestone - totalDays} ${nextMilestone - totalDays === 1 ? 'dia' : 'dias'} para o selo de ${nextMilestone} dias.`
+                : 'Você passou de 365 dias de conteúdo. Lenda da constância. 🏆'}
+            </p>
+          </>
         )}
       </div>
 

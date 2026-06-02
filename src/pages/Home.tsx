@@ -575,41 +575,48 @@ export default function Home() {
         className="w-full text-left rounded-2xl p-4 space-y-3 transition-all active:scale-[0.99]"
         style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
         aria-label="Ver progresso e constância">
-        <div className="flex items-center gap-4">
-          {/* Streak */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center"
+        {/* Indicadores com rótulo descritivo EM CIMA e unidade JUNTO do número,
+            para não confundir (ex.: "2 missões nesta semana", não "2 semanas"). */}
+        <div className="flex items-stretch gap-3">
+          {/* Sequência (dias seguidos de atividade) */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ background: 'rgba(255,122,107,0.15)', border: '1px solid rgba(255,122,107,0.25)' }}>
               <Flame size={15} style={{ color: '#FF7A6B' }} />
             </div>
-            <div>
-              <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>
-                {progress.currentStreak}
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Sequência</p>
+              <p className="text-sm font-extrabold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                {progress.currentStreak} <span className="font-bold" style={{ color: 'var(--text-muted)' }}>{progress.currentStreak === 1 ? 'dia' : 'dias'}</span>
               </p>
-              <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>dias</p>
             </div>
           </div>
 
-          <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
+          <div className="w-px flex-shrink-0" style={{ background: 'var(--bg-card-bright)' }} />
 
-          {/* Missões semana */}
-          <div>
-            <p className="text-lg font-extrabold leading-none" style={{ color: 'var(--text-primary)' }}>
-              {progress.weeklyMissions}
-            </p>
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>semana</p>
+          {/* Missões concluídas nesta semana */}
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(83,214,161,0.12)', border: '1px solid rgba(83,214,161,0.25)' }}>
+              <Check size={15} style={{ color: '#53D6A1' }} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Esta semana</p>
+              <p className="text-sm font-extrabold leading-tight" style={{ color: 'var(--text-primary)' }}>
+                {progress.weeklyMissions} <span className="font-bold" style={{ color: 'var(--text-muted)' }}>{progress.weeklyMissions === 1 ? 'missão' : 'missões'}</span>
+              </p>
+            </div>
           </div>
+        </div>
 
-          <div className="h-8 w-px" style={{ background: 'var(--bg-card-bright)' }} />
-
-          {/* Nível com ícone de tendência */}
-          <div className="flex items-center gap-1.5">
-            <TrendingUp size={13} style={{ color: '#9B8CFF' }} />
-            <span className="text-[11px] font-bold px-2 py-1 rounded-full"
-              style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)', color: '#9B8CFF' }}>
-              {progress.level}
-            </span>
-          </div>
+        {/* Nível atual — em linha própria, com rótulo claro */}
+        <div className="flex items-center gap-2">
+          <TrendingUp size={13} style={{ color: '#9B8CFF' }} />
+          <span className="text-[9px] font-bold uppercase tracking-wide" style={{ color: 'var(--text-muted)' }}>Nível</span>
+          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+            style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.25)', color: '#9B8CFF' }}>
+            {progress.level}
+          </span>
         </div>
 
         {/* Barra de progresso para o próximo nível */}

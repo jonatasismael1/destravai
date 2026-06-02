@@ -3,11 +3,12 @@ import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import {
   Users, Plus, LogIn, Trophy, Flame, Copy, Check, ArrowLeft, Crown, Share2, X,
+  Zap, Sparkles, CalendarCheck, Send, Video, Target, Award, ChevronRight,
 } from 'lucide-react'
 import {
   listMyGroups, createGroup, joinGroupByCode, leaveGroup,
-  getWeeklyRanking, countMembers, appearedToday,
-  type Group, type RankingRow,
+  getWeeklyRanking, countMembers, appearedToday, getMemberProfile,
+  type Group, type RankingRow, type MemberProfile,
 } from '../services/groupsService'
 
 // Tela de grupos de constância: competição saudável por EXECUÇÃO (postou, gravou,
@@ -28,6 +29,26 @@ export default function Grupos() {
   const [selected, setSelected] = useState<Group | null>(null)
   const [ranking, setRanking] = useState<RankingRow[]>([])
   const [rankingLoading, setRankingLoading] = useState(false)
+
+  // Perfil de competidor (ao clicar num participante do ranking)
+  const [profileUser, setProfileUser] = useState<RankingRow | null>(null)
+  const [profile, setProfile] = useState<MemberProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  const openProfile = async (row: RankingRow) => {
+    if (!selected) return
+    setProfileUser(row)
+    setProfile(null)
+    setProfileLoading(true)
+    try {
+      const p = await getMemberProfile(selected.id, row.user_id)
+      setProfile(p)
+    } catch (err) {
+      console.error('[Grupos profile]', err)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
 
   // Forms
   const [showCreate, setShowCreate] = useState(false)
@@ -182,14 +203,16 @@ export default function Grupos() {
               const isMe = row.user_id === myId
               const today = appearedToday(row)
               return (
-                <div key={row.user_id} className="rounded-2xl p-4 flex items-center gap-3"
+                <button key={row.user_id} onClick={() => openProfile(row)}
+                  className="w-full text-left rounded-2xl p-4 flex items-center gap-3 transition-all active:scale-[0.98]"
                   style={{
                     background: isMe ? 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.06))' : 'var(--bg-card)',
                     border: isMe ? '1px solid rgba(109,93,246,0.35)' : '1px solid var(--border-color)',
                   }}>
-                  <span className="text-lg font-extrabold w-8 text-center" style={{ color: i < 3 ? '#F7B955' : 'var(--text-muted)' }}>
+                  <span className="text-lg font-extrabold w-7 text-center flex-shrink-0" style={{ color: i < 3 ? '#F7B955' : 'var(--text-muted)' }}>
                     {medal(i)}
                   </span>
+                  <Avatar name={row.display_name} url={row.avatar_url} size={40} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold truncate flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
                       {row.display_name}{isMe ? ' (você)' : ''}
@@ -199,8 +222,11 @@ export default function Grupos() {
                       {row.posted} posts · {row.recorded} gravações · {row.missions} missões
                     </p>
                   </div>
-                  <span className="text-sm font-extrabold tabular-nums" style={{ color: '#9B8CFF' }}>{row.xp} XP</span>
-                </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <span className="text-sm font-extrabold tabular-nums" style={{ color: '#9B8CFF' }}>{row.xp} XP</span>
+                    <ChevronRight size={15} style={{ color: 'var(--text-muted)' }} />
+                  </div>
+                </button>
               )
             })
           )}
@@ -214,6 +240,17 @@ export default function Grupos() {
           className="w-full text-center text-[11px] py-2 opacity-40 hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
           Sair deste grupo
         </button>
+
+        {/* Card de perfil do competidor */}
+        {profileUser && (
+          <ProfileSheet
+            row={profileUser}
+            profile={profile}
+            loading={profileLoading}
+            isMe={profileUser.user_id === myId}
+            onClose={() => { setProfileUser(null); setProfile(null) }}
+          />
+        )}
       </div>
     )
   }
@@ -310,6 +347,183 @@ export default function Grupos() {
           </button>
         </ModalSheet>
       )}
+    </div>
+  )
+}
+
+// ─────────────────────────────── Avatar ───────────────────────────────────
+// Mostra a foto do participante; se não houver, cai para as iniciais do nome
+// num fundo derivado do próprio nome (cor estável por pessoa).
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function colorFromName(name: string): string {
+  // Hash simples → matiz estável, para cada pessoa ter sua cor.
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  const hue = Math.abs(hash) % 360
+  return `hsl(${hue}, 55%, 55%)`
+}
+
+function Avatar({ name, url, size = 40 }: { name: string; url?: string | null; size?: number }) {
+  const [broken, setBroken] = useState(false)
+  const dim = { width: size, height: size }
+  if (url && !broken) {
+    return (
+      <img src={url} alt={name} onError={() => setBroken(true)}
+        className="rounded-full object-cover flex-shrink-0"
+        style={{ ...dim, border: '1px solid var(--border-color)' }} />
+    )
+  }
+  return (
+    <div className="rounded-full flex items-center justify-center flex-shrink-0 font-extrabold text-white"
+      style={{ ...dim, background: colorFromName(name), fontSize: size * 0.36 }}>
+      {initials(name)}
+    </div>
+  )
+}
+
+// ─────────────────────── Card de perfil do competidor ──────────────────────
+function StatBox({ icon, value, label, color }: { icon: React.ReactNode; value: React.ReactNode; label: string; color: string }) {
+  return (
+    <div className="rounded-2xl p-3 flex flex-col gap-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+      <div className="flex items-center gap-1.5" style={{ color }}>
+        {icon}
+        <span className="text-lg font-extrabold tabular-nums" style={{ color: 'var(--text-primary)' }}>{value}</span>
+      </div>
+      <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>{label}</span>
+    </div>
+  )
+}
+
+// Conquistas: dão "selos" de competição com base nos números reais.
+function badgesFor(p: MemberProfile): { emoji: string; label: string }[] {
+  const out: { emoji: string; label: string }[] = []
+  if (p.current_streak >= 3) out.push({ emoji: '🔥', label: `${p.current_streak} dias seguidos` })
+  if (p.best_streak >= 7) out.push({ emoji: '🏆', label: 'Recorde 7+ dias' })
+  if (p.scripts_generated >= 10) out.push({ emoji: '✍️', label: '10+ roteiros' })
+  if (p.scripts_generated >= 50) out.push({ emoji: '🚀', label: '50+ roteiros' })
+  if (p.week_posted >= 3) out.push({ emoji: '📣', label: 'Postou muito' })
+  if (p.total_content_days >= 30) out.push({ emoji: '💎', label: '30+ dias de conteúdo' })
+  if (p.rank_position === 1) out.push({ emoji: '👑', label: 'Líder da semana' })
+  return out
+}
+
+function monthYear(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' })
+}
+
+function ProfileSheet({ row, profile, loading, isMe, onClose }: {
+  row: RankingRow; profile: MemberProfile | null; loading: boolean; isMe: boolean; onClose: () => void
+}) {
+  const name = profile?.display_name ?? row.display_name
+  const badges = profile ? badgesFor(profile) : []
+  return (
+    <div className="fixed inset-0 z-[150] flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div className="rounded-t-3xl pb-10 max-h-[88vh] overflow-y-auto max-w-md w-full mx-auto"
+        style={{ background: 'var(--bg-primary)', borderTop: '1px solid var(--border-color)' }}>
+
+        {/* Cabeçalho com gradiente */}
+        <div className="p-5 relative" style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.06))' }}>
+          <button onClick={onClose} className="absolute top-4 right-4" style={{ color: 'var(--text-muted)' }} aria-label="Fechar"><X size={18} /></button>
+          <div className="flex items-center gap-3">
+            <Avatar name={name} url={profile?.avatar_url ?? row.avatar_url} size={64} />
+            <div className="min-w-0">
+              <p className="text-xl font-extrabold truncate" style={{ color: 'var(--text-primary)' }}>
+                {name}{isMe ? ' (você)' : ''}
+              </p>
+              <p className="text-[12px] truncate" style={{ color: 'var(--text-secondary)' }}>
+                {profile?.profession || 'Criador de conteúdo'}
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                {profile?.rank_position != null && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(247,185,85,0.15)', color: '#F7B955' }}>
+                    {profile.rank_position}º no ranking
+                  </span>
+                )}
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>
+                  no grupo desde {monthYear(profile?.member_since ?? null)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <span className="w-7 h-7 rounded-full animate-spin" style={{ border: '2px solid rgba(109,93,246,0.3)', borderTopColor: '#9B8CFF' }} />
+          </div>
+        ) : !profile ? (
+          <p className="text-center text-sm py-10" style={{ color: 'var(--text-secondary)' }}>Não foi possível carregar o perfil.</p>
+        ) : (
+          <div className="p-5 space-y-5">
+            {/* Destaque: streak + XP da semana */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="rounded-2xl p-4 flex flex-col items-center gap-1"
+                style={{ background: 'linear-gradient(135deg, rgba(255,122,107,0.18), rgba(247,185,85,0.06))', border: '1px solid rgba(255,122,107,0.25)' }}>
+                <Flame size={22} style={{ color: '#FF7A6B' }} />
+                <span className="text-2xl font-extrabold tabular-nums" style={{ color: 'var(--text-primary)' }}>{profile.current_streak}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>dias seguidos agora</span>
+              </div>
+              <div className="rounded-2xl p-4 flex flex-col items-center gap-1"
+                style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.06))', border: '1px solid rgba(109,93,246,0.25)' }}>
+                <Zap size={22} style={{ color: '#9B8CFF' }} />
+                <span className="text-2xl font-extrabold tabular-nums" style={{ color: 'var(--text-primary)' }}>{profile.week_xp}</span>
+                <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>XP nesta semana</span>
+              </div>
+            </div>
+
+            {/* Métricas da semana */}
+            <div>
+              <p className="section-title mb-2">Esta semana</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <StatBox icon={<Send size={15} />} value={profile.week_posted} label="Posts publicados" color="#53D6A1" />
+                <StatBox icon={<Video size={15} />} value={profile.week_recorded} label="Gravações" color="#FF7A6B" />
+                <StatBox icon={<Target size={15} />} value={profile.week_missions} label="Missões feitas" color="#F7B955" />
+                <StatBox icon={<CalendarCheck size={15} />} value={profile.week_active_days} label="Dias ativos" color="#9B8CFF" />
+              </div>
+            </div>
+
+            {/* Histórico / total */}
+            <div>
+              <p className="section-title mb-2">No total</p>
+              <div className="grid grid-cols-2 gap-2.5">
+                <StatBox icon={<Sparkles size={15} />} value={profile.scripts_generated} label="Roteiros gerados" color="#9B8CFF" />
+                <StatBox icon={<CalendarCheck size={15} />} value={profile.total_content_days} label="Dias com conteúdo" color="#53D6A1" />
+                <StatBox icon={<Award size={15} />} value={profile.best_streak} label="Maior sequência" color="#F7B955" />
+                <StatBox icon={<Trophy size={15} />} value={profile.rank_position != null ? `${profile.rank_position}º` : '—'} label="Posição atual" color="#FF7A6B" />
+              </div>
+            </div>
+
+            {/* Conquistas */}
+            {badges.length > 0 && (
+              <div>
+                <p className="section-title mb-2">Conquistas</p>
+                <div className="flex flex-wrap gap-2">
+                  {badges.map((b, i) => (
+                    <span key={i} className="text-[12px] font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5"
+                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-primary)' }}>
+                      <span>{b.emoji}</span> {b.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {isMe && (
+              <p className="text-[11px] text-center" style={{ color: 'var(--text-muted)' }}>
+                Apareça todos os dias para manter sua sequência e subir no ranking. 🔥
+              </p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

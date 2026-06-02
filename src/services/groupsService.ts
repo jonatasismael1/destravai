@@ -17,10 +17,34 @@ export interface Group {
 export interface RankingRow {
   user_id: string
   display_name: string
+  avatar_url: string | null
   xp: number
   posted: number
   recorded: number
   missions: number
+  active_days: number
+  last_event_at: string | null
+}
+
+/** Perfil de competidor exibido ao clicar num participante do ranking. */
+export interface MemberProfile {
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  profession: string | null
+  member_since: string | null
+  rank_position: number | null
+  // Semana atual
+  week_xp: number
+  week_posted: number
+  week_recorded: number
+  week_missions: number
+  week_active_days: number
+  // Histórico (todo o período)
+  scripts_generated: number
+  total_content_days: number
+  current_streak: number
+  best_streak: number
   last_event_at: string | null
 }
 
@@ -141,7 +165,35 @@ export async function getWeeklyRanking(groupId: string): Promise<RankingRow[]> {
     posted: Number(r.posted ?? 0),
     recorded: Number(r.recorded ?? 0),
     missions: Number(r.missions ?? 0),
+    active_days: Number(r.active_days ?? 0),
   }))
+}
+
+/**
+ * Perfil de competidor de um membro do grupo (ao clicar no participante).
+ * Usa a mesma base semanal do ranking (segunda-feira). Devolve null se falhar.
+ */
+export async function getMemberProfile(groupId: string, userId: string): Promise<MemberProfile | null> {
+  const { data, error } = await supabase.rpc('destravai_group_member_profile', {
+    p_group_id: groupId,
+    p_user_id: userId,
+    p_since: startOfWeekISO(),
+  })
+  if (error || !data || (Array.isArray(data) && data.length === 0)) return null
+  const r = (Array.isArray(data) ? data[0] : data) as MemberProfile
+  return {
+    ...r,
+    rank_position: r.rank_position != null ? Number(r.rank_position) : null,
+    week_xp: Number(r.week_xp ?? 0),
+    week_posted: Number(r.week_posted ?? 0),
+    week_recorded: Number(r.week_recorded ?? 0),
+    week_missions: Number(r.week_missions ?? 0),
+    week_active_days: Number(r.week_active_days ?? 0),
+    scripts_generated: Number(r.scripts_generated ?? 0),
+    total_content_days: Number(r.total_content_days ?? 0),
+    current_streak: Number(r.current_streak ?? 0),
+    best_streak: Number(r.best_streak ?? 0),
+  }
 }
 
 /** Quem "apareceu hoje" (teve algum evento hoje) — derivado do ranking. */

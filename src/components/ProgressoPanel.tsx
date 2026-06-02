@@ -99,9 +99,7 @@ function getLevelProgress(completed: number) {
   return { level, nextLevel, progress: Math.min(100, pct) }
 }
 
-// onOpenRanking: quando fornecido (dentro de "Espaço"), o botão de Grupos abre a
-// aba Ranking ali mesmo — caminho único, sem rota separada. Sem ele, navega.
-export default function ProgressoPanel({ onOpenRanking }: { onOpenRanking?: () => void }) {
+export default function ProgressoPanel() {
   const { state } = useApp()
   const { progress, missions } = state
   const navigate = useNavigate()
@@ -431,7 +429,7 @@ export default function ProgressoPanel({ onOpenRanking }: { onOpenRanking?: () =
       )}
 
       {/* Grupos & Ranking — leva para a competição de constância entre amigos */}
-      <button onClick={() => (onOpenRanking ? onOpenRanking() : navigate('/grupos'))}
+      <button onClick={() => navigate('/grupos')}
         className="w-full rounded-3xl p-5 flex items-center gap-4 text-left transition-all active:scale-[0.98]"
         style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.07))', border: '1px solid rgba(109,93,246,0.3)' }}>
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"

@@ -196,6 +196,38 @@ export async function getMemberProfile(groupId: string, userId: string): Promise
   }
 }
 
+// ── Chat interno do grupo ─────────────────────────────────────────────────────
+export interface GroupMessage {
+  id: string
+  user_id: string
+  display_name: string
+  avatar_url: string | null
+  content: string
+  created_at: string
+}
+
+/** Últimas mensagens do grupo (com nome/foto do autor), em ordem cronológica. */
+export async function listGroupMessages(groupId: string, limit = 100): Promise<GroupMessage[]> {
+  const { data, error } = await supabase.rpc('destravai_group_messages_list', {
+    p_group_id: groupId,
+    p_limit: limit,
+  })
+  if (error || !data) return []
+  return data as GroupMessage[]
+}
+
+/** Envia uma mensagem no grupo (RLS garante que só membro envia como si mesmo). */
+export async function sendGroupMessage(groupId: string, content: string): Promise<void> {
+  const text = content.trim()
+  if (!text) return
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Faça login para enviar mensagens.')
+  const { error } = await supabase
+    .from('destravai_group_messages')
+    .insert({ group_id: groupId, user_id: user.id, content: text.slice(0, 2000) })
+  if (error) throw new Error(`Não foi possível enviar: ${error.message}`)
+}
+
 /** Quem "apareceu hoje" (teve algum evento hoje) — derivado do ranking. */
 export function appearedToday(row: RankingRow): boolean {
   if (!row.last_event_at) return false

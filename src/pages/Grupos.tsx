@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import {
   Users, Plus, LogIn, Trophy, Flame, Copy, Check, ArrowLeft, Crown, Share2, X,
-  Zap, Sparkles, CalendarCheck, Send, Video, Target, Award, ChevronRight,
+  Zap, Sparkles, CalendarCheck, Send, Video, Target, Award, ChevronRight, MessageSquare,
 } from 'lucide-react'
 import {
   listMyGroups, createGroup, joinGroupByCode, leaveGroup,
   getWeeklyRanking, countMembers, appearedToday, getMemberProfile,
-  type Group, type RankingRow, type MemberProfile,
+  listGroupMessages, sendGroupMessage,
+  type Group, type RankingRow, type MemberProfile, type GroupMessage,
 } from '../services/groupsService'
 
 // Tela de grupos de constância: competição saudável por EXECUÇÃO (postou, gravou,
@@ -29,6 +30,9 @@ export default function Grupos() {
   const [selected, setSelected] = useState<Group | null>(null)
   const [ranking, setRanking] = useState<RankingRow[]>([])
   const [rankingLoading, setRankingLoading] = useState(false)
+
+  // Abas dentro de um grupo: ranking (competição) e chat (conversa interna)
+  const [groupTab, setGroupTab] = useState<'ranking' | 'chat'>('ranking')
 
   // Perfil de competidor (ao clicar num participante do ranking)
   const [profileUser, setProfileUser] = useState<RankingRow | null>(null)
@@ -81,6 +85,7 @@ export default function Grupos() {
 
   const openGroup = async (g: Group) => {
     setSelected(g)
+    setGroupTab('ranking') // sempre abre no ranking
     setRankingLoading(true)
     try {
       const r = await getWeeklyRanking(g.id)
@@ -183,7 +188,23 @@ export default function Grupos() {
           </div>
         </div>
 
+        {/* Abas dentro do grupo: Ranking (competição) | Chat (conversa) */}
+        <div className="flex p-1 rounded-2xl gap-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+          {([['ranking', 'Ranking', Trophy], ['chat', 'Chat', MessageSquare]] as const).map(([key, label, Icon]) => (
+            <button key={key} onClick={() => setGroupTab(key)}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-all duration-200"
+              style={groupTab === key
+                ? { background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }
+                : { color: 'var(--text-muted)' }}>
+              <Icon size={14} /> {label}
+            </button>
+          ))}
+        </div>
+
+        {groupTab === 'chat' && <GroupChat groupId={selected.id} myId={myId} />}
+
         {/* Ranking */}
+        {groupTab === 'ranking' && (<>
         <div className="space-y-2.5">
           <div className="flex items-center gap-2">
             <Trophy size={16} style={{ color: '#F7B955' }} />
@@ -235,6 +256,7 @@ export default function Grupos() {
         <p className="text-[11px] text-center" style={{ color: 'var(--text-muted)' }}>
           XP: postar = 25 · gravar = 15 · missão concluída = 10. Reinicia toda segunda-feira.
         </p>
+        </>)}
 
         <button onClick={() => handleLeave(selected)} disabled={busy}
           className="w-full text-center text-[11px] py-2 opacity-40 hover:opacity-70 transition-opacity" style={{ color: 'var(--text-muted)' }}>
@@ -383,6 +405,121 @@ function Avatar({ name, url, size = 40 }: { name: string; url?: string | null; s
     <div className="rounded-full flex items-center justify-center flex-shrink-0 font-extrabold text-white"
       style={{ ...dim, background: colorFromName(name), fontSize: size * 0.36 }}>
       {initials(name)}
+    </div>
+  )
+}
+
+// ─────────────────────────────── Chat do grupo ─────────────────────────────
+// Conversa interna entre membros. Atualiza por polling (a cada 4s) enquanto a aba
+// está aberta — simples e robusto, sem depender de realtime. Envio é otimista
+// (recarrega logo após), e a lista rola sozinha para a última mensagem.
+function chatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function GroupChat({ groupId, myId }: { groupId: string; myId?: string }) {
+  const { addToast } = useToast()
+  const [messages, setMessages] = useState<GroupMessage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const endRef = useRef<HTMLDivElement>(null)
+
+  const load = useCallback(async () => {
+    const msgs = await listGroupMessages(groupId)
+    setMessages(msgs)
+    setLoading(false)
+  }, [groupId])
+
+  // Carrega ao abrir e mantém atualizado por polling enquanto a aba está montada.
+  useEffect(() => {
+    void load()
+    const id = setInterval(() => { void load() }, 4000)
+    return () => clearInterval(id)
+  }, [load])
+
+  // Rola para o fim quando chega mensagem nova.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  const handleSend = async () => {
+    const t = text.trim()
+    if (!t || sending) return
+    setSending(true)
+    setText('')
+    try {
+      await sendGroupMessage(groupId, t)
+      await load()
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao enviar a mensagem.', 'error')
+      setText(t) // devolve o texto para não perder o que foi digitado
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col" style={{ height: 'calc(100svh - 360px)', minHeight: 320 }}>
+      <div className="flex-1 overflow-y-auto space-y-2.5 pb-2 pr-0.5">
+        {loading ? (
+          <div className="flex justify-center py-10">
+            <span className="w-7 h-7 rounded-full animate-spin" style={{ border: '2px solid rgba(109,93,246,0.3)', borderTopColor: '#9B8CFF' }} />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="rounded-2xl p-6 text-center text-sm" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+            Ainda não há mensagens. Manda a primeira e chama a galera! 👋
+          </div>
+        ) : (
+          messages.map(m => {
+            const mine = m.user_id === myId
+            return (
+              <div key={m.id} className={`flex gap-2 items-end ${mine ? 'flex-row-reverse' : ''}`}>
+                {!mine && <Avatar name={m.display_name} url={m.avatar_url} size={28} />}
+                <div className="max-w-[76%] rounded-2xl px-3 py-2"
+                  style={{
+                    background: mine ? 'linear-gradient(135deg, #6D5DF6, #9B8CFF)' : 'var(--bg-card)',
+                    border: mine ? 'none' : '1px solid var(--border-color)',
+                    borderBottomRightRadius: mine ? 4 : undefined,
+                    borderBottomLeftRadius: mine ? undefined : 4,
+                  }}>
+                  {!mine && (
+                    <p className="text-[10px] font-bold mb-0.5" style={{ color: '#9B8CFF' }}>
+                      {m.display_name.split(' ')[0]}
+                    </p>
+                  )}
+                  <p className="text-sm whitespace-pre-wrap break-words" style={{ color: mine ? '#fff' : 'var(--text-primary)' }}>
+                    {m.content}
+                  </p>
+                  <p className="text-[9px] mt-0.5 text-right" style={{ color: mine ? 'rgba(255,255,255,0.6)' : 'var(--text-muted)' }}>
+                    {chatTime(m.created_at)}
+                  </p>
+                </div>
+              </div>
+            )
+          })
+        )}
+        <div ref={endRef} />
+      </div>
+
+      {/* Campo de envio */}
+      <div className="flex items-end gap-2 pt-2" style={{ borderTop: '1px solid var(--border-color)' }}>
+        <textarea
+          value={text}
+          onChange={e => setText(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void handleSend() } }}
+          rows={1}
+          placeholder="Mensagem para o grupo..."
+          className="flex-1 rounded-2xl px-4 py-2.5 text-sm outline-none resize-none"
+          style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', maxHeight: 100 }}
+        />
+        <button onClick={handleSend} disabled={sending || !text.trim()}
+          className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all active:scale-95"
+          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+          aria-label="Enviar mensagem">
+          <Send size={17} />
+        </button>
+      </div>
     </div>
   )
 }

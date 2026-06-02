@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import PersonalSetupModal from '../components/PersonalSetupModal'
 import ProgressoPanel from '../components/ProgressoPanel'
-import Grupos from './Grupos'
+import Biblioteca from './Biblioteca'
 import type { JournalEntry, PersonalIdea } from '../types'
 import { generatePersonalSuggestions } from '../lib/ai'
 import { toISODateKey } from '../services/userJourneyService'
@@ -50,8 +50,8 @@ export default function MeuEspaco() {
   // Aba inicial pode vir da navegação (ex: clique na barra de constância da Home,
   // que envia { tab: 'progresso' }). Sem isso, abre em "Meu espaço".
   const location = useLocation()
-  const initialTab = (location.state as { tab?: 'espaco' | 'progresso' | 'ranking' } | null)?.tab ?? 'espaco'
-  const [tab, setTab] = useState<'espaco' | 'progresso' | 'ranking'>(initialTab)
+  const initialTab = (location.state as { tab?: 'espaco' | 'progresso' | 'biblioteca' } | null)?.tab ?? 'espaco'
+  const [tab, setTab] = useState<'espaco' | 'progresso' | 'biblioteca'>(initialTab)
   const [selectedMood, setSelectedMood] = useState(
     todayMoodDate === today ? (todayMood ?? '') : ''
   )
@@ -168,7 +168,7 @@ export default function MeuEspaco() {
         {/* Abas: Espaço pessoal e Progresso (lugar único e organizado) */}
         <div className="flex p-1 mb-5 rounded-2xl gap-1"
           style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-          {([['espaco', 'Meu espaço'], ['progresso', 'Progresso'], ['ranking', 'Ranking']] as const).map(([key, label]) => (
+          {([['espaco', 'Meu espaço'], ['progresso', 'Progresso'], ['biblioteca', 'Biblioteca']] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -184,14 +184,14 @@ export default function MeuEspaco() {
           ))}
         </div>
 
-        {tab === 'progresso' && <ProgressoPanel onOpenRanking={() => setTab('ranking')} />}
+        {tab === 'progresso' && <ProgressoPanel />}
 
-        {/* Ranking: reaproveita a página de Grupos dentro de uma aba dedicada.
+        {/* Biblioteca: vive dentro de Espaço (continua isolada como componente).
             O wrapper neutraliza o padding-top próprio da página (já estamos numa
-            tela com header), mantendo todo o resto do comportamento intacto. */}
-        {tab === 'ranking' && (
+            tela com header), mantendo todo o comportamento intacto. */}
+        {tab === 'biblioteca' && (
           <div className="-mx-4 -mt-1">
-            <Grupos />
+            <Biblioteca />
           </div>
         )}
 

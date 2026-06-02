@@ -7,21 +7,35 @@ import { calculateStreakWithShield, calculateLevel, getWeekKey, inferCategory } 
 import { getCurrentProfile } from '../services/profileService'
 import { getBrandEssence, essenceToProfile } from '../services/essenceService'
 import { getSubscriptionStatus, type SubscriptionStatus } from '../services/subscriptionService'
+import { generateCheckinIdea } from '../lib/ai'
 import {
   createJournalEntry as createStoredJournalEntry,
   createPersonalIdea as createStoredPersonalIdea,
   deleteJournalEntry as deleteStoredJournalEntry,
   deletePersonalIdea as deleteStoredPersonalIdea,
+  loadDailyCheckin,
   loadPersonalSpace,
   loadStoredMissions,
   loadStoredProgress,
   toISODateKey,
   updateStoredMission,
+  upsertDailyCheckin,
   upsertPersonalContext,
   upsertStoredMission,
   upsertStoredProgress,
   upsertTodayMood,
+  type DayStatePayload,
 } from '../services/userJourneyService'
+
+// Conteúdo gerado para o dia (missão + ideias extras). Vive no AppContext — e não
+// dentro da Home — para SOBREVIVER à navegação entre telas durante a geração de IA
+// (que leva ~10-15s). Antes, ao trocar de tela a Home desmontava e o carregamento
+// "se perdia"; agora ele continua aqui e reaparece pronto quando o usuário volta.
+export type DayContent = DayStatePayload
+const emptyDayContent: DayContent = { checkin: '', mission: null, extras: [] }
+
+// Chave do dia (YYYY-MM-DD). Definida no carregamento do módulo, como na Home.
+const TODAY_KEY = toISODateKey()
 
 // ─── Chaves de armazenamento ──────────────────────────────────
 // Apenas dados de UI (tema, progresso, perfil local para IA) ficam em localStorage.
@@ -66,6 +80,11 @@ interface AppState {
   missions: Mission[]
   progress: Progress
   personalSpace: PersonalSpace
+  // Conteúdo do dia (missão + extras) e flag de geração em andamento. Vivem aqui
+  // para persistir entre telas — a missão continua sendo gerada mesmo se o usuário
+  // navegar para outra aba e volta pronta quando ele retorna à Home.
+  todayContent: DayContent
+  generatingContent: boolean
   authLoading: boolean
   // Carregando profile/essência do banco após resolver a sessão.
   // Separado de authLoading para evitar deadlock no callback de auth do Supabase.
@@ -87,6 +106,10 @@ interface AppContextType {
   updateMission: (id: string, updates: Partial<Mission>) => void
   updateProgress: (updates: Partial<Progress>) => void
   completeMission: (ideaObjective: string) => void
+  // Conteúdo do dia: gerar (em background, persistente), atualizar e reiniciar.
+  generateTodayContent: (profile: ProfessionalProfile, checkinValue: string) => Promise<void>
+  setTodayContent: (next: DayContent | ((prev: DayContent) => DayContent)) => void
+  resetTodayContent: () => void
   refreshSubscription: () => Promise<void>
   logout: () => Promise<void>
   savePersonalContext: (context: PersonalContext) => void
@@ -140,6 +163,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     missions: [],
     progress: loadProgress(),
     personalSpace: defaultPersonalSpace,
+    todayContent: emptyDayContent,
+    generatingContent: false,
     authLoading: true,
     profileLoading: true,
     subscription: null,
@@ -242,6 +267,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true }
   }, [state.supabaseUser?.id])
 
+  // 3) Carrega o conteúdo do dia (missão + extras) ao logar. Roda UMA vez por
+  // usuário — como vive no provider (que não desmonta ao trocar de tela), o
+  // estado persiste durante toda a sessão e durante a geração em background.
+  useEffect(() => {
+    const userId = state.supabaseUser?.id
+    if (!userId) {
+      setState(s => ({ ...s, todayContent: emptyDayContent }))
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { state: storedDay } = await loadDailyCheckin(TODAY_KEY)
+        // Não sobrescreve se uma geração estiver em andamento (evita corrida).
+        if (!cancelled && storedDay) {
+          setState(s => (s.generatingContent ? s : { ...s, todayContent: storedDay }))
+        }
+      } catch (err) {
+        console.error('[AppContext daily content]', err)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [state.supabaseUser?.id])
+
   const refreshSubscription = async () => {
     const subscription = await getSubscriptionStatus().catch(() => null)
     setState(s => ({ ...s, subscription }))
@@ -318,6 +367,50 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  // Atualiza o conteúdo do dia (usado pela Home ao marcar feito/salvar/variar) e
+  // persiste no Supabase. Mantém o estado vivo entre telas.
+  const setTodayContent = (next: DayContent | ((prev: DayContent) => DayContent)) => {
+    setState(s => {
+      const value = typeof next === 'function' ? next(s.todayContent) : next
+      void upsertDailyCheckin(TODAY_KEY, value).catch(err => console.error('[AppContext set day]', err))
+      return { ...s, todayContent: value }
+    })
+  }
+
+  const resetTodayContent = () => {
+    setState(s => ({ ...s, todayContent: emptyDayContent }))
+  }
+
+  // Gera a missão do dia + ideias extras. Roda no provider, então CONTINUA mesmo
+  // que o usuário saia da Home — e quando ele volta, o conteúdo já está aqui.
+  // A missão principal é crítica; as extras são bônus (toleram falha individual).
+  const generateTodayContent = async (profile: ProfessionalProfile, checkinValue: string) => {
+    setState(s => ({ ...s, generatingContent: true }))
+    try {
+      const missionIdea = await generateCheckinIdea(profile, checkinValue)
+      const results = await Promise.allSettled([
+        generateCheckinIdea(profile, 'educate'),
+        generateCheckinIdea(profile, 'sell'),
+      ])
+      const extras = results
+        .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
+        .map(r => r.value)
+
+      const next: DayContent = { checkin: checkinValue, mission: missionIdea, extras }
+      setState(s => ({ ...s, todayContent: next, generatingContent: false }))
+      void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[AppContext generate day]', err))
+
+      // Registra a missão e as ideias no estado/biblioteca (mesma lógica de antes).
+      addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
+      addIdea(missionIdea)
+      extras.forEach(i => addIdea(i))
+    } catch (err) {
+      // Em erro, encerra o "gerando" e propaga para a Home exibir o toast.
+      setState(s => ({ ...s, generatingContent: false }))
+      throw err
+    }
+  }
+
   const logout = async () => {
     await supabase.auth.signOut()
     localStorage.removeItem(PROGRESS_KEY)
@@ -333,6 +426,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       missions: [],
       progress: defaultProgress,
       personalSpace: defaultPersonalSpace,
+      todayContent: emptyDayContent,
+      generatingContent: false,
       authLoading: false,
       profileLoading: false,
       subscription: null,
@@ -401,6 +496,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       state, setProfile, setLocalProfile, setEssence, addIdea, updateIdea,
       addMission, updateMission, updateProgress, completeMission, refreshSubscription, logout,
+      generateTodayContent, setTodayContent, resetTodayContent,
       savePersonalContext, setTodayMood,
       addJournalEntry, deleteJournalEntry,
       addPersonalIdea, deletePersonalIdea,

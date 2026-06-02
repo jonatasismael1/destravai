@@ -1,6 +1,7 @@
 ﻿import { useState } from 'react'
 import { Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Settings2, X } from 'lucide-react'
 import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import PersonalSetupModal from '../components/PersonalSetupModal'
 import ProgressoPanel from '../components/ProgressoPanel'
@@ -46,7 +47,11 @@ export default function MeuEspaco() {
   const today = toISODateKey()
 
   const [showSetup, setShowSetup] = useState(false)
-  const [tab, setTab] = useState<'espaco' | 'progresso' | 'ranking'>('espaco')
+  // Aba inicial pode vir da navegação (ex: clique na barra de constância da Home,
+  // que envia { tab: 'progresso' }). Sem isso, abre em "Meu espaço".
+  const location = useLocation()
+  const initialTab = (location.state as { tab?: 'espaco' | 'progresso' | 'ranking' } | null)?.tab ?? 'espaco'
+  const [tab, setTab] = useState<'espaco' | 'progresso' | 'ranking'>(initialTab)
   const [selectedMood, setSelectedMood] = useState(
     todayMoodDate === today ? (todayMood ?? '') : ''
   )

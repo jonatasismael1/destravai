@@ -42,7 +42,7 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<boolean> {
   }
 }
 import { getQuoteOfDay } from '../lib/quotes'
-import { deleteDailyCheckin, loadDailyCheckin, toISODateKey, upsertDailyCheckin } from '../services/userJourneyService'
+import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 import { trackEvent, loadActivationStatus } from '../services/eventsService'
 import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
@@ -327,22 +327,23 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
   )
 }
 
-interface DayState {
-  checkin: string
-  mission: ContentIdea | null
-  extras: ContentIdea[]
-}
-
-const emptyDayState: DayState = { checkin: '', mission: null, extras: [] }
-
 export default function Home() {
-  const { state, addIdea, updateIdea, addMission, updateMission, completeMission } = useApp()
+  const {
+    state, addIdea, updateIdea, updateMission, completeMission,
+    generateTodayContent, setTodayContent, resetTodayContent,
+  } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
 
-  const [dayState, setDayState] = useState<DayState>(emptyDayState)
+  // Conteúdo do dia e flag de geração vêm do AppContext: assim sobrevivem à
+  // navegação entre telas (a missão continua sendo gerada em segundo plano).
+  const dayState = state.todayContent
+  const loading = state.generatingContent
 
-  const [loading, setLoading] = useState(false)
+  // Loading local só para ações pontuais na tela (variação/legenda) — essas estão
+  // atreladas a um card visível e não precisam persistir entre telas.
+  const [actionLoading, setActionLoading] = useState(false)
+  const busy = loading || actionLoading
   const [studioIdea, setStudioIdea] = useState<ContentIdea | null>(null)
   // Guard de idempotência: impede que o mesmo conteúdo incremente o streak duas vezes
   // (ex: clique duplo ou re-render antes do estado atualizar).
@@ -391,26 +392,8 @@ export default function Home() {
     return [...BASE_CHECKIN_OPTIONS, ...dynamicChips.slice(0, 2)]
   })()
 
-  useEffect(() => {
-    let cancelled = false
-
-    ;(async () => {
-      if (!state.supabaseUser) {
-        setDayState(emptyDayState)
-        return
-      }
-
-      try {
-        const { state: storedDay } = await loadDailyCheckin(TODAY_KEY)
-        if (!cancelled) setDayState(storedDay ?? emptyDayState)
-      } catch (err) {
-        console.error('[Home daily state]', err)
-        if (!cancelled) setDayState(emptyDayState)
-      }
-    })()
-
-    return () => { cancelled = true }
-  }, [state.supabaseUser?.id])
+  // O carregamento do conteúdo do dia agora vive no AppContext (persiste entre
+  // telas). A Home apenas consome state.todayContent / state.generatingContent.
 
   // Registra o retorno do usuário e dispara os nudges de notificação (D1/D3/D7).
   useEffect(() => {
@@ -421,68 +404,31 @@ export default function Home() {
     })
   }, [state.supabaseUser?.id])
 
+  // A geração roda no AppContext (persiste entre telas). Aqui só disparamos e
+  // tratamos o toast — se o usuário sair da Home, a missão continua sendo gerada
+  // e aparece pronta quando ele volta.
   const handleCheckin = async (value: string) => {
-    if (!profile) return
-    setLoading(true)
-
+    if (!profile || loading) return
     try {
-      // A missão principal é crítica: se ela falhar, mostramos o erro.
-      const missionIdea = await generateCheckinIdea(profile, value)
-
-      // As ideias extras são um bônus — geramos em paralelo e toleramos falhas.
-      // Antes, se UMA extra falhasse, todo o check-in quebrava e nada aparecia.
-      const results = await Promise.allSettled([
-        generateCheckinIdea(profile, 'educate'),
-        generateCheckinIdea(profile, 'sell'),
-      ])
-      const extras = results
-        .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
-        .map(r => r.value)
-
-      const newDayState: DayState = { checkin: value, mission: missionIdea, extras }
-      setDayState(newDayState)
-      await upsertDailyCheckin(TODAY_KEY, newDayState)
-
-      addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
-      addIdea(missionIdea)
-      extras.forEach(i => addIdea(i))
-
+      await generateTodayContent(profile, value)
       addToast('Ideias prontas para hoje!', 'success')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       console.error('[Home checkin]', msg)
       addToast(`Erro: ${msg.slice(0, 160)}`, 'error')
-    } finally {
-      setLoading(false)
     }
   }
 
   const handleSurprise = async () => {
-    if (!profile) return
-    setLoading(true)
+    if (!profile || loading) return
+    const formats = ['2min', 'reel', 'educate', 'light'] as const
+    const randomKey = formats[Math.floor(Math.random() * formats.length)]
     try {
-      const formats = ['2min', 'reel', 'educate', 'light'] as const
-      const randomKey = formats[Math.floor(Math.random() * formats.length)]
-      const missionIdea = await generateCheckinIdea(profile, randomKey)
-      const results = await Promise.allSettled([
-        generateCheckinIdea(profile, 'educate'),
-        generateCheckinIdea(profile, 'sell'),
-      ])
-      const extras = results
-        .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
-        .map(r => r.value)
-      const newDayState: DayState = { checkin: randomKey, mission: missionIdea, extras }
-      setDayState(newDayState)
-      await upsertDailyCheckin(TODAY_KEY, newDayState)
-      addMission({ id: crypto.randomUUID(), title: missionIdea.theme, description: missionIdea.objective, type: missionIdea.type, status: 'pending', date: new Date().toISOString(), content: missionIdea, points: 10 })
-      addIdea(missionIdea)
-      extras.forEach(i => addIdea(i))
+      await generateTodayContent(profile, randomKey)
       addToast('Surpresa gerada!', 'success')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       addToast(`Erro: ${msg.slice(0, 160)}`, 'error')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -499,19 +445,12 @@ export default function Home() {
     // Registra o evento de execução — alimenta o ranking dos grupos (XP de missão).
     void trackEvent('mission_done', idea.id)
 
-    if (dayState.mission?.id === idea.id) {
-      setDayState(prev => {
-        const next = { ...prev, mission: prev.mission ? { ...prev.mission, status: 'done' as const } : null }
-        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home done]', err))
-        return next
-      })
-    } else {
-      setDayState(prev => {
-        const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' as const } : i) }
-        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home done]', err))
-        return next
-      })
-    }
+    // setTodayContent persiste no Supabase e mantém o estado vivo entre telas.
+    setTodayContent(prev =>
+      prev.mission?.id === idea.id
+        ? { ...prev, mission: prev.mission ? { ...prev.mission, status: 'done' as const } : null }
+        : { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' as const } : i) }
+    )
 
     addToast('Missão concluída! +10 pontos', 'success')
   }
@@ -523,19 +462,11 @@ export default function Home() {
       dayState.extras.some(i => i.id === idea.id && i.status === 'saved')
 
     updateIdea(idea.id, { favorite: true, status: 'saved' })
-    if (dayState.mission?.id === idea.id) {
-      setDayState(prev => {
-        const next = { ...prev, mission: prev.mission ? { ...prev.mission, status: 'saved' as const } : null }
-        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home save]', err))
-        return next
-      })
-    } else {
-      setDayState(prev => {
-        const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'saved' as const } : i) }
-        void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home save]', err))
-        return next
-      })
-    }
+    setTodayContent(prev =>
+      prev.mission?.id === idea.id
+        ? { ...prev, mission: prev.mission ? { ...prev.mission, status: 'saved' as const } : null }
+        : { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'saved' as const } : i) }
+    )
 
     if (alreadySaved) {
       addToast('Essa ideia já está na sua biblioteca.', 'info')
@@ -551,31 +482,24 @@ export default function Home() {
   }
 
   const handleVariation = async (idea: ContentIdea, hint: string) => {
-    if (!profile) return
-    setLoading(true)
+    if (!profile || busy) return
+    setActionLoading(true)
     try {
       const checkinKey = dayState.checkin || '2min'
       const variation = await generateCheckinIdea(profile, checkinKey, hint)
       addIdea(variation)
-      if (dayState.mission?.id === idea.id) {
-        setDayState(prev => {
-          const next = { ...prev, mission: variation }
-          void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home variation]', err))
-          return next
-        })
-      } else {
-        setDayState(prev => {
-          const next = { ...prev, extras: prev.extras.map(i => i.id === idea.id ? variation : i) }
-          void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[Home variation]', err))
-          return next
-        })
-      }
+      // Forma funcional evita estado defasado após o await.
+      setTodayContent(prev =>
+        prev.mission?.id === idea.id
+          ? { ...prev, mission: variation }
+          : { ...prev, extras: prev.extras.map(i => i.id === idea.id ? variation : i) }
+      )
       addToast('Variação gerada!', 'info')
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       addToast(`Erro na variação: ${msg.slice(0, 120)}`, 'error')
     } finally {
-      setLoading(false)
+      setActionLoading(false)
     }
   }
 
@@ -642,9 +566,15 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ── Gamification strip melhorado ───────────── */}
-      <div className="rounded-2xl p-4 space-y-3"
-        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+      {/* ── Gamification strip melhorado ───────────────────────────────────
+          Clicável: leva direto à tela de Progresso (antes ficava a vários cliques
+          dentro de "Meu Espaço"). Mostra o panorama completo da constância. */}
+      <button
+        type="button"
+        onClick={() => navigate('/espaco', { state: { tab: 'progresso' } })}
+        className="w-full text-left rounded-2xl p-4 space-y-3 transition-all active:scale-[0.99]"
+        style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+        aria-label="Ver progresso e constância">
         <div className="flex items-center gap-4">
           {/* Streak */}
           <div className="flex items-center gap-2.5">
@@ -698,7 +628,15 @@ export default function Home() {
             </div>
           </div>
         )}
-      </div>
+
+        {/* Afordância de clique: deixa claro que a barra leva ao progresso. */}
+        <div className="flex items-center justify-end gap-1 pt-1">
+          <span className="text-[10px] font-bold uppercase tracking-wide" style={{ color: '#9B8CFF' }}>
+            Ver progresso completo
+          </span>
+          <ChevronRight size={13} style={{ color: '#9B8CFF' }} />
+        </div>
+      </button>
 
       {/* A jornada de constância dia-a-dia (Dia 1→7) vive em "Meu Espaço >
           Progresso" para não repetir o indicador de sequência acima. */}
@@ -707,7 +645,7 @@ export default function Home() {
           A geração roda em segundo plano. Mostramos um aviso compacto e
           deixamos o usuário navegar livremente (Biblioteca, Meu Espaço…).
           A missão fica salva e aparece aqui quando estiver pronta. */}
-      {loading && (
+      {busy && (
         <div className="rounded-2xl p-4 flex items-center gap-3"
           style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.25)' }}>
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -820,7 +758,7 @@ export default function Home() {
           <button
             onClick={() => {
               void deleteDailyCheckin(TODAY_KEY).catch(err => console.error('[Home reset day]', err))
-              setDayState(emptyDayState)
+              resetTodayContent()
             }}
             className="w-full text-center text-[11px] py-2 opacity-40 hover:opacity-70 transition-opacity"
             style={{ color: 'var(--text-muted)' }}

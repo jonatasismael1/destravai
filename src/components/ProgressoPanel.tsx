@@ -478,9 +478,11 @@ export default function ProgressoPanel() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2.5">
         {[
-          { icon: <Check size={16} />, value: progress.missionsCompleted, label: 'Concluídas', color: '#53D6A1', bg: 'rgba(83,214,161,0.1)', border: 'rgba(83,214,161,0.2)' },
+          // Rótulos nomeiam a unidade para não confundir o número (ex.: "2 missões
+          // na semana", não "2 semanas"). Mesmo padrão de clareza da Home.
+          { icon: <Check size={16} />, value: progress.missionsCompleted, label: 'Missões no total', color: '#53D6A1', bg: 'rgba(83,214,161,0.1)', border: 'rgba(83,214,161,0.2)' },
           { icon: <Flame size={16} />, value: progress.currentStreak, label: 'Dias seguidos', color: '#FF7A6B', bg: 'rgba(255,122,107,0.1)', border: 'rgba(255,122,107,0.2)' },
-          { icon: <TrendingUp size={16} />, value: progress.weeklyMissions, label: 'Esta semana', color: '#9B8CFF', bg: 'rgba(109,93,246,0.1)', border: 'rgba(109,93,246,0.2)' },
+          { icon: <TrendingUp size={16} />, value: progress.weeklyMissions, label: 'Missões na semana', color: '#9B8CFF', bg: 'rgba(109,93,246,0.1)', border: 'rgba(109,93,246,0.2)' },
         ].map(({ icon, value, label, color, bg, border }) => (
           <div key={label} className="rounded-2xl p-4 text-center" style={{ background: bg, border: `1px solid ${border}` }}>
             <div className="flex justify-center mb-2" style={{ color }}>{icon}</div>

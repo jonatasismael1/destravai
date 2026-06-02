@@ -83,7 +83,13 @@ export const handler = async (event) => {
     // pendente e dispara PAYMENT_DELETED. Sem este guard, esse evento rebaixaria o
     // status para 'failed' e encurtaria indevidamente o acesso/carência.
     const terminalStatus = !!subRow && ['canceled', 'refunded'].includes(subRow.status)
-    const mapped = (!isCourtesy && !terminalStatus && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
+    const mappedRaw = (!isCourtesy && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
+    // Em estado terminal (cancelado/reembolsado) só permitimos a transição para
+    // 'refunded' (estorno efetivado). Eventos como PAYMENT_DELETED (da recorrência
+    // cancelada) NÃO podem rebaixar o status nem encurtar o acesso/carência.
+    const mapped = terminalStatus
+      ? (mappedRaw && mappedRaw.status === 'refunded' ? mappedRaw : null)
+      : mappedRaw
     const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
 
     // Indica que, ao confirmar o pagamento, precisamos liberar acesso + e-mail.

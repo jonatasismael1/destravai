@@ -365,10 +365,20 @@ header.scrolled {
 .plan .btn { width: 100%; margin-top: auto; }
 .pricing .fine { margin-top: 28px; color: var(--ink-3); font-size: 14px; }
 
-/* Ancoragem de preço: mostra o valor cheio riscado para valorizar a oferta. */
-.plan-anchor { font-size: 15px; color: var(--ink-3); font-weight: 600; margin-bottom: -6px; }
-.plan-anchor s { color: var(--ink-3); text-decoration-thickness: 2px; }
-.plan-anchor strong { color: var(--mint); font-weight: 800; }
+/* Ancoragem de preço: badge de desconto + valor cheio riscado ao lado do preço,
+   bem visível para valorizar a oferta. */
+.plan-off {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #fff; padding: 6px 12px; border-radius: 999px;
+  background: var(--grad-coral); box-shadow: 0 6px 18px rgba(255, 122, 107, 0.35);
+  margin-bottom: 12px;
+}
+.plan-price-row { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.plan-old {
+  font-size: 26px; font-weight: 700; color: var(--ink-3);
+  text-decoration: line-through; text-decoration-color: var(--coral); text-decoration-thickness: 2px;
+}
 
 /* Selo de garantia dentro do plano. */
 .plan-guarantee {
@@ -393,16 +403,21 @@ header.scrolled {
 }
 .pay-badge svg { color: var(--mint); flex-shrink: 0; }
 
-/* CTA fixo no rodapé (apenas mobile). */
+/* CTA fixo no rodapé. Some no topo da página e desliza para cima conforme
+   o usuário rola (classe .visible via JS). Vale para mobile e desktop. */
 .sticky-cta {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 120;
-  display: none; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px clamp(16px, 5vw, 72px) calc(12px + env(safe-area-inset-bottom));
   background: rgba(13, 11, 20, 0.92);
   backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
   border-top: 1px solid var(--border);
   text-decoration: none;
+  transform: translateY(110%);
+  transition: transform 0.35s var(--ease);
+  pointer-events: none;
 }
+.sticky-cta.visible { transform: none; pointer-events: auto; }
 .sticky-cta .sc-info { display: flex; flex-direction: column; line-height: 1.2; }
 .sticky-cta .sc-price { font-size: 16px; font-weight: 800; color: var(--ink); }
 .sticky-cta .sc-sub { font-size: 11px; color: var(--ink-3); font-weight: 600; }
@@ -446,7 +461,7 @@ header.scrolled {
 .final-box .tagline { margin-top: 24px; }
 
 /* ── Footer ─────────────────────────────────────────────── */
-footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: relative; z-index: 2; }
+footer { padding: 56px 0 100px; border-top: 1px solid var(--border); position: relative; z-index: 2; }
 .foot { display: flex; justify-content: space-between; align-items: flex-start; gap: 40px; flex-wrap: wrap; }
 .foot-brand { max-width: 280px; }
 .foot-brand p { color: var(--ink-3); font-size: 14px; margin-top: 12px; }
@@ -463,20 +478,6 @@ footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: re
 .final-ctas { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; position: relative; }
 .btn-whats { background: #25D366; color: #07241a; box-shadow: 0 0 30px rgba(37,211,102,0.4), 0 8px 24px rgba(0,0,0,0.35); }
 .btn-whats:hover { transform: translateY(-2px); box-shadow: 0 0 44px rgba(37,211,102,0.6), 0 12px 32px rgba(0,0,0,0.45); }
-.whats-float {
-  position: fixed; right: 20px; bottom: 20px; z-index: 60;
-  width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center;
-  background: #25D366; color: #fff; text-decoration: none;
-  box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0.55);
-  animation: whatsPulse 2.6s var(--ease) infinite;
-  transition: transform 0.25s var(--ease);
-}
-.whats-float:hover { transform: scale(1.08); }
-@keyframes whatsPulse {
-  0% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0.5); }
-  70% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 16px rgba(37,211,102,0); }
-  100% { box-shadow: 0 8px 28px rgba(0,0,0,0.4), 0 0 0 0 rgba(37,211,102,0); }
-}
 
 /* ── Animação de revelação ──────────────────────────────── */
 .reveal { opacity: 0; transform: translateY(28px); transition: opacity 0.7s var(--ease), transform 0.7s var(--ease); }
@@ -543,10 +544,6 @@ footer { padding: 56px 0 40px; border-top: 1px solid var(--border); position: re
   .menu-toggle { display: grid; place-items: center; }
   .table-row { grid-template-columns: 1.3fr 0.85fr 0.85fr; }
   .table-cell { padding: 14px 12px; font-size: 13px; }
-  /* CTA fixo aparece no mobile; sobe o botão do WhatsApp e abre espaço no rodapé. */
-  .sticky-cta { display: flex; }
-  .whats-float { bottom: 92px; }
-  footer { padding-bottom: 96px; }
 }
 @media (max-width: 560px) {
   .wrap { padding: 0 18px; }

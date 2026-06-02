@@ -72,6 +72,28 @@ if (menuToggle && mobileMenu) {
   mobileMenu.querySelectorAll('a').forEach((a) => a.addEventListener('click', closeMenu))
 }
 
+// ── CTA fixo: aparece depois do hero e some quando a oferta está à vista ──
+const stickyCta = document.querySelector('.sticky-cta')
+const pricingSection = document.getElementById('planos')
+if (stickyCta) {
+  let pricingVisible = false
+  // Observa a seção de oferta: enquanto ela estiver na tela, escondemos a barra
+  // (o botão da própria oferta assume) para não duplicar o CTA.
+  if (pricingSection) {
+    new IntersectionObserver(
+      (entries) => { pricingVisible = entries[0].isIntersecting; updateSticky() },
+      { threshold: 0.2 }
+    ).observe(pricingSection)
+  }
+  const updateSticky = () => {
+    // Mostra após rolar ~60% da primeira dobra e enquanto a oferta não estiver visível.
+    const show = window.scrollY > window.innerHeight * 0.6 && !pricingVisible
+    stickyCta.classList.toggle('visible', show)
+  }
+  window.addEventListener('scroll', updateSticky, { passive: true })
+  updateSticky()
+}
+
 // ── Âncoras suaves (fallback p/ navegadores sem smooth) ──
 document.querySelectorAll('a[href^="#"]').forEach((a) => {
   a.addEventListener('click', (e) => {

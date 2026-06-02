@@ -117,6 +117,16 @@ function loadProgress(): Progress {
   }
 }
 
+// Garante que uma chamada NUNCA trave o carregamento para sempre: se passar do
+// tempo, resolve com um fallback. Rede de segurança para o login no mobile/PWA —
+// com o lock de auth corrigido isso quase nunca dispara, mas evita o spinner eterno.
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>(resolve => setTimeout(() => resolve(fallback), ms)),
+  ])
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>({
     supabaseUser: null,
@@ -190,22 +200,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     ;(async () => {
       const localProgress = loadProgress()
+      // Cada load tem timeout (12s) + fallback: se algo travar (lock/rede no PWA),
+      // o app não fica preso no spinner — segue com o fallback.
+      const T = 12000
       const [profile, essence, subscription, progress, missions, personalSpace] = await Promise.all([
-        getCurrentProfile().catch(() => null),
-        getBrandEssence().catch(() => null),
-        getSubscriptionStatus().catch(() => null),
-        loadStoredProgress(localProgress).catch(err => {
+        withTimeout(getCurrentProfile().catch(() => null), T, null),
+        withTimeout(getBrandEssence().catch(() => null), T, null),
+        withTimeout(getSubscriptionStatus().catch(() => null), T, null),
+        withTimeout(loadStoredProgress(localProgress).catch(err => {
           console.error('[AppContext progress]', err)
           return localProgress
-        }),
-        loadStoredMissions().catch(err => {
+        }), T, localProgress),
+        withTimeout(loadStoredMissions().catch(err => {
           console.error('[AppContext missions]', err)
           return []
-        }),
-        loadPersonalSpace(defaultPersonalSpace).catch(err => {
+        }), T, [] as Mission[]),
+        withTimeout(loadPersonalSpace(defaultPersonalSpace).catch(err => {
           console.error('[AppContext personal space]', err)
           return defaultPersonalSpace
-        }),
+        }), T, defaultPersonalSpace),
       ])
       if (cancelled) return
       setState(s => {

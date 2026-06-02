@@ -6,7 +6,13 @@ node_modules/
 
 # Build output
 dist/
-docs/
+docs/*
+!docs/README.md
+!docs/ai-context.md
+!docs/audits/
+!docs/audits/**
+!docs/operations/
+!docs/operations/**
 
 # Environment variables (credenciais — nunca commitar)
 .env
@@ -35,6 +41,14 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Temporary local debug/test scripts (never commit credentials or ad hoc probes)
+tmp-*.js
+tmp-*.mjs
+tmp-*.cjs
+tmp-*.ts
+*.tmp.js
+*.tmp.mjs
 
 # Supabase CLI temp
 supabase/.temp/

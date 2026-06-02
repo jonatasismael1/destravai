@@ -1,7 +1,5 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase/client'
-import { useApp } from '../context/AppContext'
-import { getCurrentProfile } from '../services/profileService'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Zap, Video, Sparkles } from 'lucide-react'
 
@@ -14,7 +12,6 @@ const BENEFITS = [
 ]
 
 export default function Login() {
-  const { setProfile } = useApp()
   const [mode, setMode] = useState<Mode>('login')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
@@ -53,10 +50,10 @@ export default function Login() {
           setNotice(`Enviamos um e-mail de confirmação para ${email}. Confirme para entrar.`)
           return
         }
-
-        await new Promise(r => setTimeout(r, 800))
-        const profile = await getCurrentProfile()
-        if (profile) setProfile(profile)
+        // Sessão criada: o AppContext (onAuthStateChange) carrega profile/essência
+        // e cuida do redirecionamento. Não fazemos chamadas extras aqui para não
+        // disputar o lock de auth do Supabase logo após o login (causava travamento
+        // no mobile/PWA).
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
         if (signInError) {
@@ -65,9 +62,7 @@ export default function Login() {
           }
           throw signInError
         }
-
-        const profile = await getCurrentProfile()
-        if (profile) setProfile(profile)
+        // Login OK: o AppContext detecta a sessão e redireciona. Sem chamadas extras.
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro ao autenticar. Tente novamente.'

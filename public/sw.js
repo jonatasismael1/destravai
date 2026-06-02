@@ -4,7 +4,7 @@
 // mais nova; só usa cache quando está offline). Requisições para outros domínios
 // (Supabase, Gemini, fontes) passam direto, sem interferência.
 
-const CACHE = 'destravai-v11'
+const CACHE = 'destravai-v12'
 const SHELL = ['/', '/index.html', '/manifest.json']
 
 self.addEventListener('install', (event) => {
@@ -22,12 +22,27 @@ self.addEventListener('activate', (event) => {
   )
 })
 
+// Caminhos dinâmicos que NUNCA devem ser cacheados (dados sempre frescos):
+// funções Netlify (checkout, status de assinatura, IA, webhook) e rotas de auth.
+// Cachear isso causava status de assinatura/checkout desatualizado e "login preso".
+function isDynamic(pathname) {
+  return (
+    pathname.startsWith('/.netlify/functions/') ||
+    pathname.startsWith('/auth/') ||
+    pathname.startsWith('/api/')
+  )
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
   // Só intercepta GET do próprio domínio. APIs (Supabase/Gemini) passam direto.
   if (request.method !== 'GET' || url.origin !== self.location.origin) return
+
+  // Conteúdo dinâmico (funções/assinatura/auth): deixa o navegador buscar direto,
+  // sem cache do SW. Evita servir status de pagamento/sessão desatualizado.
+  if (isDynamic(url.pathname)) return
 
   event.respondWith(
     fetch(request)

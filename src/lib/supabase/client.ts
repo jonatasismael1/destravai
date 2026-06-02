@@ -12,11 +12,38 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(msg)
 }
 
+// Lock de autenticação com TIMEOUT.
+// O supabase-js serializa o acesso ao token com navigator.locks (Web Locks). O
+// lock padrão espera INDEFINIDAMENTE — e em alguns PWAs/navegadores ele não é
+// liberado, travando getSession() para sempre: o app loga e fica "carregando…"
+// sem entrar. Aqui mantemos a serialização entre abas, mas com teto de espera:
+// se o lock não vier em 5s, seguimos SEM ele (em vez de congelar o app).
+async function authLockWithTimeout<R>(
+  name: string,
+  _acquireTimeout: number,
+  fn: () => Promise<R>,
+): Promise<R> {
+  if (typeof navigator === 'undefined' || !navigator.locks?.request) return fn()
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5000)
+  try {
+    return await navigator.locks.request(name, { signal: controller.signal }, fn)
+  } catch (err) {
+    // Só roda sem lock se foi o TIMEOUT do lock (AbortError). Erro real do fn propaga
+    // (evita executar a operação duas vezes).
+    if (err instanceof Error && err.name === 'AbortError') return fn()
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    lock: authLockWithTimeout,
   },
 })
 

@@ -268,6 +268,24 @@ export default function Configuracoes() {
         </div>
       </div>
 
+      {/* Perfil — logo abaixo da foto: é o que mais se acessa nas Configurações
+          (editar essência e ver progresso), então vem por ordem de prioridade. */}
+      <div className="space-y-2">
+        <SectionHeader title="Perfil" />
+        <MenuItem
+          icon={User}
+          label="Editar essência"
+          sublabel="Tom de voz, pilares, serviços"
+          onClick={() => navigate('/essencia')}
+        />
+        <MenuItem
+          icon={TrendingUp}
+          label="Meu progresso"
+          sublabel="Consistência, níveis e equilíbrio de conteúdo"
+          onClick={() => navigate('/espaco')}
+        />
+      </div>
+
       {/* Plan */}
       <div>
         <SectionHeader title="Plano" />
@@ -383,23 +401,6 @@ export default function Configuracoes() {
           label="Falar com o suporte"
           sublabel={SUPPORT_EMAIL}
           onClick={() => { window.location.href = `mailto:${SUPPORT_EMAIL}?subject=Suporte%20Destrava%C3%AD` }}
-        />
-      </div>
-
-      {/* Perfil */}
-      <div className="space-y-2">
-        <SectionHeader title="Perfil" />
-        <MenuItem
-          icon={User}
-          label="Editar essência"
-          sublabel="Tom de voz, pilares, serviços"
-          onClick={() => navigate('/essencia')}
-        />
-        <MenuItem
-          icon={TrendingUp}
-          label="Meu progresso"
-          sublabel="Consistência, níveis e equilíbrio de conteúdo"
-          onClick={() => navigate('/espaco')}
         />
       </div>
 

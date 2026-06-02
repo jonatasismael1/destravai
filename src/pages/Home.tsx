@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import {
   Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight,
-  Settings, Camera, Wand2, FileText, Copy, X,
+  Camera, Wand2, FileText, Copy, X,
   Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp, CalendarDays
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
@@ -528,27 +528,19 @@ export default function Home() {
   return (
     <div className="p-5 space-y-5 pb-8">
       {/* ── Header ─────────────────────────────────── */}
-      <div className="pt-4 flex items-start justify-between">
-        <div className="flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
-            {dayOfWeek} · {dayNum}
-          </p>
-          <h1 className="text-3xl font-extrabold tracking-tight leading-tight">
-            <span style={{ color: 'var(--text-primary)' }}>Olá, </span>
-            <span className="gradient-text">{firstName}</span>
-          </h1>
-          <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-            O que você quer postar hoje?
-          </p>
-        </div>
-        <button
-          onClick={() => navigate('/configuracoes')}
-          className="ml-3 w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 transition-all"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-          aria-label="Configurações"
-        >
-          <Settings size={16} style={{ color: 'var(--text-muted)' }} />
-        </button>
+      {/* Configurações agora vivem na navbar (acesso global), então a engrenagem
+          do topo foi removida para não duplicar o mesmo atalho na própria Home. */}
+      <div className="pt-4">
+        <p className="text-xs font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-muted)' }}>
+          {dayOfWeek} · {dayNum}
+        </p>
+        <h1 className="text-3xl font-extrabold tracking-tight leading-tight">
+          <span style={{ color: 'var(--text-primary)' }}>Olá, </span>
+          <span className="gradient-text">{firstName}</span>
+        </h1>
+        <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
+          O que você quer postar hoje?
+        </p>
       </div>
 
       {/* ── Frase motivacional do dia ──────────────── */}

@@ -1,18 +1,20 @@
 import { ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Sparkles, BookOpen, CalendarDays, NotebookPen } from 'lucide-react'
+import { Home, Sparkles, BookOpen, CalendarDays, NotebookPen, Settings } from 'lucide-react'
 import { useTheme } from '../context/ThemeContext'
 
-// Navbar enxuta: só o que o usuário usa todo dia, na ordem que conta a história
-// natural do produto — "o que faço hoje?" → criar → guardar/reusar → planejar →
-// acompanhar evolução. Essência saiu daqui (não é ação diária; vive em atalhos
-// na Home/Criar/Configurações) e Ranking vive dentro de Espaço (caminho único).
+// Navbar na ordem que conta a história natural do produto — "o que faço hoje?" →
+// criar → guardar/reusar → planejar → acompanhar evolução → ajustar. Essência saiu
+// daqui (não é ação diária; vive em atalhos na Home/Criar/Configurações) e Ranking
+// vive dentro de Espaço (caminho único). Configurações fica por último: acesso de
+// qualquer tela, sem disputar prioridade com as ações do dia a dia.
 const navItems = [
   { to: '/', icon: Home, label: 'Hoje' },
   { to: '/criar', icon: Sparkles, label: 'Criar' },
   { to: '/biblioteca', icon: BookOpen, label: 'Biblioteca' },
   { to: '/calendario', icon: CalendarDays, label: 'Agenda' },
   { to: '/espaco', icon: NotebookPen, label: 'Espaço' },
+  { to: '/configuracoes', icon: Settings, label: 'Ajustes' },
 ]
 
 function DarkOrbs() {

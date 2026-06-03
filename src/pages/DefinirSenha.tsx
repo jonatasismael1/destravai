@@ -51,22 +51,21 @@ export default function DefinirSenha() {
   }
 
   return (
-    <div className="overflow-y-auto" style={{ height: '100svh', background: '#0B0B12' }}>
+    <div className="overflow-y-auto" style={{ height: '100svh', background: 'var(--bg-base)' }}>
       <div className="flex flex-col items-center justify-center min-h-full p-6">
       <div className="w-full max-w-sm">
         <div className="text-center mb-6">
-          <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-20 mx-auto mb-4"
-            style={{ filter: 'drop-shadow(0 0 24px rgba(124,92,255,0.4))' }} />
+          <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-16 mx-auto mb-4" />
         </div>
 
         {!ready ? (
           <div className="text-center py-10">
-            <Loader2 size={28} className="animate-spin mx-auto" style={{ color: '#9B8CFF' }} />
+            <Loader2 size={28} className="animate-spin mx-auto" style={{ color: 'var(--brand)' }} />
           </div>
         ) : done ? (
           <div className="glass p-6 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 mx-auto"
-              style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)' }}>
+              style={{ background: 'var(--success)' }}>
               <CheckCircle2 size={26} className="text-white" />
             </div>
             <h1 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Senha criada!</h1>
@@ -90,7 +89,7 @@ export default function DefinirSenha() {
         ) : (
           <div className="glass p-6">
             <div className="flex items-center gap-2 mb-1">
-              <KeyRound size={18} style={{ color: '#A78BFA' }} />
+              <KeyRound size={18} style={{ color: 'var(--brand)' }} />
               <h1 className="text-xl font-extrabold" style={{ color: 'var(--text-primary)' }}>Crie sua senha</h1>
             </div>
             <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>

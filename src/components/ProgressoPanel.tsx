@@ -208,10 +208,9 @@ export default function ProgressoPanel() {
       {/* Popup do Dia 7 */}
       {showDay7Popup && <Day7Popup onClose={handleDay7PopupClose} />}
 
-      {/* Level card */}
-      <div className="relative rounded-2xl p-5 overflow-hidden app-card">
-        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
-
+      {/* Level card — hero da tela, com acento de marca tonal */}
+      <div className="relative rounded-2xl p-5 overflow-hidden"
+        style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
         <div className="flex items-center gap-3 mb-4 relative">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
             style={{ background: 'var(--brand)' }}>
@@ -420,7 +419,8 @@ export default function ProgressoPanel() {
 
       {/* Grupos & Ranking — leva para a competição de constância entre amigos */}
       <button onClick={() => navigate('/grupos')}
-        className="w-full list-item p-5 gap-4 text-left active:scale-[0.98]">
+        className="w-full flex items-center rounded-2xl p-5 gap-4 text-left active:scale-[0.98]"
+        style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
           style={{ background: 'var(--brand)' }}>
           <Users size={22} className="text-white" />

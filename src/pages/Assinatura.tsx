@@ -8,11 +8,10 @@ export default function Assinatura() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-[100svh] overflow-y-auto" style={{ background: '#0B0B12' }}>
+    <div className="min-h-[100svh] overflow-y-auto" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-md mx-auto px-5 py-10">
         <div className="text-center mb-8">
-          <img src="/destravai-logo-completa.png" alt="Destravai" className="h-24 mx-auto mb-4"
-            style={{ filter: 'drop-shadow(0 0 24px rgba(124,92,255,0.4))' }} />
+          <img src="/destravai-logo-completa.png" alt="Destravai" className="h-20 mx-auto mb-4" />
           <h1 className="text-2xl font-extrabold tracking-tight mb-2" style={{ color: 'var(--text-primary)' }}>
             Assine o Destravai Completo
           </h1>
@@ -29,14 +28,10 @@ export default function Assinatura() {
           </div>
         )}
 
-        <div className="rounded-3xl p-5 mb-6"
-          style={{
-            background: 'linear-gradient(135deg, rgba(124,92,255,0.18), rgba(167,139,250,0.08))',
-            border: '1px solid rgba(124,92,255,0.5)',
-            boxShadow: '0 0 24px rgba(124,92,255,0.15)',
-          }}>
+        <div className="rounded-2xl p-5 mb-6"
+          style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
           <div className="mb-4">
-            <p className="text-xs font-black uppercase tracking-wider mb-1" style={{ color: '#A78BFA' }}>
+            <p className="text-xs font-black uppercase tracking-wider mb-1" style={{ color: 'var(--brand)' }}>
               {COMPLETE_PLAN.name}
             </p>
             <p className="font-extrabold text-3xl" style={{ color: 'var(--text-primary)' }}>

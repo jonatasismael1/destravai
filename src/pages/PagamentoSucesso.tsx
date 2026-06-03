@@ -39,12 +39,12 @@ export default function PagamentoSucesso() {
   useEffect(() => { if (confirmed) setChecking(false) }, [confirmed])
 
   return (
-    <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: '#0B0B12' }}>
+    <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: 'var(--bg-base)' }}>
       <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6"
-        style={{ background: (confirmed || !loggedIn) ? 'linear-gradient(135deg, #53D6A1, #3BB88A)' : 'rgba(124,92,255,0.15)', border: '1px solid rgba(124,92,255,0.3)' }}>
+        style={(confirmed || !loggedIn) ? { background: 'var(--success)' } : { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
         {(confirmed || !loggedIn)
           ? <CheckCircle2 size={30} className="text-white" />
-          : <Loader2 size={28} style={{ color: '#9B8CFF' }} className="animate-spin" />}
+          : <Loader2 size={28} style={{ color: 'var(--brand)' }} className="animate-spin" />}
       </div>
 
       {!loggedIn ? (

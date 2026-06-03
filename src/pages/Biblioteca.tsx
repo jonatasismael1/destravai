@@ -640,7 +640,7 @@ export default function Biblioteca() {
           {sortedSections.map(section => (
             <div key={section}>
               <h2 className="text-sm font-extrabold uppercase tracking-widest mb-3"
-                style={{ color: 'var(--text-muted)' }}>
+                style={{ color: 'var(--brand)' }}>
                 {section}
               </h2>
               <div className="space-y-2.5">

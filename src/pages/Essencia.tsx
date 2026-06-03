@@ -372,9 +372,9 @@ export default function Essencia() {
               disabled={saving || generating}
               className="flex items-center gap-2 text-sm font-bold px-3 py-2 rounded-2xl transition-all duration-300"
               style={saved ? {
-                background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', color: 'white',
+                background: 'var(--success)', color: 'white',
               } : {
-                background: 'var(--bg-card)', border: '1px solid var(--border-bright)', color: 'var(--text-secondary)',
+                background: 'var(--bg-surface)', border: '1px solid var(--border-strong)', color: 'var(--text-secondary)',
               }}
             >
               {saving ? <span className="w-4 h-4 border border-current border-t-transparent rounded-full animate-spin" /> : <Save size={14} />}
@@ -386,11 +386,7 @@ export default function Essencia() {
               onClick={handleGenerateWithAI}
               disabled={saving || generating}
               className="flex items-center gap-2 text-sm font-bold px-3 py-2 rounded-2xl transition-all duration-300"
-              style={{
-                background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-                boxShadow: '0 0 20px rgba(109,93,246,0.4)',
-                color: 'white',
-              }}
+              style={{ background: 'var(--brand)', color: 'white' }}
             >
               {generating
                 ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -438,11 +434,10 @@ export default function Essencia() {
               onClick={() => setActiveTab(value)}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all duration-200"
               style={activeTab === value ? {
-                background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))',
-                border: '1px solid rgba(109,93,246,0.4)', color: '#9B8CFF',
-                boxShadow: '0 0 12px rgba(109,93,246,0.2)',
+                background: 'var(--brand-soft)',
+                border: '1px solid var(--brand-border)', color: 'var(--brand)',
               } : {
-                background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)',
+                background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)',
               }}
             >
               {icon}{label}

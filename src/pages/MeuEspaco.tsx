@@ -189,7 +189,8 @@ export default function MeuEspaco() {
         <>
         {/* Banner de setup */}
         {showSetupBanner && (
-          <div className="app-card rounded-2xl p-4 mb-5 relative overflow-hidden">
+          <div className="rounded-2xl p-4 mb-5 relative overflow-hidden"
+            style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
             <div className="flex gap-3 items-start">
               <span className="text-2xl mt-0.5">🌱</span>
               <div className="flex-1">
@@ -627,7 +628,7 @@ export default function MeuEspaco() {
                     <div
                       key={i}
                       className="flex gap-3 px-4 py-3 rounded-2xl"
-                      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+                      style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}
                     >
                       <span
                         className="text-lg shrink-0 mt-0.5"
@@ -660,7 +661,7 @@ export default function MeuEspaco() {
                 )}
                 <div
                   className="rounded-2xl p-4 mb-4"
-                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
+                  style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}
                 >
                   <p className="text-xs leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
                     {hasSetup

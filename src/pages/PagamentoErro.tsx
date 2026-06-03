@@ -5,10 +5,10 @@ export default function PagamentoErro() {
   const navigate = useNavigate()
 
   return (
-    <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: '#0B0B12' }}>
+    <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: 'var(--bg-base)' }}>
       <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6"
-        style={{ background: 'rgba(255,122,107,0.12)', border: '1px solid rgba(255,122,107,0.3)' }}>
-        <XCircle size={30} style={{ color: '#FF7A6B' }} />
+        style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)' }}>
+        <XCircle size={30} style={{ color: 'var(--danger)' }} />
       </div>
 
       <h1 className="text-2xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>

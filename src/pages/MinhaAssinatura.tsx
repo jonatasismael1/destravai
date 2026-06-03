@@ -6,14 +6,14 @@ import { cancelSubscription } from '../services/subscriptionService'
 import { ArrowLeft, ShieldCheck, AlertTriangle, Loader2 } from 'lucide-react'
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
-  active:   { label: 'Ativa', color: '#53D6A1' },
-  trialing: { label: 'Periodo de teste', color: '#9B8CFF' },
-  pending:  { label: 'Aguardando pagamento', color: '#FFB547' },
-  past_due: { label: 'Pagamento atrasado', color: '#FF7A6B' },
-  overdue:  { label: 'Pagamento atrasado', color: '#FF7A6B' },
+  active:   { label: 'Ativa', color: 'var(--success)' },
+  trialing: { label: 'Periodo de teste', color: 'var(--brand)' },
+  pending:  { label: 'Aguardando pagamento', color: 'var(--warning)' },
+  past_due: { label: 'Pagamento atrasado', color: 'var(--danger)' },
+  overdue:  { label: 'Pagamento atrasado', color: 'var(--danger)' },
   canceled: { label: 'Cancelada', color: 'var(--text-muted)' },
   refunded: { label: 'Reembolsada', color: 'var(--text-muted)' },
-  failed:   { label: 'Falha no pagamento', color: '#FF7A6B' },
+  failed:   { label: 'Falha no pagamento', color: 'var(--danger)' },
 }
 
 function fmt(date?: string | null) {
@@ -57,9 +57,9 @@ export default function MinhaAssinatura() {
   const st = sub?.status ? STATUS_LABEL[sub.status] : null
 
   return (
-    <div className="min-h-[100svh] overflow-y-auto" style={{ background: '#0B0B12' }}>
+    <div className="min-h-[100svh] overflow-y-auto" style={{ background: 'var(--bg-base)' }}>
       <div className="max-w-md mx-auto px-5 py-8">
-        <button onClick={() => navigate('/')} className="inline-flex items-center gap-2 text-sm font-bold mb-8" style={{ color: '#A78BFA' }}>
+        <button onClick={() => navigate('/')} className="inline-flex items-center gap-2 text-sm font-bold mb-8" style={{ color: 'var(--brand)' }}>
           <ArrowLeft size={16} /> Voltar
         </button>
 
@@ -119,7 +119,7 @@ export default function MinhaAssinatura() {
                   </button>
                   <button onClick={handleCancel} disabled={loading}
                     className="flex-1 py-3 rounded-2xl font-bold text-sm text-white disabled:opacity-50"
-                    style={{ background: 'linear-gradient(135deg, #FF7A6B, #E85D4E)' }}>
+                    style={{ background: 'var(--danger)' }}>
                     {loading ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Confirmar cancelamento'}
                   </button>
                 </div>

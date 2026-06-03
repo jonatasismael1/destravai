@@ -17,6 +17,7 @@ interface Props {
 type Phase = 'setup' | 'recording' | 'preview'
 const ZOOM_LEVELS = [1, 2, 3, 5] as const
 type RecordingSize = { width: number; height: number; videoBitsPerSecond: number }
+type RecordingCodec = 'compatible' | 'hevc'
 
 // Classifica um rótulo (o texto antes do primeiro ":") como FALA (o que dizer)
 // ou INSTRUÇÃO (ação, visual, câmera, dica…). Retorna null se não for um rótulo
@@ -80,11 +81,11 @@ function formatTimer(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
 
-function getBestMimeType() {
+function getBestMimeType(codec: RecordingCodec) {
   // H.264 first: it is the format Chrome/WebView can preview inline reliably.
   // HEVC can save with good quality, but many mobile browsers cannot play it in
   // a <video> element even when the Android gallery can.
-  const candidates = [
+  const compatibleCandidates = [
     'video/mp4;codecs="avc1.640028,mp4a.40.2"',      // H.264 High Profile + AAC
     'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',      // H.264 Main Profile
     'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',      // H.264 Baseline (fallback)
@@ -92,10 +93,14 @@ function getBestMimeType() {
     'video/webm;codecs=vp8,opus',
     'video/webm',
     'video/mp4',
-    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC fallback
+  ]
+  const hevcCandidates = [
+    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC
     'video/mp4;codecs="hev1.1.6.L120.90,mp4a.40.2"',
     'video/mp4;codecs="hvc1,mp4a.40.2"',
+    ...compatibleCandidates,
   ]
+  const candidates = codec === 'hevc' ? hevcCandidates : compatibleCandidates
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
 }
 
@@ -224,6 +229,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Redução de ruído do navegador. Ligada por padrão (seguro em qualquer ambiente);
   // o usuário pode desligar nos ajustes para uma voz mais natural/encorpada.
   const [reduceNoise, setReduceNoise] = useState(true)
+  const [recordingCodec, setRecordingCodec] = useState<RecordingCodec>('compatible')
   // Microfones disponíveis e o selecionado (ex.: microfone USB externo).
   const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
   const [selectedMicId, setSelectedMicId] = useState<string | null>(null)
@@ -460,7 +466,7 @@ export default function StudioModal({ idea, onClose }: Props) {
     previewChunksRef.current = []
     previewBlobPromiseRef.current = Promise.resolve(null)
     const canvas = previewCanvasRef.current
-    const mimeType = getBestMimeType()
+    const mimeType = getBestMimeType(recordingCodec)
     const canvasStream = canvas.captureStream(30)
     const audioTracks = streamRef.current.getAudioTracks()
     const finalStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks])
@@ -900,6 +906,34 @@ export default function StudioModal({ idea, onClose }: Props) {
               </div>
               <input type="range" min={0.3} max={1} step={0.05} value={cardOpacity}
                 onChange={e => setCardOpacity(Number(e.target.value))} className="w-full" style={{ accentColor: '#7C5CFF' }} />
+            </div>
+
+            <div className="pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex justify-between mb-2">
+                <span className="text-sm font-semibold text-white/80">Qualidade do vídeo</span>
+                <span className="text-sm font-bold" style={{ color: '#9B8CFF' }}>
+                  {recordingCodec === 'hevc' ? 'HEVC' : 'H.264'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-2xl p-1" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                {([
+                  ['compatible', 'Compatível'],
+                  ['hevc', 'Máxima HEVC'],
+                ] as const).map(([value, label]) => {
+                  const active = recordingCodec === value
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setRecordingCodec(value)}
+                      className="h-10 rounded-xl text-xs font-extrabold transition-colors"
+                      style={active
+                        ? { background: '#7C5CFF', color: '#fff' }
+                        : { background: 'transparent', color: 'rgba(255,255,255,0.62)' }}>
+                      {label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             {/* Áudio: redução de ruído (filtros de chamada) — desligar = voz mais natural */}

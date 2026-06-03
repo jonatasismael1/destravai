@@ -83,7 +83,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
       <div
         className="w-full max-w-md rounded-3xl"
         style={{
-          background: '#FFFFFF',
+          background: 'var(--bg-elevated)',
           maxHeight: 'calc(100dvh - max(env(safe-area-inset-top), 12px) - max(env(safe-area-inset-bottom), 12px))',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
@@ -92,28 +92,28 @@ export default function PersonalSetupModal({ onClose }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-5 pt-5 pb-3">
           <div>
-            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: '#6D5DF6' }}>
+            <p className="text-xs font-semibold tracking-widest uppercase" style={{ color: 'var(--brand)' }}>
               Etapa {step} de {totalSteps}
             </p>
-            <h2 className="text-xl font-bold mt-0.5" style={{ color: '#1A1625' }}>
+            <h2 className="text-xl font-bold mt-0.5" style={{ color: 'var(--text-primary)' }}>
               Seu espaço pessoal ✨
             </h2>
           </div>
           <button
             onClick={handleSkip}
             className="w-9 h-9 rounded-full flex items-center justify-center"
-            style={{ background: '#F0EEFF' }}
+            style={{ background: 'var(--bg-surface)' }}
           >
-            <X size={16} style={{ color: '#6D5DF6' }} />
+            <X size={16} style={{ color: 'var(--brand)' }} />
           </button>
         </div>
 
         {/* Progress bar */}
         <div className="px-5 mb-6">
-          <div className="h-1.5 rounded-full" style={{ background: '#F0EEFF' }}>
+          <div className="h-1.5 rounded-full" style={{ background: 'var(--bg-surface)' }}>
             <div
               className="h-1.5 rounded-full transition-all duration-500"
-              style={{ width: progressWidth, background: 'linear-gradient(90deg, #6D5DF6, #9B8CFF)' }}
+              style={{ width: progressWidth, background: 'linear-gradient(90deg, var(--brand), #9B8CFF)' }}
             />
           </div>
         </div>
@@ -123,10 +123,10 @@ export default function PersonalSetupModal({ onClose }: Props) {
           <div className="px-5 space-y-5">
             <div>
               <p className="text-2xl mb-1">👋</p>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1625' }}>
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 Como posso te chamar?
               </h3>
-              <p className="text-sm mb-3" style={{ color: '#6B6487' }}>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
                 Um apelido ou seu primeiro nome — o que preferir.
               </p>
               <input
@@ -136,22 +136,22 @@ export default function PersonalSetupModal({ onClose }: Props) {
                 placeholder="Ex: Ana, Dra. Lima, Rê..."
                 className="w-full rounded-2xl px-4 py-3 text-base outline-none transition-all"
                 style={{
-                  background: '#F6F5FF',
-                  border: '1.5px solid rgba(109,93,246,0.15)',
-                  color: '#1A1625',
+                  background: 'var(--bg-input)',
+                  border: '1.5px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
                 }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.5)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.15)'}
+                onFocus={e => e.currentTarget.style.borderColor = 'var(--brand)'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
               />
             </div>
 
             <div>
               <p className="text-2xl mb-1">🌱</p>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1625' }}>
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 O que está acontecendo na sua vida agora?
               </h3>
-              <p className="text-sm mb-3" style={{ color: '#6B6487' }}>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
                 Pode ser pessoal ou profissional. A Deby vai usar isso para criar conteúdos mais autênticos.
               </p>
               <textarea
@@ -161,14 +161,14 @@ export default function PersonalSetupModal({ onClose }: Props) {
                 rows={4}
                 className="w-full rounded-2xl px-4 py-3 text-sm outline-none resize-none transition-all"
                 style={{
-                  background: '#F6F5FF',
-                  border: '1.5px solid rgba(109,93,246,0.15)',
-                  color: '#1A1625',
+                  background: 'var(--bg-input)',
+                  border: '1.5px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
                   lineHeight: '1.6',
                 }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.5)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.15)'}
+                onFocus={e => e.currentTarget.style.borderColor = 'var(--brand)'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
               />
             </div>
           </div>
@@ -179,10 +179,10 @@ export default function PersonalSetupModal({ onClose }: Props) {
           <div className="px-5 space-y-5">
             <div>
               <p className="text-2xl mb-1">🎨</p>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1625' }}>
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 Seus hobbies e interesses
               </h3>
-              <p className="text-sm mb-4" style={{ color: '#6B6487' }}>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
                 O que você gosta fora do trabalho? Selecione ou adicione os seus.
               </p>
 
@@ -195,11 +195,11 @@ export default function PersonalSetupModal({ onClose }: Props) {
                       onClick={() => toggleHobby(h)}
                       className="px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
                       style={selected ? {
-                        background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                        background: 'var(--brand)',
                         color: '#fff',
                       } : {
-                        background: '#F0EEFF',
-                        color: '#6D5DF6',
+                        background: 'var(--bg-surface)',
+                        color: 'var(--brand)',
                       }}
                     >
                       {selected && '✓ '}{h}
@@ -215,7 +215,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
                     <span
                       key={h}
                       className="flex items-center gap-1 px-3 py-1.5 rounded-full text-sm font-medium"
-                      style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+                      style={{ background: 'var(--brand)', color: '#fff' }}
                     >
                       ✓ {h}
                       <button onClick={() => toggleHobby(h)} className="ml-0.5 opacity-70 hover:opacity-100">
@@ -235,16 +235,16 @@ export default function PersonalSetupModal({ onClose }: Props) {
                   placeholder="Adicionar outro..."
                   className="flex-1 rounded-2xl px-4 py-2.5 text-sm outline-none"
                   style={{
-                    background: '#F6F5FF',
-                    border: '1.5px solid rgba(109,93,246,0.15)',
-                    color: '#1A1625',
+                    background: 'var(--bg-input)',
+                    border: '1.5px solid var(--border-subtle)',
+                    color: 'var(--text-primary)',
                     fontFamily: 'inherit',
                   }}
                 />
                 <button
                   onClick={addCustomHobby}
                   className="px-4 py-2.5 rounded-2xl text-sm font-semibold"
-                  style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+                  style={{ background: 'var(--brand)', color: '#fff' }}
                 >
                   +
                 </button>
@@ -258,10 +258,10 @@ export default function PersonalSetupModal({ onClose }: Props) {
           <div className="px-5 space-y-5">
             <div>
               <p className="text-2xl mb-1">💎</p>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1625' }}>
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 Seus valores mais importantes
               </h3>
-              <p className="text-sm mb-4" style={{ color: '#6B6487' }}>
+              <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
                 O que guia sua vida e suas decisões? (escolha até 5)
               </p>
 
@@ -275,11 +275,11 @@ export default function PersonalSetupModal({ onClose }: Props) {
                       onClick={() => !maxReached && toggleValue(v)}
                       className="px-3.5 py-1.5 rounded-full text-sm font-medium transition-all duration-200"
                       style={selected ? {
-                        background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                        background: 'var(--brand)',
                         color: '#fff',
                       } : {
-                        background: maxReached ? '#F5F5F5' : '#F0EEFF',
-                        color: maxReached ? '#BBBBBB' : '#6D5DF6',
+                        background: maxReached ? 'var(--bg-surface)' : 'var(--bg-surface)',
+                        color: maxReached ? 'var(--text-muted)' : 'var(--brand)',
                       }}
                     >
                       {selected && '✓ '}{v}
@@ -291,10 +291,10 @@ export default function PersonalSetupModal({ onClose }: Props) {
 
             <div>
               <p className="text-2xl mb-1">🚀</p>
-              <h3 className="text-lg font-bold mb-1" style={{ color: '#1A1625' }}>
+              <h3 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
                 O que te motiva fora do trabalho?
               </h3>
-              <p className="text-sm mb-3" style={{ color: '#6B6487' }}>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
                 Uma frase, uma visão, um sonho. Qualquer coisa que te move.
               </p>
               <textarea
@@ -304,14 +304,14 @@ export default function PersonalSetupModal({ onClose }: Props) {
                 rows={3}
                 className="w-full rounded-2xl px-4 py-3 text-sm outline-none resize-none"
                 style={{
-                  background: '#F6F5FF',
-                  border: '1.5px solid rgba(109,93,246,0.15)',
-                  color: '#1A1625',
+                  background: 'var(--bg-input)',
+                  border: '1.5px solid var(--border-subtle)',
+                  color: 'var(--text-primary)',
                   fontFamily: 'inherit',
                   lineHeight: '1.6',
                 }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.5)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.15)'}
+                onFocus={e => e.currentTarget.style.borderColor = 'var(--brand)'}
+                onBlur={e => e.currentTarget.style.borderColor = 'var(--border-subtle)'}
               />
             </div>
           </div>
@@ -320,13 +320,13 @@ export default function PersonalSetupModal({ onClose }: Props) {
         {/* Buttons */}
         <div
           className="sticky bottom-0 z-10 px-5 pt-4 pb-5 flex gap-3"
-          style={{ background: '#FFFFFF', borderTop: '1px solid rgba(109,93,246,0.08)' }}
+          style={{ background: 'var(--bg-elevated)', borderTop: '1px solid var(--border-subtle)' }}
         >
           {step > 1 && (
             <button
               onClick={() => setStep(s => s - 1)}
               className="flex items-center gap-1.5 px-5 py-3 rounded-2xl font-semibold text-sm"
-              style={{ background: '#F0EEFF', color: '#6D5DF6' }}
+              style={{ background: 'var(--bg-surface)', color: 'var(--brand)' }}
             >
               <ChevronLeft size={16} />
               Voltar
@@ -337,7 +337,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
             <button
               onClick={() => setStep(s => s + 1)}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+              style={{ background: 'var(--brand)', color: '#fff' }}
             >
               Continuar
               <ChevronRight size={16} />
@@ -346,7 +346,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
             <button
               onClick={handleSave}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl font-bold text-sm"
-              style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+              style={{ background: 'var(--brand)', color: '#fff' }}
             >
               <Check size={16} />
               Salvar e começar
@@ -359,7 +359,7 @@ export default function PersonalSetupModal({ onClose }: Props) {
             <button
               onClick={handleSkip}
               className="text-sm"
-              style={{ color: '#A09BB8' }}
+              style={{ color: 'var(--text-muted)' }}
             >
               Pular por agora, faço depois
             </button>

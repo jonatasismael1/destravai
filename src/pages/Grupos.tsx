@@ -165,8 +165,7 @@ export default function Grupos() {
           <ArrowLeft size={16} /> Meus grupos
         </button>
 
-        <div className="rounded-3xl p-5 relative overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.2), rgba(155,140,255,0.08))', border: '1px solid rgba(109,93,246,0.3)' }}>
+        <div className="app-card rounded-2xl p-5 relative overflow-hidden">
           <h1 className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>{selected.name}</h1>
           <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Ranking da semana · por constância</p>
 
@@ -189,13 +188,10 @@ export default function Grupos() {
         </div>
 
         {/* Abas dentro do grupo: Ranking (competição) | Chat (conversa) */}
-        <div className="flex p-1 rounded-2xl gap-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="segmented-control">
           {([['ranking', 'Ranking', Trophy], ['chat', 'Chat', MessageSquare]] as const).map(([key, label, Icon]) => (
-            <button key={key} onClick={() => setGroupTab(key)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-1.5 transition-all duration-200"
-              style={groupTab === key
-                ? { background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }
-                : { color: 'var(--text-muted)' }}>
+            <button key={key} type="button" data-active={groupTab === key} onClick={() => setGroupTab(key)}
+              className="flex items-center justify-center gap-1.5">
               <Icon size={14} /> {label}
             </button>
           ))}
@@ -227,8 +223,9 @@ export default function Grupos() {
                 <button key={row.user_id} onClick={() => openProfile(row)}
                   className="w-full text-left rounded-2xl p-4 flex items-center gap-3 transition-all active:scale-[0.98]"
                   style={{
-                    background: isMe ? 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.06))' : 'var(--bg-card)',
-                    border: isMe ? '1px solid rgba(109,93,246,0.35)' : '1px solid var(--border-color)',
+                    background: isMe ? 'var(--brand-soft)' : 'var(--bg-elevated)',
+                    border: isMe ? '1px solid var(--brand-border)' : '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--shadow-card)',
                   }}>
                   <span className="text-lg font-extrabold w-7 text-center flex-shrink-0" style={{ color: i < 3 ? '#F7B955' : 'var(--text-muted)' }}>
                     {medal(i)}
@@ -288,10 +285,9 @@ export default function Grupos() {
       </div>
 
       <div className="grid grid-cols-2 gap-2">
-        <button onClick={() => setShowCreate(true)} className="rounded-2xl p-4 text-left transition-all active:scale-95"
-          style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.2), rgba(155,140,255,0.08))', border: '1px solid rgba(109,93,246,0.3)' }}>
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: 'rgba(124,92,255,0.2)', border: '1px solid rgba(124,92,255,0.3)' }}>
-            <Plus size={18} style={{ color: '#9B8CFF' }} />
+        <button onClick={() => setShowCreate(true)} className="app-card rounded-2xl p-4 text-left transition-all active:scale-95">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+            <Plus size={18} style={{ color: 'var(--brand)' }} />
           </div>
           <span className="block text-sm font-extrabold" style={{ color: 'var(--text-primary)' }}>Criar grupo</span>
           <span className="block text-[11px] mt-0.5" style={{ color: 'var(--text-muted)' }}>Você convida os amigos</span>
@@ -312,10 +308,9 @@ export default function Grupos() {
           <span className="w-7 h-7 rounded-full animate-spin" style={{ border: '2px solid rgba(109,93,246,0.3)', borderTopColor: '#9B8CFF' }} />
         </div>
       ) : groups.length === 0 ? (
-        <div className="rounded-3xl p-8 flex flex-col items-center text-center gap-3"
-          style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.15)' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))' }}>
-            <Users size={24} style={{ color: '#9B8CFF' }} />
+        <div className="app-card rounded-2xl p-8 flex flex-col items-center text-center gap-3">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center" style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+            <Users size={24} style={{ color: 'var(--brand)' }} />
           </div>
           <div>
             <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Nenhum grupo ainda</p>
@@ -478,7 +473,7 @@ function GroupChat({ groupId, myId }: { groupId: string; myId?: string }) {
                 {!mine && <Avatar name={m.display_name} url={m.avatar_url} size={28} />}
                 <div className="max-w-[76%] rounded-2xl px-3 py-2"
                   style={{
-                    background: mine ? 'linear-gradient(135deg, #6D5DF6, #9B8CFF)' : 'var(--bg-card)',
+                    background: mine ? 'var(--brand)' : 'var(--bg-card)',
                     border: mine ? 'none' : '1px solid var(--border-color)',
                     borderBottomRightRadius: mine ? 4 : undefined,
                     borderBottomLeftRadius: mine ? undefined : 4,
@@ -515,7 +510,7 @@ function GroupChat({ groupId, myId }: { groupId: string; myId?: string }) {
         />
         <button onClick={handleSend} disabled={sending || !text.trim()}
           className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all active:scale-95"
-          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+          style={{ background: 'var(--brand)', color: '#fff' }}
           aria-label="Enviar mensagem">
           <Send size={17} />
         </button>
@@ -563,11 +558,10 @@ function ProfileSheet({ row, profile, loading, isMe, onClose }: {
   return (
     <div className="fixed inset-0 z-[150] flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className="rounded-t-3xl pb-10 max-h-[88vh] overflow-y-auto max-w-md w-full mx-auto"
-        style={{ background: 'var(--bg-primary)', borderTop: '1px solid var(--border-color)' }}>
+      <div className="bottom-sheet pb-10 max-h-[88vh] overflow-y-auto max-w-md w-full mx-auto">
 
-        {/* Cabeçalho com gradiente */}
-        <div className="p-5 relative" style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.06))' }}>
+        {/* Cabeçalho */}
+        <div className="p-5 relative" style={{ background: 'var(--brand-soft)', borderBottom: '1px solid var(--border-subtle)' }}>
           <button onClick={onClose} className="absolute top-4 right-4" style={{ color: 'var(--text-muted)' }} aria-label="Fechar"><X size={18} /></button>
           <div className="flex items-center gap-3">
             <Avatar name={name} url={profile?.avatar_url ?? row.avatar_url} size={64} />
@@ -609,8 +603,8 @@ function ProfileSheet({ row, profile, loading, isMe, onClose }: {
                 <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>dias seguidos agora</span>
               </div>
               <div className="rounded-2xl p-4 flex flex-col items-center gap-1"
-                style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.06))', border: '1px solid rgba(109,93,246,0.25)' }}>
-                <Zap size={22} style={{ color: '#9B8CFF' }} />
+                style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+                <Zap size={22} style={{ color: 'var(--brand)' }} />
                 <span className="text-2xl font-extrabold tabular-nums" style={{ color: 'var(--text-primary)' }}>{profile.week_xp}</span>
                 <span className="text-[11px] font-medium" style={{ color: 'var(--text-muted)' }}>XP nesta semana</span>
               </div>

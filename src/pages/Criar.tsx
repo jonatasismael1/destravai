@@ -123,7 +123,7 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
           <p className="text-xs leading-relaxed" style={{ color: '#9B8CFF' }}>{hashtags.join(' ')}</p>
         </div>
         <button onClick={handleCopy} className="btn-primary w-full py-3 text-sm"
-          style={copied ? { background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 0 20px rgba(83,214,161,0.4)' } : {}}>
+          style={copied ? { background: 'var(--success)' } : {}}>
           {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar legenda + hashtags</>}
         </button>
       </div>
@@ -157,16 +157,8 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
 
   return (
     <div className="space-y-4 animate-fade-up">
-      <div
-        className="relative rounded-3xl overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(155,140,255,0.06))',
-          border: '1px solid rgba(109,93,246,0.25)',
-          boxShadow: '0 0 40px rgba(109,93,246,0.1), 0 8px 32px rgba(0,0,0,0.4)',
-        }}
-      >
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.7), transparent)' }} />
+      <div className="relative rounded-2xl overflow-hidden app-card">
+        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
 
         <div className="p-5">
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -199,7 +191,7 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
                       <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
                       <button onClick={() => onRecord(storyIdea)}
                         className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
-                        style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
+                        style={{ background: 'var(--brand)', color: '#fff' }}>
                         <Camera size={12} /> Gravar este
                       </button>
                     </div>
@@ -227,7 +219,7 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
 
           <div className="flex gap-2">
             <button onClick={handleCopy} className="btn-primary flex-1 py-2.5 text-sm"
-              style={copied ? { background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 0 20px rgba(83,214,161,0.4)' } : {}}>
+              style={copied ? { background: 'var(--success)' } : {}}>
               {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar roteiro</>}
             </button>
             <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
@@ -294,11 +286,10 @@ function PersonalizedCTABrowser() {
   if (!generated) {
     return (
       <div className="space-y-4">
-        <div className="rounded-3xl p-5 text-center space-y-3"
-          style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(155,140,255,0.06))', border: '1px solid rgba(109,93,246,0.2)' }}>
+        <div className="app-card rounded-2xl p-5 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto"
-            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))' }}>
-            <Zap size={22} style={{ color: '#9B8CFF' }} />
+            style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+            <Zap size={22} style={{ color: 'var(--brand)' }} />
           </div>
           <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>CTAs do seu jeito</p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
@@ -508,11 +499,10 @@ export default function Criar() {
           personalizados com ela preenchida. (Essência saiu da navbar.) */}
       {!profile?.pillars?.length && (
         <button onClick={() => navigate('/essencia')}
-          className="w-full rounded-2xl p-4 flex items-center gap-3 text-left transition-all active:scale-[0.99]"
-          style={{ background: 'linear-gradient(135deg, rgba(247,185,85,0.12), rgba(255,122,107,0.06))', border: '1px solid rgba(247,185,85,0.3)' }}>
+          className="w-full list-item text-left">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)' }}>
-            <Star size={17} style={{ color: '#F7B955' }} />
+            style={{ background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.28)' }}>
+            <Star size={17} style={{ color: 'var(--warning)' }} />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Melhore sua Essência</p>
@@ -526,7 +516,7 @@ export default function Criar() {
 
       {/* Tab switcher — 3 abas principais (ações do dia a dia). CTAs saíram daqui
           para não disputar espaço: viraram uma entrada secundária no fim do Roteiro. */}
-      <div className="flex gap-1 p-1 rounded-2xl overflow-x-auto scrollbar-hide" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+      <div className="segmented-control">
         {([
           { key: 'criar', label: 'Roteiro', Icon: Sparkles },
           { key: 'livre', label: 'Momento livre', Icon: Coffee },
@@ -534,13 +524,10 @@ export default function Criar() {
         ] as const).map(({ key, label, Icon }) => (
           <button
             key={key}
+            type="button"
+            data-active={activeTab === key}
             onClick={() => setActiveTab(key)}
-            className="flex-1 min-w-[88px] py-2.5 rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all duration-200 whitespace-nowrap"
-            style={activeTab === key ? {
-              background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-              color: '#fff',
-              boxShadow: '0 4px 16px rgba(109,93,246,0.4)',
-            } : { color: 'var(--text-muted)' }}
+            className="flex items-center justify-center gap-1.5 whitespace-nowrap"
           >
             <Icon size={13} /> {label}
           </button>
@@ -558,10 +545,9 @@ export default function Criar() {
 
       {/* ── Aba: Momento livre ── */}
       {activeTab === 'livre' && <>
-        <div className="rounded-3xl p-5 space-y-1"
-          style={{ background: 'linear-gradient(135deg, rgba(247,185,85,0.1), rgba(255,122,107,0.06))', border: '1px solid rgba(247,185,85,0.25)' }}>
+        <div className="app-card rounded-2xl p-5 space-y-1">
           <p className="font-extrabold text-base flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <Coffee size={16} style={{ color: '#F7B955' }} /> Fala o que está na sua cabeça
+            <Coffee size={16} style={{ color: 'var(--warning)' }} /> Fala o que está na sua cabeça
           </p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Um tema do momento, mesmo fora da sua área (uma opinião, um desabafo, algo do dia). A Deby mantém a sua voz, com tom leve — sem forçar venda.
@@ -620,10 +606,9 @@ export default function Criar() {
 
       {/* ── Aba: Meu roteiro (texto próprio → teleprompter) ── */}
       {activeTab === 'roteiro' && <>
-        <div className="rounded-3xl p-5 space-y-1"
-          style={{ background: 'linear-gradient(135deg, rgba(83,214,161,0.1), rgba(109,93,246,0.06))', border: '1px solid rgba(83,214,161,0.25)' }}>
+        <div className="app-card rounded-2xl p-5 space-y-1">
           <p className="font-extrabold text-base flex items-center gap-2" style={{ color: 'var(--text-primary)' }}>
-            <PenLine size={16} style={{ color: '#53D6A1' }} /> Já tenho o que falar
+            <PenLine size={16} style={{ color: 'var(--success)' }} /> Já tenho o que falar
           </p>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             Escreva ou cole o seu próprio roteiro e vá direto para o teleprompter gravar. Sem a Deby — do seu jeito.
@@ -678,23 +663,22 @@ export default function Criar() {
               onClick={() => { setContentType(value); setFormat(''); setResult(null) }}
               className="rounded-2xl p-3.5 text-center transition-all duration-300 active:scale-95"
               style={contentType === value ? {
-                background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.15))',
-                border: '1px solid rgba(109,93,246,0.4)',
-                boxShadow: '0 0 20px rgba(109,93,246,0.2)',
+                background: 'var(--brand-soft)',
+                border: '1px solid var(--brand-border)',
               } : {
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
               }}
             >
               <div className="flex justify-center mb-2">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center"
                   style={contentType === value
-                    ? { background: 'rgba(124,92,255,0.2)', border: '1px solid rgba(124,92,255,0.3)' }
-                    : { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)' }}>
-                  <Icon size={18} style={{ color: contentType === value ? '#9B8CFF' : 'var(--text-muted)' }} />
+                    ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
+                    : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                  <Icon size={18} style={{ color: contentType === value ? 'var(--brand)' : 'var(--text-muted)' }} />
                 </div>
               </div>
-              <span className="block text-sm font-extrabold" style={{ color: contentType === value ? '#9B8CFF' : 'var(--text-primary)' }}>{label}</span>
+              <span className="block text-sm font-extrabold" style={{ color: contentType === value ? 'var(--brand)' : 'var(--text-primary)' }}>{label}</span>
               <span className="block text-[10px] font-medium mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</span>
             </button>
           ))}

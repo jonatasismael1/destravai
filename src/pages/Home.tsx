@@ -696,9 +696,9 @@ export default function Home() {
             })}
           </div>
 
-          {/* Surpreenda-me — ação secundária nativa */}
+          {/* Surpreenda-me — ação tonal de delight (acento de marca, sem glow) */}
           {profile && (
-            <button onClick={handleSurprise} className="btn-secondary w-full text-sm">
+            <button onClick={handleSurprise} className="btn-tonal w-full text-sm">
               <Wand2 size={15} /> Surpreenda-me — destravar uma ideia agora
             </button>
           )}

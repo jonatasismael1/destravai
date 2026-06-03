@@ -185,13 +185,26 @@
   .btn-secondary {
     @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-200 select-none;
     background: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
+    border: 1px solid var(--border-strong);
     color: var(--text-primary);
     border-radius: var(--radius-btn);
     padding: 0.85rem 1.4rem;
   }
-  .btn-secondary:hover { border-color: var(--border-strong); }
+  .btn-secondary:hover { background: var(--bg-card-bright); border-color: var(--brand-border); }
   .btn-secondary:active { transform: scale(0.98); }
+
+  /* Botão tonal — ação de "convite"/delight (Surpreenda-me, sugestões da Deby).
+     Acento de marca suave: lê como tocável sem o glow das versões antigas. */
+  .btn-tonal {
+    @apply inline-flex items-center justify-center gap-2 font-bold transition-all duration-200 select-none;
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    color: var(--brand);
+    border-radius: var(--radius-btn);
+    padding: 0.85rem 1.4rem;
+  }
+  .btn-tonal:hover { background: rgba(109, 93, 246, 0.18); }
+  .btn-tonal:active { transform: scale(0.98); }
 
   .btn-ghost {
     @apply inline-flex items-center gap-2 font-medium rounded-xl px-4 py-2 transition-all duration-200;

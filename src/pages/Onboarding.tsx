@@ -72,12 +72,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
           className="h-1 rounded-full transition-all duration-500"
           style={{
             flexGrow: i === current ? 2 : 1,
-            background: i < current
-              ? 'linear-gradient(90deg, #6D5DF6, #9B8CFF)'
-              : i === current
-              ? 'linear-gradient(90deg, #7C5CFF, #A78BFA)'
-              : 'rgba(255,255,255,0.08)',
-            boxShadow: i <= current ? '0 0 8px rgba(109,93,246,0.4)' : 'none',
+            background: i <= current ? 'var(--brand)' : 'var(--border-strong)',
           }}
         />
       ))}
@@ -100,12 +95,12 @@ function MultiChip({ options, selected, onToggle }: {
             onClick={() => onToggle(opt)}
             className="chip transition-all duration-200"
             style={active ? {
-              background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-              color: 'white',
-              boxShadow: '0 0 14px rgba(109,93,246,0.4)',
+              background: 'var(--brand-soft)',
+              border: '1px solid var(--brand-border)',
+              color: 'var(--brand)',
             } : {
-              background: 'var(--bg-card)',
-              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border-subtle)',
               color: 'var(--text-secondary)',
             }}
           >
@@ -297,8 +292,7 @@ export default function Onboarding() {
           style={currentGoal === g ? {
             background: 'rgba(109,93,246,0.15)',
             border: '1px solid rgba(109,93,246,0.4)',
-            color: '#9B8CFF',
-            boxShadow: '0 0 16px rgba(109,93,246,0.15)',
+            color: 'var(--brand)',
           } : {
             background: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
@@ -321,19 +315,18 @@ export default function Onboarding() {
           onClick={() => setExposureLevel(value)}
           className="w-full text-left px-4 py-3.5 rounded-2xl transition-all duration-200 flex items-center gap-3"
           style={exposureLevel === value ? {
-            background: 'rgba(109,93,246,0.15)',
-            border: '1px solid rgba(109,93,246,0.4)',
-            boxShadow: '0 0 16px rgba(109,93,246,0.15)',
+            background: 'var(--brand-soft)',
+            border: '1px solid var(--brand-border)',
           } : {
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
+            background: 'var(--bg-elevated)',
+            border: '1px solid var(--border-subtle)',
           }}
         >
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
             style={exposureLevel === value
-              ? { background: 'rgba(109,93,246,0.25)', border: '1px solid rgba(109,93,246,0.3)' }
-              : { background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-color)' }}
+              ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
+              : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
           >
             <Icon size={18} style={{ color: exposureLevel === value ? '#9B8CFF' : 'var(--text-muted)' }} />
           </div>
@@ -435,13 +428,7 @@ export default function Onboarding() {
   ]
 
   return (
-    <div className="h-full flex flex-col max-w-md mx-auto relative overflow-y-auto" style={{ background: '#0D0B14', minHeight: '100svh' }}>
-      {/* Orb de fundo */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-20 right-0 w-[300px] h-[300px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(109,93,246,0.18) 0%, transparent 65%)', filter: 'blur(50px)' }} />
-      </div>
-
+    <div className="h-full flex flex-col max-w-md mx-auto relative overflow-y-auto" style={{ background: 'var(--bg-base)', minHeight: '100svh' }}>
       <div className="flex-1 p-6 overflow-y-auto relative z-10">
         {/* Header */}
         <div className="flex items-center justify-between mb-5 pt-2">
@@ -450,7 +437,6 @@ export default function Onboarding() {
               src="/destravai-icone.png"
               alt="Destravaí"
               className="w-8 h-8 rounded-xl object-cover"
-              style={{ filter: 'drop-shadow(0 0 8px rgba(124,92,255,0.5))' }}
             />
             <span className="font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravaí</span>
           </div>
@@ -488,7 +474,7 @@ export default function Onboarding() {
 
       {/* Navegação fixa no rodapé */}
       <div className="p-6 flex gap-3 relative z-10"
-        style={{ background: 'rgba(13,11,20,0.85)', borderTop: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(20px)' }}>
+        style={{ background: 'var(--nav-bg)', borderTop: '1px solid var(--nav-border)', backdropFilter: 'blur(20px)' }}>
         {step > 0 && (
           <button onClick={() => setStep(s => s - 1)} className="btn-secondary flex-1 gap-2">
             <ChevronLeft size={18} /> Voltar

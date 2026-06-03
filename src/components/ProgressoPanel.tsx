@@ -209,22 +209,12 @@ export default function ProgressoPanel() {
       {showDay7Popup && <Day7Popup onClose={handleDay7PopupClose} />}
 
       {/* Level card */}
-      <div
-        className="relative rounded-3xl p-5 overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(109,93,246,0.2), rgba(155,140,255,0.1))',
-          border: '1px solid rgba(109,93,246,0.3)',
-          boxShadow: '0 0 40px rgba(109,93,246,0.1)',
-        }}
-      >
-        <div className="absolute top-0 right-0 w-32 h-32 rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(109,93,246,0.3), transparent)', filter: 'blur(30px)' }} />
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.7), transparent)' }} />
+      <div className="relative rounded-2xl p-5 overflow-hidden app-card">
+        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
 
         <div className="flex items-center gap-3 mb-4 relative">
-          <div className="w-12 h-12 rounded-2xl flex items-center justify-center animate-float"
-            style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 0 24px rgba(109,93,246,0.5)' }}>
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--brand)' }}>
             <Award size={22} className="text-white" />
           </div>
           <div>
@@ -430,10 +420,9 @@ export default function ProgressoPanel() {
 
       {/* Grupos & Ranking — leva para a competição de constância entre amigos */}
       <button onClick={() => navigate('/grupos')}
-        className="w-full rounded-3xl p-5 flex items-center gap-4 text-left transition-all active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.07))', border: '1px solid rgba(109,93,246,0.3)' }}>
+        className="w-full list-item p-5 gap-4 text-left active:scale-[0.98]">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
-          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 0 20px rgba(109,93,246,0.4)' }}>
+          style={{ background: 'var(--brand)' }}>
           <Users size={22} className="text-white" />
         </div>
         <div className="flex-1 min-w-0">
@@ -457,10 +446,10 @@ export default function ProgressoPanel() {
             return (
               <div key={a.key} className="rounded-2xl p-3 text-center transition-all duration-300"
                 style={isOn ? {
-                  background: 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.08))',
-                  border: '1px solid rgba(109,93,246,0.35)',
+                  background: 'var(--brand-soft)',
+                  border: '1px solid var(--brand-border)',
                 } : {
-                  background: 'var(--bg-card)', border: '1px solid var(--border-color)', opacity: 0.55,
+                  background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)', opacity: 0.55,
                 }}
                 title={a.description}>
                 <div style={{ fontSize: 24, filter: isOn ? 'none' : 'grayscale(1)' }} className="mb-1 flex items-center justify-center" >
@@ -501,11 +490,10 @@ export default function ProgressoPanel() {
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300"
                 style={hasActivity ? {
-                  background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-                  boxShadow: '0 0 16px rgba(109,93,246,0.5)',
+                  background: 'var(--brand)',
                 } : {
-                  background: 'var(--bg-card)',
-                  border: '1px solid var(--border-color)',
+                  background: 'var(--bg-surface)',
+                  border: '1px solid var(--border-subtle)',
                 }}
               >
                 {hasActivity
@@ -596,11 +584,10 @@ export default function ProgressoPanel() {
 
       {/* Empty state */}
       {progress.missionsCompleted === 0 && (
-        <div className="rounded-3xl p-8 flex flex-col items-center text-center gap-4"
-          style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.15)' }}>
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center animate-float"
-            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))', border: '1px solid rgba(109,93,246,0.3)' }}>
-            <Zap size={24} style={{ color: '#9B8CFF' }} fill="#9B8CFF" />
+        <div className="app-card rounded-2xl p-8 flex flex-col items-center text-center gap-4">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+            <Zap size={24} style={{ color: 'var(--brand)' }} />
           </div>
           <div>
             <p className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>Comece sua jornada</p>

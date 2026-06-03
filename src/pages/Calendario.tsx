@@ -97,8 +97,7 @@ function IdeaPickerSheet({ ideas, onPick, onClose }: {
         <div className="px-5 pb-3">
           <button
             onClick={() => { navigate('/criar'); onClose() }}
-            className="w-full py-3 rounded-2xl font-bold text-sm flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.08))', border: '1px solid rgba(109,93,246,0.3)', color: '#9B8CFF' }}
+            className="btn-tonal w-full py-3 text-sm"
           >
             <Sparkles size={14} /> Gerar nova ideia
           </button>
@@ -426,11 +425,9 @@ export default function Calendario() {
           Planeje seu conteúdo
         </p>
 
-        <div className="flex p-1 mt-3 rounded-2xl gap-1" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="segmented-control mt-3">
           {(['week', 'month'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)}
-              className="flex-1 py-2 rounded-xl text-xs font-bold transition-all"
-              style={view === v ? { background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))', color: '#A78BFA' } : { color: 'var(--text-muted)' }}>
+            <button key={v} type="button" data-active={view === v} onClick={() => setView(v)}>
               {v === 'week' ? 'Semana' : 'Mês'}
             </button>
           ))}
@@ -494,12 +491,12 @@ export default function Calendario() {
                 border: '1px dashed rgba(109,93,246,0.6)',
                 boxShadow: '0 0 24px rgba(109,93,246,0.25)',
               } : isToday ? {
-                background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(155,140,255,0.06))',
-                border: '1px solid rgba(109,93,246,0.3)',
-                boxShadow: '0 0 20px rgba(109,93,246,0.1)',
+                background: 'var(--brand-soft)',
+                border: '1px solid var(--brand-border)',
               } : {
-                background: 'var(--bg-card)',
-                border: '1px solid var(--border-color)',
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border-subtle)',
+                boxShadow: 'var(--shadow-card)',
                 opacity: isPast && !isToday ? 0.65 : 1,
               }}
             >
@@ -508,9 +505,8 @@ export default function Calendario() {
                   <div
                     className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-extrabold"
                     style={isToday ? {
-                      background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                      background: 'var(--brand)',
                       color: '#fff',
-                      boxShadow: '0 0 12px rgba(109,93,246,0.4)',
                     } : {
                       background: 'var(--bg-input)',
                       color: 'var(--text-secondary)',
@@ -618,11 +614,11 @@ export default function Calendario() {
                     onClick={() => { setWeekRef(day); setView('week') }}
                     className="aspect-square rounded-xl flex flex-col items-center justify-center transition-all active:scale-95"
                     style={isToday ? {
-                      background: 'linear-gradient(135deg, rgba(109,93,246,0.25), rgba(155,140,255,0.12))',
-                      border: '1px solid rgba(109,93,246,0.4)',
+                      background: 'var(--brand-soft)',
+                      border: '1px solid var(--brand-border)',
                     } : {
-                      background: count > 0 ? 'var(--bg-card)' : 'transparent',
-                      border: '1px solid var(--border-color)',
+                      background: count > 0 ? 'var(--bg-elevated)' : 'transparent',
+                      border: '1px solid var(--border-subtle)',
                     }}
                   >
                     <span className="text-xs font-bold" style={{ color: isToday ? '#9B8CFF' : 'var(--text-primary)' }}>{day.getDate()}</span>

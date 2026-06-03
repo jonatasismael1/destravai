@@ -119,8 +119,9 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
     <div
       className="rounded-2xl overflow-hidden transition-all duration-300"
       style={{
-        background: item.is_favorite ? 'rgba(109,93,246,0.08)' : 'rgba(255,255,255,0.04)',
-        border: item.is_favorite ? '1px solid rgba(109,93,246,0.25)' : '1px solid var(--border-color)',
+        background: item.is_favorite ? 'var(--brand-soft)' : 'var(--bg-elevated)',
+        border: item.is_favorite ? '1px solid var(--brand-border)' : '1px solid var(--border-subtle)',
+        boxShadow: 'var(--shadow-card)',
       }}
     >
       <div className="p-4">
@@ -173,7 +174,7 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
                         <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
                         <button onClick={() => onRecord(storyIdea)}
                           className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full"
-                          style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
+                          style={{ background: 'var(--brand)', color: '#fff' }}>
                           <Camera size={11} /> Gravar este
                         </button>
                       </div>
@@ -220,7 +221,7 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
             <div className="flex gap-2">
               <button onClick={handleSaveEdit}
                 className="flex-1 py-2 rounded-xl text-xs font-bold"
-                style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: 'white' }}>
+                style={{ background: 'var(--brand)', color: 'white' }}>
                 Salvar
               </button>
               <button onClick={() => setEditing(false)}
@@ -627,9 +628,8 @@ export default function Biblioteca() {
 
       {/* Lista agrupada por seção */}
       {items.length === 0 ? (
-        <div className="rounded-3xl p-10 flex flex-col items-center text-center gap-4"
-          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <Bookmark size={32} style={{ color: '#9B8CFF', opacity: 0.5 }} />
+        <div className="app-card rounded-2xl p-10 flex flex-col items-center text-center gap-4">
+          <Bookmark size={32} style={{ color: 'var(--brand)', opacity: 0.5 }} />
           <div>
             <p className="font-extrabold" style={{ color: 'var(--text-primary)' }}>Nenhum resultado</p>
             <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>Tente remover os filtros ou busca.</p>

@@ -62,10 +62,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
       onClick={() => onChange(!value)}
       className="relative w-12 h-6 rounded-full flex-shrink-0 transition-all duration-300"
       style={{
-        background: value
-          ? 'linear-gradient(135deg, #6D5DF6, #9B8CFF)'
-          : 'rgba(255,255,255,0.1)',
-        boxShadow: value ? '0 0 12px rgba(109,93,246,0.5)' : 'none',
+        background: value ? 'var(--brand)' : 'var(--bg-surface)',
+        border: value ? 'none' : '1px solid var(--border-strong)',
       }}
     >
       <span
@@ -217,26 +215,13 @@ export default function Configuracoes() {
       </div>
 
       {/* Profile card */}
-      <div
-        className="relative rounded-3xl p-5 overflow-hidden"
-        style={{
-          background: 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.07))',
-          border: '1px solid rgba(109,93,246,0.25)',
-          boxShadow: '0 0 40px rgba(109,93,246,0.1)',
-        }}
-      >
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.6), transparent)' }} />
-
+      <div className="relative rounded-2xl p-5 overflow-hidden app-card">
         <div className="flex items-center gap-4">
           <button
             onClick={handlePickAvatar}
             disabled={uploadingAvatar}
-            className="relative w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 font-black text-2xl overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
-              boxShadow: '0 0 24px rgba(109,93,246,0.5)',
-            }}
+            className="relative w-16 h-16 rounded-2xl flex items-center justify-center flex-shrink-0 font-black text-2xl overflow-hidden text-white"
+            style={{ background: 'var(--brand)' }}
             aria-label="Trocar foto de perfil"
             title="Trocar foto"
           >
@@ -479,12 +464,7 @@ export default function Configuracoes() {
               </button>
               <button
                 onClick={handleResetDay}
-                className="flex-1 py-2.5 rounded-2xl text-sm font-extrabold transition-all duration-200"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))',
-                  border: '1px solid rgba(109,93,246,0.4)',
-                  color: '#9B8CFF',
-                }}
+                className="btn-tonal flex-1 py-2.5 text-sm"
               >
                 Sim, reiniciar
               </button>
@@ -570,9 +550,9 @@ export default function Configuracoes() {
                 onClick={handleLogout}
                 className="flex-1 py-2.5 rounded-2xl text-sm font-extrabold transition-all duration-200"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(255,122,107,0.3), rgba(255,100,80,0.2))',
-                  border: '1px solid rgba(255,122,107,0.4)',
-                  color: '#FF7A6B',
+                  background: 'rgba(239,68,68,0.12)',
+                  border: '1px solid rgba(239,68,68,0.3)',
+                  color: 'var(--danger)',
                 }}
               >
                 Sim, sair

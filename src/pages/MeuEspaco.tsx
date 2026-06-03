@@ -166,19 +166,9 @@ export default function MeuEspaco() {
         </div>
 
         {/* Abas: Espaço pessoal e Progresso (lugar único e organizado) */}
-        <div className="flex p-1 mb-5 rounded-2xl gap-1"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+        <div className="segmented-control mb-5">
           {([['espaco', 'Meu espaço'], ['progresso', 'Progresso'], ['biblioteca', 'Biblioteca']] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300"
-              style={tab === key ? {
-                background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))',
-                color: '#A78BFA',
-                border: '1px solid rgba(124,92,255,0.3)',
-              } : { color: 'var(--text-muted)' }}
-            >
+            <button key={key} type="button" data-active={tab === key} onClick={() => setTab(key)}>
               {label}
             </button>
           ))}
@@ -199,13 +189,7 @@ export default function MeuEspaco() {
         <>
         {/* Banner de setup */}
         {showSetupBanner && (
-          <div
-            className="rounded-2xl p-4 mb-5 relative overflow-hidden"
-            style={{
-              background: 'linear-gradient(135deg, rgba(109,93,246,0.12), rgba(155,140,255,0.08))',
-              border: `1px solid rgba(109,93,246,0.18)`,
-            }}
-          >
+          <div className="app-card rounded-2xl p-4 mb-5 relative overflow-hidden">
             <div className="flex gap-3 items-start">
               <span className="text-2xl mt-0.5">🌱</span>
               <div className="flex-1">
@@ -218,7 +202,7 @@ export default function MeuEspaco() {
                 <button
                   onClick={() => setShowSetup(true)}
                   className="px-4 py-2 rounded-xl text-xs font-bold"
-                  style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}
+                  style={{ background: 'var(--brand)', color: '#fff' }}
                 >
                   Configurar agora ✨
                 </button>
@@ -275,11 +259,9 @@ export default function MeuEspaco() {
                       onClick={() => setSelectedMood(m.emoji)}
                       className="flex flex-col items-center gap-1 py-2.5 rounded-2xl transition-all duration-200"
                       style={{
-                        background: selectedMood === m.emoji
-                          ? 'linear-gradient(135deg, rgba(109,93,246,0.18), rgba(155,140,255,0.12))'
-                          : 'var(--bg-input)',
+                        background: selectedMood === m.emoji ? 'var(--brand-soft)' : 'var(--bg-input)',
                         border: selectedMood === m.emoji
-                          ? '1.5px solid rgba(109,93,246,0.35)'
+                          ? '1.5px solid var(--brand-border)'
                           : '1.5px solid transparent',
                         transform: selectedMood === m.emoji ? 'scale(1.05)' : 'scale(1)',
                       }}
@@ -319,7 +301,7 @@ export default function MeuEspaco() {
                   disabled={!selectedMood}
                   className="w-full py-2.5 rounded-2xl text-sm font-bold transition-all duration-200"
                   style={selectedMood ? {
-                    background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                    background: 'var(--brand)',
                     color: '#fff',
                   } : {
                     background: 'var(--bg-card-bright)',
@@ -405,7 +387,7 @@ export default function MeuEspaco() {
                   disabled={!journalText.trim()}
                   className="w-full py-2.5 rounded-2xl text-sm font-bold transition-all"
                   style={journalText.trim() ? {
-                    background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                    background: 'var(--brand)',
                     color: '#fff',
                   } : {
                     background: 'var(--bg-card-bright)',
@@ -475,7 +457,7 @@ export default function MeuEspaco() {
                       <button
                         onClick={() => deleteJournalEntry(entry.id)}
                         className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center transition-all"
-                        style={{ color: '#D0CCEE' }}
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -528,7 +510,7 @@ export default function MeuEspaco() {
                 disabled={!ideaText.trim()}
                 className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 transition-all"
                 style={ideaText.trim() ? {
-                  background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                  background: 'var(--brand)',
                   color: '#fff',
                 } : {
                   background: 'var(--bg-card-bright)',
@@ -599,7 +581,7 @@ export default function MeuEspaco() {
                       </span>
                       <button
                         onClick={() => deletePersonalIdea(idea.id)}
-                        style={{ color: '#D0CCEE' }}
+                        style={{ color: 'var(--text-muted)' }}
                       >
                         <Trash2 size={13} />
                       </button>
@@ -620,7 +602,7 @@ export default function MeuEspaco() {
             <div className="flex items-center gap-2 mb-1">
               <div
                 className="w-7 h-7 rounded-xl flex items-center justify-center shrink-0"
-                style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.15), rgba(155,140,255,0.1))' }}
+                style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}
               >
                 <Sparkles size={14} style={{ color: C.brand }} />
               </div>
@@ -645,10 +627,7 @@ export default function MeuEspaco() {
                     <div
                       key={i}
                       className="flex gap-3 px-4 py-3 rounded-2xl"
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(109,93,246,0.06), rgba(155,140,255,0.04))',
-                        border: '1px solid rgba(109,93,246,0.1)',
-                      }}
+                      style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
                     >
                       <span
                         className="text-lg shrink-0 mt-0.5"
@@ -681,7 +660,7 @@ export default function MeuEspaco() {
                 )}
                 <div
                   className="rounded-2xl p-4 mb-4"
-                  style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.06), rgba(155,140,255,0.04))' }}
+                  style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
                 >
                   <p className="text-xs leading-relaxed text-center" style={{ color: 'var(--text-secondary)' }}>
                     {hasSetup
@@ -696,7 +675,7 @@ export default function MeuEspaco() {
                   style={{
                     background: loadingSuggestions
                       ? 'var(--bg-card-bright)'
-                      : 'linear-gradient(135deg, #6D5DF6, #9B8CFF)',
+                      : 'var(--brand)',
                     color: loadingSuggestions ? C.brand : '#fff',
                   }}
                 >

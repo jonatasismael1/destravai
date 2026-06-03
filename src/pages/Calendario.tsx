@@ -8,6 +8,7 @@ import { getLibraryItems } from '../services/libraryService'
 import { addCalendarItem, loadCalendarItems, removeCalendarItem, updateCalendarItemStatus, moveCalendarItem, toISODateKey } from '../services/userJourneyService'
 import { trackEvent } from '../services/eventsService'
 import StudioModal from '../components/StudioModal'
+import { useScreenTour } from '../context/OnboardingContext'
 
 const STATUS_META: Record<CalendarItem['status'], { label: string; color: string; bg: string }> = {
   planned:  { label: 'Planejado', color: '#9B8CFF', bg: 'rgba(124,92,255,0.15)' },
@@ -272,6 +273,8 @@ export default function Calendario() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverDay, setDragOverDay] = useState<string | null>(null)
 
+  useScreenTour('agenda')
+
   const weekDays = getWeekDays(weekRef)
   const today = dateKey(new Date())
   const startDay = dateKey(weekDays[0])
@@ -425,7 +428,7 @@ export default function Calendario() {
           Planeje seu conteúdo
         </p>
 
-        <div className="segmented-control mt-3">
+        <div className="segmented-control mt-3" data-tour="agenda-add">
           {(['week', 'month'] as const).map(v => (
             <button key={v} type="button" data-active={view === v} onClick={() => setView(v)}>
               {v === 'week' ? 'Semana' : 'Mês'}

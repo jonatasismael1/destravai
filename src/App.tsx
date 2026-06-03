@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { AppProvider, useApp } from './context/AppContext'
 import { ToastProvider } from './context/ToastContext'
 import { ThemeProvider } from './context/ThemeContext'
+import { OnboardingProvider } from './context/OnboardingContext'
 import Layout from './components/Layout'
 import InstallPrompt from './components/InstallPrompt'
 
@@ -146,8 +147,10 @@ export default function App() {
       <ThemeProvider>
         <AppProvider>
           <ToastProvider>
-            <AppRoutes />
-            <InstallPrompt />
+            <OnboardingProvider>
+              <AppRoutes />
+              <InstallPrompt />
+            </OnboardingProvider>
           </ToastProvider>
         </AppProvider>
       </ThemeProvider>

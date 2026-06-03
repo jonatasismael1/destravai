@@ -9,6 +9,7 @@ import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
+import { useScreenTour } from '../context/OnboardingContext'
 
 // Toda ideia gerada é salva na biblioteca do Supabase (não só no estado local).
 function ideaToLibraryType(type: ContentIdea['type']): LibraryItemType {
@@ -359,6 +360,8 @@ export default function Criar() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
 
+  useScreenTour('criar')
+
   const paramType = searchParams.get('type') as 'story' | 'sequence' | 'reel' | null
   const paramTheme = searchParams.get('theme') ?? ''
   const paramObjective = searchParams.get('objective') ?? ''
@@ -516,7 +519,7 @@ export default function Criar() {
 
       {/* Tab switcher — 3 abas principais (ações do dia a dia). CTAs saíram daqui
           para não disputar espaço: viraram uma entrada secundária no fim do Roteiro. */}
-      <div className="segmented-control">
+      <div className="segmented-control" data-tour="criar-tabs">
         {([
           { key: 'criar', label: 'Roteiro', Icon: Sparkles },
           { key: 'livre', label: 'Momento livre', Icon: Coffee },

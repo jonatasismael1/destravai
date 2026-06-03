@@ -41,6 +41,7 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<boolean> {
     return false
   }
 }
+import { useScreenTour } from '../context/OnboardingContext'
 import { getQuoteOfDay } from '../lib/quotes'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 import { trackEvent, loadActivationStatus } from '../services/eventsService'
@@ -333,6 +334,9 @@ export default function Home() {
   } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
+
+  // Tour de boas-vindas (apresenta o app) — dispara uma vez, após a essência.
+  useScreenTour('main')
 
   // Conteúdo do dia e flag de geração vêm do AppContext: assim sobrevivem à
   // navegação entre telas (a missão continua sendo gerada em segundo plano).

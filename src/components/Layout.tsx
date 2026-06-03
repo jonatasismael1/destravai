@@ -9,12 +9,12 @@ import { Home, Sparkles, CalendarDays, NotebookPen, Trophy, Settings } from 'luc
 // grupos, criar grupo e, dentro de cada um, ranking + chat. Configurações por
 // último: acesso global sem disputar prioridade com as ações do dia a dia.
 const navItems = [
-  { to: '/', icon: Home, label: 'Hoje' },
-  { to: '/criar', icon: Sparkles, label: 'Criar' },
-  { to: '/espaco', icon: NotebookPen, label: 'Espaço' },
-  { to: '/calendario', icon: CalendarDays, label: 'Agenda' },
-  { to: '/grupos', icon: Trophy, label: 'Ranking' },
-  { to: '/configuracoes', icon: Settings, label: 'Ajustes' },
+  { to: '/', icon: Home, label: 'Hoje', tour: 'nav-home' },
+  { to: '/criar', icon: Sparkles, label: 'Criar', tour: 'nav-criar' },
+  { to: '/espaco', icon: NotebookPen, label: 'Espaço', tour: 'nav-espaco' },
+  { to: '/calendario', icon: CalendarDays, label: 'Agenda', tour: 'nav-agenda' },
+  { to: '/grupos', icon: Trophy, label: 'Ranking', tour: 'nav-ranking' },
+  { to: '/configuracoes', icon: Settings, label: 'Ajustes', tour: 'nav-ajustes' },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -47,7 +47,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         }}
       >
         <div className="flex items-stretch justify-around px-1 pt-2 pb-1.5">
-          {navItems.map(({ to, icon: Icon, label }) => {
+          {navItems.map(({ to, icon: Icon, label, tour }) => {
             const isActive = to === '/'
               ? location.pathname === '/'
               : location.pathname.startsWith(to)
@@ -58,6 +58,7 @@ export default function Layout({ children }: { children: ReactNode }) {
               <NavLink
                 key={to}
                 to={to}
+                data-tour={tour}
                 className="relative flex flex-col items-center justify-start gap-1 flex-1 pt-1.5 pb-1 transition-colors duration-200"
               >
                 {/* Indicador superior do item ativo */}

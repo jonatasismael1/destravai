@@ -1,3 +1,22 @@
+// Telas que têm tour guiado. 'main' é o tour de boas-vindas (rodado na Home,
+// após a essência). As demais são tours curtos na primeira visita de cada tela.
+export type TourScreen =
+  | 'main'
+  | 'criar'
+  | 'espaco'
+  | 'biblioteca'
+  | 'teleprompter'
+  | 'ranking'
+  | 'agenda'
+  | 'essencia'
+  | 'configuracoes'
+
+// Progresso do tour por tela, salvo no perfil (jsonb). Chave ausente = não visto.
+// tour_version permite "reabrir" tudo ao lançar uma nova versão do tour.
+export type OnboardingStatus = Partial<Record<TourScreen, boolean>> & {
+  tour_version?: string
+}
+
 export interface DestravaiProfile {
   id: string
   name: string | null
@@ -7,6 +26,7 @@ export interface DestravaiProfile {
   plan: string
   onboarding_completed: boolean
   essence_completed: boolean
+  onboarding_status: OnboardingStatus | null
   created_at: string
   updated_at: string
 }

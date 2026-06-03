@@ -16,6 +16,7 @@ import { addCalendarItem, toISODateKey } from '../services/userJourneyService'
 import type { LibraryItem, LibraryItemType } from '../lib/supabase/types'
 import type { ContentIdea } from '../types'
 import StudioModal from '../components/StudioModal'
+import { useScreenTour } from '../context/OnboardingContext'
 import {
   Bookmark, Check, Filter, Search, Copy, ChevronRight,
   Star, Trash2, Edit3, RefreshCw, Sparkles, Lock, X, Camera, CalendarPlus, AlertCircle
@@ -365,6 +366,8 @@ export default function Biblioteca() {
   // Evita rodar a geração inicial duas vezes (StrictMode / re-render).
   const didInitRef = useRef(false)
 
+  useScreenTour('biblioteca')
+
   const loadItems = useCallback(async (reset = false, pageOverride?: number) => {
     try {
       // pageOverride evita o bug de usar a página antiga do closure após setPage
@@ -600,7 +603,7 @@ export default function Biblioteca() {
       )}
 
       {/* Busca */}
-      <div className="relative">
+      <div className="relative" data-tour="biblioteca-busca">
         <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
         <input className="input pl-10" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar na biblioteca..." />
       </div>

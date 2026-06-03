@@ -9,6 +9,7 @@ import Biblioteca from './Biblioteca'
 import type { JournalEntry, PersonalIdea } from '../types'
 import { generatePersonalSuggestions } from '../lib/ai'
 import { toISODateKey } from '../services/userJourneyService'
+import { useScreenTour } from '../context/OnboardingContext'
 
 // Paleta do Espaço — usa as CSS variables globais do tema
 const C = {
@@ -45,6 +46,8 @@ export default function MeuEspaco() {
   const profile = state.localProfile
   const { context, journal, ideas, todayMood, todayMoodNote, todayMoodDate } = personalSpace
   const today = toISODateKey()
+
+  useScreenTour('espaco')
 
   const [showSetup, setShowSetup] = useState(false)
   // Aba inicial pode vir da navegação (ex: clique na barra de constância da Home,
@@ -166,7 +169,7 @@ export default function MeuEspaco() {
         </div>
 
         {/* Abas: Espaço pessoal e Progresso (lugar único e organizado) */}
-        <div className="segmented-control mb-5">
+        <div className="segmented-control mb-5" data-tour="espaco-tabs">
           {([['espaco', 'Meu espaço'], ['progresso', 'Progresso'], ['biblioteca', 'Biblioteca']] as const).map(([key, label]) => (
             <button key={key} type="button" data-active={tab === key} onClick={() => setTab(key)}>
               {label}

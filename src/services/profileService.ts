@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase/client'
-import type { DestravaiProfile } from '../lib/supabase/types'
+import type { DestravaiProfile, OnboardingStatus } from '../lib/supabase/types'
 
 export async function getCurrentProfile(): Promise<DestravaiProfile | null> {
   const { data: { user } } = await supabase.auth.getUser()
@@ -81,4 +81,10 @@ export async function markOnboardingComplete(): Promise<void> {
 
 export async function markEssenceComplete(): Promise<void> {
   await updateProfile({ essence_completed: true })
+}
+
+// Persiste o progresso do tour guiado (objeto inteiro). A mesclagem com o estado
+// anterior é feita por quem chama (OnboardingContext), então aqui só gravamos.
+export async function updateOnboardingStatus(status: OnboardingStatus): Promise<DestravaiProfile> {
+  return updateProfile({ onboarding_status: status })
 }

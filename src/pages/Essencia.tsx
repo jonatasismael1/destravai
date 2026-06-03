@@ -4,6 +4,7 @@ import { getBrandEssence, saveBrandEssence, updateEssenceSummary } from '../serv
 import { generateEssenceSummary } from '../lib/ai'
 import type { BrandEssence } from '../lib/supabase/types'
 import { Save, Plus, X, User, MessageSquare, Layout, Briefcase, Shield, Clock, Sparkles, RefreshCw } from 'lucide-react'
+import { useScreenTour } from '../context/OnboardingContext'
 
 type Tab = 'perfil' | 'tom' | 'topicos' | 'servicos' | 'limites' | 'rotina'
 
@@ -104,6 +105,8 @@ export default function Essencia() {
   const [error, setError] = useState('')
   const [aiSummary, setAiSummary] = useState(state.essence?.ai_summary ?? '')
   const [summaryExpanded, setSummaryExpanded] = useState(false)
+
+  useScreenTour('essencia')
 
   useEffect(() => {
     if (!state.essence) {
@@ -427,7 +430,7 @@ export default function Essencia() {
         )}
 
         {/* Tabs */}
-        <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
+        <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide" data-tour="essencia-tabs">
           {TABS.map(({ value, label, icon }) => (
             <button
               key={value}

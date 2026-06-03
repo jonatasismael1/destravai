@@ -6,8 +6,9 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2, Camera,
+  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass,
 } from 'lucide-react'
+import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 import { createTester } from '../services/subscriptionService'
 import { uploadAvatar } from '../services/profileService'
@@ -83,6 +84,8 @@ export default function Configuracoes() {
   const { addToast } = useToast()
   const navigate = useNavigate()
   const { isDark, toggleTheme } = useTheme()
+  const { resetTours } = useOnboarding()
+  useScreenTour('configuracoes')
 
   const [notifDaily, setNotifDaily] = useState(notificationsEnabled())
   const [notifTips, setNotifTips] = useState(false)
@@ -345,6 +348,19 @@ export default function Configuracoes() {
           sublabel={SUPPORT_EMAIL}
           onClick={() => { window.location.href = `mailto:${SUPPORT_EMAIL}?subject=Suporte%20Destrava%C3%AD` }}
         />
+      </div>
+
+      {/* Ajuda / Tour guiado */}
+      <div className="space-y-2">
+        <SectionHeader title="Ajuda" />
+        <div data-tour="config-tour">
+          <MenuItem
+            icon={Compass}
+            label="Ver tour novamente"
+            sublabel="Refazer a apresentação guiada do app"
+            onClick={() => { resetTours(); navigate('/') }}
+          />
+        </div>
       </div>
 
       {/* Aparência */}

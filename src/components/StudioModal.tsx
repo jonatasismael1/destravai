@@ -7,6 +7,7 @@ import {
 import type { ContentIdea } from '../types'
 import { trackEvent } from '../services/eventsService'
 import { fixMp4Duration } from '../lib/fixMp4Duration'
+import { useScreenTour } from '../context/OnboardingContext'
 
 interface Props {
   idea: ContentIdea
@@ -176,6 +177,9 @@ const SAFE_BOTTOM = 'max(env(safe-area-inset-bottom), 18px)'
 const BRAND_REC = '#FF006E'
 
 export default function StudioModal({ idea, onClose }: Props) {
+  // Dica do teleprompter (passo central) na primeira gravação.
+  useScreenTour('teleprompter')
+
   const [phase, setPhase] = useState<Phase>('setup')
   const [hasCamera, setHasCamera] = useState(true)
   const [facing, setFacing] = useState<'user' | 'environment'>('user')

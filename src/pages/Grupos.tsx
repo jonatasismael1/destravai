@@ -11,6 +11,7 @@ import {
   listGroupMessages, sendGroupMessage,
   type Group, type RankingRow, type MemberProfile, type GroupMessage,
 } from '../services/groupsService'
+import { useScreenTour } from '../context/OnboardingContext'
 
 // Tela de grupos de constância: competição saudável por EXECUÇÃO (postou, gravou,
 // missão feita) — não por seguidores. Cada grupo é um convite que traz amigos.
@@ -24,6 +25,8 @@ export default function Grupos() {
   const { state } = useApp()
   const { addToast } = useToast()
   const myId = state.supabaseUser?.id
+
+  useScreenTour('ranking')
 
   const [groups, setGroups] = useState<Group[]>([])
   const [loading, setLoading] = useState(true)
@@ -284,7 +287,7 @@ export default function Grupos() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-2" data-tour="ranking-acoes">
         <button onClick={() => setShowCreate(true)} className="app-card rounded-2xl p-4 text-left transition-all active:scale-95">
           <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
             <Plus size={18} style={{ color: 'var(--brand)' }} />

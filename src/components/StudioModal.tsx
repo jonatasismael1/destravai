@@ -513,21 +513,22 @@ export default function StudioModal({ idea, onClose }: Props) {
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = async () => {
       const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
-      let blob = new Blob(chunksRef.current, { type })
+      const rawBlob = new Blob(chunksRef.current, { type })
       // Corrige a duração do MP4 (MediaRecorder grava fMP4 com duração quebrada,
       // o que fazia o Instagram cortar o vídeo em 3-4s). Medimos a duração real
       // pelo relógio. Para WebM/erros, devolve o original sem alterar.
       const realDuration = recordStartRef.current ? (Date.now() - recordStartRef.current) / 1000 : 0
-      blob = await fixMp4Duration(blob, realDuration)
-      blobRef.current = blob // download/galeria: arquivo completo (HEVC), inalterado.
+      const fixedBlob = await fixMp4Duration(rawBlob, realDuration)
+      blobRef.current = fixedBlob // download/galeria: arquivo completo (HEVC), inalterado.
       const compatiblePreviewBlob = await Promise.race([
         previewBlobPromiseRef.current,
         new Promise<null>(resolve => setTimeout(() => resolve(null), 1500)),
       ])
       // Preview can use a sidecar blob when the final HEVC file is not playable
-      // inline. The downloadable blob above remains untouched.
+      // inline. Otherwise it uses the raw MediaRecorder blob, because the fixed
+      // MP4 metadata blob can fail in mobile inline players.
       const previewType = type.replace(/;.*$/, '').trim() || type
-      const previewBlob = compatiblePreviewBlob || (previewType !== type ? new Blob([blob], { type: previewType }) : blob)
+      const previewBlob = compatiblePreviewBlob || (previewType !== type ? new Blob([rawBlob], { type: previewType }) : rawBlob)
       if (recordedUrl) URL.revokeObjectURL(recordedUrl)
       setPreviewError(false)
       setRecordedUrl(URL.createObjectURL(previewBlob))

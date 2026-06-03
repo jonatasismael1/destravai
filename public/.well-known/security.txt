@@ -1,0 +1,5 @@
+# Canal para report de vulnerabilidades do Destravaí (RFC 9116).
+Contact: mailto:assessoriadbe@gmail.com
+Expires: 2027-06-03T00:00:00.000Z
+Preferred-Languages: pt-BR, en
+Canonical: https://destravai.dbe.digital/.well-known/security.txt

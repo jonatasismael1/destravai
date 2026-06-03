@@ -17,6 +17,9 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    # HSTS: força HTTPS por 1 ano, incluindo subdomínios de destravai.dbe.digital.
+    # (preload omitido de propósito: exige coordenação/submissão a partir do apex.)
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains"
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"

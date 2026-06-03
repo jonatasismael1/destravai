@@ -16,7 +16,24 @@ export const config = { schedule: '@hourly' }
 
 const PAID_EVENTS = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_RECEIVED_IN_CASH']
 
-export const handler = async () => {
+// Garante que só o agendador da Netlify (ou um disparo manual autenticado) execute
+// a rotina — sem isso, qualquer um podia chamar a URL pública e martelar o banco.
+// • Invocação agendada: a Netlify envia o corpo com a propriedade `next_run`.
+// • Disparo manual: exige `?token=` (ou header `x-monitor-token`) === MONITOR_TOKEN.
+function isAuthorized(event) {
+  let isScheduled = false
+  try { isScheduled = !!JSON.parse(event?.body || '{}').next_run } catch { /* corpo vazio/inválido */ }
+  if (isScheduled) return true
+
+  const expected = process.env.MONITOR_TOKEN
+  if (!expected) return false // sem token configurado, bloqueia disparo manual externo
+  const token = event?.queryStringParameters?.token || event?.headers?.['x-monitor-token']
+  return token === expected
+}
+
+export const handler = async (event) => {
+  if (!isAuthorized(event)) return json(401, { error: 'Nao autorizado' })
+
   const admin = supabaseAdmin()
   const report = { reprocessed: 0, stillBroken: 0, orphanLinked: 0, orphanAlerts: 0 }
 

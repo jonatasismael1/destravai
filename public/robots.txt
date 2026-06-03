@@ -1,0 +1,12 @@
+# Destravaí — robots.txt
+# É um app (SPA) atrás de login/paywall. Indexamos só a página inicial pública
+# e bloqueamos as rotas internas do app e o namespace de funções.
+
+User-agent: *
+Allow: /$
+Disallow: /app
+Disallow: /checkout
+Disallow: /admin
+Disallow: /.netlify/
+
+Sitemap: https://destravai.dbe.digital/sitemap.xml

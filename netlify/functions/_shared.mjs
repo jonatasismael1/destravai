@@ -151,16 +151,80 @@ export async function getOrCreateAuthUser(email, name) {
   throw new Error('Não foi possível criar o usuário')
 }
 
-// Dispara o e-mail nativo do Supabase com link para o usuário DEFINIR a senha.
-// Usa resetPasswordForEmail (recovery): funciona tanto para conta nova quanto
-// existente. O texto/assunto são configurados no template do painel Supabase.
-// redirectTo precisa estar na lista de Redirect URLs permitidas do projeto.
-export async function sendAccessEmail(email) {
-  const appUrl = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
-  const anon = supabaseAnon()
-  const { error } = await anon.auth.resetPasswordForEmail(email, {
-    redirectTo: `${appUrl}/definir-senha`,
+// Envia um e-mail transacional via Resend (HTTP, sem dependência nova).
+// Usa RESEND_API_KEY e RESEND_FROM do ambiente. Lança em caso de falha — quem
+// chama decide se faz fallback.
+async function sendResendEmail({ to, subject, html }) {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) throw new Error('RESEND_API_KEY não configurada')
+  const from = process.env.RESEND_FROM || 'Destravaí <nao-responda@destravai.dbe.digital>'
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to, subject, html }),
   })
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new Error(`Resend ${res.status}: ${body.slice(0, 300)}`)
+  }
+}
+
+// HTML do e-mail de boas-vindas / DEFINIR senha (enviado após a compra).
+function buildDefinePasswordEmail(name, link, appUrl) {
+  const hi = name ? `Olá, ${name}!` : 'Olá!'
+  return `<!doctype html><html><body style="margin:0;background:#0B0B0D;font-family:Arial,Helvetica,sans-serif;color:#F5F5F7">
+  <div style="max-width:480px;margin:0 auto;padding:32px 24px">
+    <h1 style="font-size:22px;margin:0 0 8px">${hi}</h1>
+    <p style="font-size:15px;line-height:1.6;color:#B7B7BD;margin:0 0 20px">
+      Seu acesso ao <strong style="color:#F5F5F7">Destravaí</strong> está liberado 🎉<br>
+      Falta só um passo: <strong style="color:#F5F5F7">defina sua senha</strong> para entrar.
+    </p>
+    <a href="${link}" style="display:inline-block;background:#6D5DF6;color:#fff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
+      Definir minha senha
+    </a>
+    <p style="font-size:13px;line-height:1.6;color:#777780;margin:24px 0 0">
+      Depois, acesse sempre por <a href="${appUrl}" style="color:#9B8CFF">${appUrl.replace(/^https?:\/\//, '')}</a> com o seu e-mail e essa senha.
+    </p>
+    <p style="font-size:12px;color:#55555f;margin:20px 0 0">
+      Se você não reconhece esta compra, ignore este e-mail.
+    </p>
+  </div></body></html>`
+}
+
+// Dispara o e-mail de acesso (link para DEFINIR a senha após a compra).
+// Caminho principal: e-mail próprio via Resend, com copy de "boas-vindas / defina
+// sua senha" e o endereço de acesso — separado do "redefinir senha" (que continua
+// sendo o e-mail nativo do Supabase, disparado só no fluxo "esqueci a senha").
+// Fallback: se o Resend não estiver configurado/falhar, usa o e-mail nativo do
+// Supabase, garantindo que o comprador SEMPRE receba como entrar.
+export async function sendAccessEmail(email, name = '') {
+  const appUrl = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
+  const redirectTo = `${appUrl}/definir-senha`
+
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const admin = supabaseAdmin()
+      // generateLink só GERA o link (não envia e-mail) — nós enviamos via Resend.
+      const { data, error } = await admin.auth.admin.generateLink({
+        type: 'recovery', email, options: { redirectTo },
+      })
+      if (error) throw error
+      const link = data?.properties?.action_link
+      if (!link) throw new Error('generateLink não retornou action_link')
+      await sendResendEmail({
+        to: email,
+        subject: 'Bem-vindo ao Destravaí — defina sua senha de acesso',
+        html: buildDefinePasswordEmail(name, link, appUrl),
+      })
+      return
+    } catch (e) {
+      console.error('[sendAccessEmail] Resend falhou, usando e-mail nativo do Supabase:', e?.message)
+    }
+  }
+
+  // Fallback: e-mail nativo (template "Reset Password" do Supabase).
+  const anon = supabaseAnon()
+  const { error } = await anon.auth.resetPasswordForEmail(email, { redirectTo })
   if (error) throw error
 }
 
@@ -200,7 +264,7 @@ export async function grantAccess(admin, subRow) {
   // 2) Envia o e-mail de acesso (link para definir a senha) uma única vez.
   if (subRow.customer_email && !subRow.access_email_sent) {
     try {
-      await sendAccessEmail(subRow.customer_email)
+      await sendAccessEmail(subRow.customer_email, subRow.customer_name || '')
       await admin.from('subscriptions').update({ access_email_sent: true }).eq('id', subRow.id)
     } catch (e) {
       console.error('[grantAccess] erro ao enviar e-mail de acesso', e?.message)

@@ -71,7 +71,7 @@ export const handler = async (event) => {
     }
 
     let emailSent = true
-    try { await sendAccessEmail(email) } catch { emailSent = false }
+    try { await sendAccessEmail(email, name) } catch { emailSent = false }
 
     return json(200, { ok: true, userId, emailSent })
   } catch (err) {

@@ -169,25 +169,36 @@ async function sendResendEmail({ to, subject, html }) {
   }
 }
 
-// HTML do e-mail de boas-vindas / DEFINIR senha (enviado após a compra).
-function buildDefinePasswordEmail(name, link, appUrl) {
+// HTML do e-mail de boas-vindas / DEFINIR senha. `kind` muda o tom entre quem
+// comprou ('purchase') e quem foi convidado como testador ('tester') — para não
+// falar em "compra" para um testador, por exemplo.
+function buildDefinePasswordEmail(name, link, appUrl, kind = 'purchase') {
   const hi = name ? `Olá, ${name}!` : 'Olá!'
+  const host = appUrl.replace(/^https?:\/\//, '')
+  const intro = kind === 'tester'
+    ? 'Que bom ter você aqui! Liberamos um <strong style="color:#F5F5F7">acesso de cortesia</strong> ao Destravaí para você testar à vontade. 💜'
+    : 'Que bom ter você aqui! Seu acesso ao <strong style="color:#F5F5F7">Destravaí</strong> está liberado. 🎉'
+  const closing = kind === 'tester'
+    ? 'Se você não esperava este convite, pode ignorar este e-mail.'
+    : 'Se não foi você que assinou, pode ignorar este e-mail.'
   return `<!doctype html><html><body style="margin:0;background:#0B0B0D;font-family:Arial,Helvetica,sans-serif;color:#F5F5F7">
   <div style="max-width:480px;margin:0 auto;padding:32px 24px">
-    <h1 style="font-size:22px;margin:0 0 8px">${hi}</h1>
-    <p style="font-size:15px;line-height:1.6;color:#B7B7BD;margin:0 0 20px">
-      Seu acesso ao <strong style="color:#F5F5F7">Destravaí</strong> está liberado 🎉<br>
-      Falta só um passo: <strong style="color:#F5F5F7">defina sua senha</strong> para entrar.
+    <div style="font-size:18px;font-weight:bold;letter-spacing:-0.3px;margin-bottom:26px;color:#9B8CFF">Destravaí</div>
+    <h1 style="font-size:22px;margin:0 0 12px">${hi}</h1>
+    <p style="font-size:15px;line-height:1.65;color:#B7B7BD;margin:0 0 8px">${intro}</p>
+    <p style="font-size:15px;line-height:1.65;color:#B7B7BD;margin:0 0 22px">
+      Falta só um passo para começar: <strong style="color:#F5F5F7">criar a sua senha</strong>.
     </p>
-    <a href="${link}" style="display:inline-block;background:#6D5DF6;color:#fff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 28px;border-radius:12px">
-      Definir minha senha
+    <a href="${link}" style="display:inline-block;background:#6D5DF6;color:#fff;text-decoration:none;font-weight:bold;font-size:15px;padding:14px 30px;border-radius:12px">
+      Criar minha senha
     </a>
-    <p style="font-size:13px;line-height:1.6;color:#777780;margin:24px 0 0">
-      Depois, acesse sempre por <a href="${appUrl}" style="color:#9B8CFF">${appUrl.replace(/^https?:\/\//, '')}</a> com o seu e-mail e essa senha.
+    <p style="font-size:14px;line-height:1.65;color:#B7B7BD;margin:24px 0 0">
+      Assim que entrar, preencha a sua <strong style="color:#F5F5F7">Essência</strong> — é com ela que o app começa a sugerir o que postar, do seu jeito.
     </p>
-    <p style="font-size:12px;color:#55555f;margin:20px 0 0">
-      Se você não reconhece esta compra, ignore este e-mail.
+    <p style="font-size:13px;line-height:1.65;color:#777780;margin:16px 0 0">
+      Acesse sempre por <a href="${appUrl}" style="color:#9B8CFF">${host}</a> com o seu e-mail e a senha que você criar. Qualquer dúvida, é só responder este e-mail. 💜
     </p>
+    <p style="font-size:12px;color:#55555f;margin:22px 0 0">${closing}</p>
   </div></body></html>`
 }
 
@@ -197,9 +208,12 @@ function buildDefinePasswordEmail(name, link, appUrl) {
 // sendo o e-mail nativo do Supabase, disparado só no fluxo "esqueci a senha").
 // Fallback: se o Resend não estiver configurado/falhar, usa o e-mail nativo do
 // Supabase, garantindo que o comprador SEMPRE receba como entrar.
-export async function sendAccessEmail(email, name = '') {
+export async function sendAccessEmail(email, name = '', kind = 'purchase') {
   const appUrl = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
   const redirectTo = `${appUrl}/definir-senha`
+  const subject = kind === 'tester'
+    ? 'Seu convite para testar o Destravaí 💜'
+    : 'Seu acesso ao Destravaí está pronto 💜'
 
   if (process.env.RESEND_API_KEY) {
     try {
@@ -213,8 +227,8 @@ export async function sendAccessEmail(email, name = '') {
       if (!link) throw new Error('generateLink não retornou action_link')
       await sendResendEmail({
         to: email,
-        subject: 'Bem-vindo ao Destravaí — defina sua senha de acesso',
-        html: buildDefinePasswordEmail(name, link, appUrl),
+        subject,
+        html: buildDefinePasswordEmail(name, link, appUrl, kind),
       })
       return
     } catch (e) {

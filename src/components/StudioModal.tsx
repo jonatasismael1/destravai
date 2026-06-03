@@ -82,19 +82,18 @@ function formatTimer(s: number) {
 
 function getBestMimeType() {
   // Ordem do melhor → mais compatível.
-  // H.264 (avc1) PRIMEIRO: é o único universalmente decodificável inline no
-  // <video> do Chrome/WebView (o preview do app) E o mais seguro para o Instagram.
-  // O HEVC (H.265) grava com ótima qualidade e a galeria/sistema reproduz, MAS o
-  // <video> do navegador não decodifica HEVC inline → o preview mostrava "mídia
-  // quebrada". Por isso o HEVC virou só um fallback bem abaixo.
-  // avc1.640028 = H.264 HIGH profile (nível 4.0, cobre 1080p com excelente qualidade).
+  // HEVC (H.265) primeiro: mesma qualidade do H.264 com ~metade do bitrate, ou
+  // muito mais qualidade no mesmo bitrate — é o que o usuário pediu. Nem todo
+  // navegador grava HEVC via MediaRecorder; se não suportar, cai para H.264 High.
+  // avc1.640028 = H.264 HIGH profile (nível 4.0, cobre 1080p).
   const candidates = [
-    'video/mp4;codecs="avc1.640028,mp4a.40.2"',      // H.264 High Profile + AAC — 1080p
+    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC (hvc1) + AAC — 1080p
+    'video/mp4;codecs="hev1.1.6.L120.90,mp4a.40.2"', // HEVC (hev1) variante
+    'video/mp4;codecs="hvc1,mp4a.40.2"',             // HEVC genérico
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',      // H.264 High Profile + AAC
     'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',      // H.264 Main Profile
-    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',      // H.264 Baseline
-    'video/mp4',                                      // mp4 genérico (costuma ser H.264)
-    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC só se nada de H.264 rolar
-    'video/mp4;codecs="hvc1,mp4a.40.2"',
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',      // H.264 Baseline (fallback)
+    'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
@@ -187,9 +186,6 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [timer, setTimer] = useState(0)
   const [scrollPx, setScrollPx] = useState(0)
   const [recordedUrl, setRecordedUrl] = useState('')
-  // Se o <video> não conseguir pré-visualizar (codec não suportado inline em
-  // algum aparelho), mostramos um aviso amigável — o arquivo continua gravado.
-  const [previewError, setPreviewError] = useState(false)
 
   // Teleprompter — recebe SOMENTE as falas (sem ação/visual/câmera/dica).
   const [script, setScript] = useState(() => extractSpeech(idea.content))
@@ -459,19 +455,14 @@ export default function StudioModal({ idea, onClose }: Props) {
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = async () => {
       const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
-      const rawBlob = new Blob(chunksRef.current, { type })
+      let blob = new Blob(chunksRef.current, { type })
       // Corrige a duração do MP4 (MediaRecorder grava fMP4 com duração quebrada,
       // o que fazia o Instagram cortar o vídeo em 3-4s). Medimos a duração real
       // pelo relógio. Para WebM/erros, devolve o original sem alterar.
       const realDuration = recordStartRef.current ? (Date.now() - recordStartRef.current) / 1000 : 0
-      // Download/galeria usa o blob com a duração corrigida (Instagram não corta).
-      // O PREVIEW usa o blob ORIGINAL: o MP4 fragmentado toca inline no <video>,
-      // enquanto a versão com metadados reescritos às vezes não renderiza no
-      // player do navegador (gravava/baixava ok, mas não aparecia no preview).
-      blobRef.current = await fixMp4Duration(rawBlob, realDuration)
-      if (recordedUrl) URL.revokeObjectURL(recordedUrl)
-      setPreviewError(false)
-      setRecordedUrl(URL.createObjectURL(rawBlob))
+      blob = await fixMp4Duration(blob, realDuration)
+      blobRef.current = blob
+      setRecordedUrl(URL.createObjectURL(blob))
       stopStream()
       setPhase('preview')
     }
@@ -561,27 +552,7 @@ export default function StudioModal({ idea, onClose }: Props) {
     return createPortal((
       <div className="fixed inset-0 z-[100] bg-black flex flex-col" style={{ height: '100dvh' }}>
         <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
-          {previewError ? (
-            <div className="text-center px-10">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'rgba(83,214,161,0.15)', border: '1px solid rgba(83,214,161,0.3)' }}>
-                <Check size={26} style={{ color: '#53D6A1' }} />
-              </div>
-              <p className="text-white font-bold text-base mb-1">Vídeo gravado!</p>
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                A pré-visualização não funciona neste aparelho, mas o arquivo está pronto. Toque em <strong style={{ color: '#fff' }}>Salvar na galeria</strong>.
-              </p>
-            </div>
-          ) : (
-            <video
-              ref={reviewVideoRef}
-              src={recordedUrl}
-              controls
-              playsInline
-              onError={() => setPreviewError(true)}
-              className="w-full h-full object-cover"
-            />
-          )}
+          <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-cover" />
         </div>
         <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
           <div>

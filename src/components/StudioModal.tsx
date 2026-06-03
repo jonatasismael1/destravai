@@ -106,6 +106,32 @@ function isHEVC(mime: string) {
   return /hvc1|hev1/i.test(mime)
 }
 
+function canPreviewMimeType(mime: string) {
+  try {
+    if (!mime || typeof document === 'undefined') return false
+    return document.createElement('video').canPlayType(mime) !== ''
+  } catch {
+    return false
+  }
+}
+
+function getPreviewMimeType() {
+  const candidates = [
+    'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+    'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',
+    'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+    'video/mp4',
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ]
+  try {
+    return candidates.find(t => MediaRecorder.isTypeSupported(t) && canPreviewMimeType(t)) ?? ''
+  } catch {
+    return ''
+  }
+}
+
 // Constraints de áudio. Quando reduceNoise=false, desligamos o processamento de
 // voz do navegador (eco/ruído/ganho) — esses filtros são pensados para CHAMADA,
 // não para gravar conteúdo. Voz fica mais natural e encorpada (ideal em ambiente
@@ -186,6 +212,9 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [timer, setTimer] = useState(0)
   const [scrollPx, setScrollPx] = useState(0)
   const [recordedUrl, setRecordedUrl] = useState('')
+  // Rede de segurança: se mesmo assim o <video> não decodificar o HEVC inline
+  // neste aparelho, mostramos um aviso (o arquivo continua gravado e salvável).
+  const [previewError, setPreviewError] = useState(false)
 
   // Teleprompter — recebe SOMENTE as falas (sem ação/visual/câmera/dica).
   const [script, setScript] = useState(() => extractSpeech(idea.content))
@@ -215,7 +244,10 @@ export default function StudioModal({ idea, onClose }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
   const recordingStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
+  const previewRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
+  const previewChunksRef = useRef<Blob[]>([])
+  const previewBlobPromiseRef = useRef<Promise<Blob | null>>(Promise.resolve(null))
   const blobRef = useRef<Blob | null>(null)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -428,6 +460,8 @@ export default function StudioModal({ idea, onClose }: Props) {
   const beginRecording = () => {
     if (!streamRef.current || !previewCanvasRef.current) return
     chunksRef.current = []
+    previewChunksRef.current = []
+    previewBlobPromiseRef.current = Promise.resolve(null)
     const canvas = previewCanvasRef.current
     const mimeType = getBestMimeType()
     const canvasStream = canvas.captureStream(30)
@@ -452,6 +486,30 @@ export default function StudioModal({ idea, onClose }: Props) {
         recorder = new MediaRecorder(finalStream)
       }
     }
+    const previewMimeType = isHEVC(mimeType) ? getPreviewMimeType() : ''
+    if (previewMimeType) {
+      try {
+        const previewRecorder = new MediaRecorder(finalStream, {
+          mimeType: previewMimeType,
+          videoBitsPerSecond: recordingSizeRef.current.videoBitsPerSecond,
+          ...(audioTracks.length ? { audioBitsPerSecond: 256_000 } : {}),
+        })
+        previewBlobPromiseRef.current = new Promise(resolve => {
+          previewRecorder.ondataavailable = e => { if (e.data?.size > 0) previewChunksRef.current.push(e.data) }
+          previewRecorder.onstop = () => {
+            const previewType = previewRecorder.mimeType || previewMimeType
+            resolve(previewChunksRef.current.length ? new Blob(previewChunksRef.current, { type: previewType }) : null)
+          }
+        })
+        previewRecorder.start()
+        previewRecorderRef.current = previewRecorder
+      } catch {
+        previewRecorderRef.current = null
+        previewBlobPromiseRef.current = Promise.resolve(null)
+      }
+    } else {
+      previewRecorderRef.current = null
+    }
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = async () => {
       const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
@@ -461,8 +519,18 @@ export default function StudioModal({ idea, onClose }: Props) {
       // pelo relógio. Para WebM/erros, devolve o original sem alterar.
       const realDuration = recordStartRef.current ? (Date.now() - recordStartRef.current) / 1000 : 0
       blob = await fixMp4Duration(blob, realDuration)
-      blobRef.current = blob
-      setRecordedUrl(URL.createObjectURL(blob))
+      blobRef.current = blob // download/galeria: arquivo completo (HEVC), inalterado.
+      const compatiblePreviewBlob = await Promise.race([
+        previewBlobPromiseRef.current,
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 1500)),
+      ])
+      // Preview can use a sidecar blob when the final HEVC file is not playable
+      // inline. The downloadable blob above remains untouched.
+      const previewType = type.replace(/;.*$/, '').trim() || type
+      const previewBlob = compatiblePreviewBlob || (previewType !== type ? new Blob([blob], { type: previewType }) : blob)
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl)
+      setPreviewError(false)
+      setRecordedUrl(URL.createObjectURL(previewBlob))
       stopStream()
       setPhase('preview')
     }
@@ -482,6 +550,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const stopRecording = () => {
     if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null }
     if (scrollIntervalRef.current) { clearInterval(scrollIntervalRef.current); scrollIntervalRef.current = null }
+    if (previewRecorderRef.current?.state === 'recording') previewRecorderRef.current.stop()
     recorderRef.current?.stop()
   }
 
@@ -552,7 +621,27 @@ export default function StudioModal({ idea, onClose }: Props) {
     return createPortal((
       <div className="fixed inset-0 z-[100] bg-black flex flex-col" style={{ height: '100dvh' }}>
         <div className="flex-1 min-h-0 flex items-center justify-center bg-black">
-          <video ref={reviewVideoRef} src={recordedUrl} controls playsInline className="w-full h-full object-cover" />
+          {previewError ? (
+            <div className="text-center px-10">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'rgba(83,214,161,0.15)', border: '1px solid rgba(83,214,161,0.3)' }}>
+                <Check size={26} style={{ color: '#53D6A1' }} />
+              </div>
+              <p className="text-white font-bold text-base mb-1">Vídeo gravado!</p>
+              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                A pré-visualização não rodou neste aparelho, mas o arquivo está pronto. Toque em <strong style={{ color: '#fff' }}>Salvar na galeria</strong>.
+              </p>
+            </div>
+          ) : (
+            <video
+              ref={reviewVideoRef}
+              src={recordedUrl}
+              controls
+              playsInline
+              onError={() => setPreviewError(true)}
+              className="w-full h-full object-cover"
+            />
+          )}
         </div>
         <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
           <div>

@@ -81,22 +81,20 @@ function formatTimer(s: number) {
 }
 
 function getBestMimeType() {
-  // Ordem do melhor → mais compatível.
-  // HEVC (H.265) primeiro: mesma qualidade do H.264 com ~metade do bitrate, ou
-  // muito mais qualidade no mesmo bitrate — é o que o usuário pediu. Nem todo
-  // navegador grava HEVC via MediaRecorder; se não suportar, cai para H.264 High.
-  // avc1.640028 = H.264 HIGH profile (nível 4.0, cobre 1080p).
+  // H.264 first: it is the format Chrome/WebView can preview inline reliably.
+  // HEVC can save with good quality, but many mobile browsers cannot play it in
+  // a <video> element even when the Android gallery can.
   const candidates = [
-    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC (hvc1) + AAC — 1080p
-    'video/mp4;codecs="hev1.1.6.L120.90,mp4a.40.2"', // HEVC (hev1) variante
-    'video/mp4;codecs="hvc1,mp4a.40.2"',             // HEVC genérico
     'video/mp4;codecs="avc1.640028,mp4a.40.2"',      // H.264 High Profile + AAC
     'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',      // H.264 Main Profile
     'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',      // H.264 Baseline (fallback)
-    'video/mp4',
     'video/webm;codecs=vp9,opus',
     'video/webm;codecs=vp8,opus',
     'video/webm',
+    'video/mp4',
+    'video/mp4;codecs="hvc1.1.6.L120.90,mp4a.40.2"', // HEVC fallback
+    'video/mp4;codecs="hev1.1.6.L120.90,mp4a.40.2"',
+    'video/mp4;codecs="hvc1,mp4a.40.2"',
   ]
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
 }
@@ -182,13 +180,12 @@ function getRecordingSize(stream: MediaStream): RecordingSize {
   const settings = stream.getVideoTracks()[0]?.getSettings?.() ?? {}
   const sourceMin = Math.min(settings.width ?? 0, settings.height ?? 0)
   const sourceMax = Math.max(settings.width ?? 0, settings.height ?? 0)
-  // Bitrate alto para compensar o re-encode via canvas e igualar a câmera nativa.
-  // 1080p subiu para 20 Mbps (era 14) — elimina blocos/borrão e a "qualidade ruim"
-  // ao baixar. Com HEVC, esse bitrate rende qualidade ainda melhor que H.264.
+  // High bitrate compensates for canvas re-encoding and keeps image quality when
+  // using H.264, which is less efficient than HEVC but previews inline reliably.
   if (sourceMin >= 900 && sourceMax >= 1200) {
-    return { width: 1080, height: 1920, videoBitsPerSecond: 20_000_000 }
+    return { width: 1080, height: 1920, videoBitsPerSecond: 32_000_000 }
   }
-  return { width: 720, height: 1280, videoBitsPerSecond: 10_000_000 }
+  return { width: 720, height: 1280, videoBitsPerSecond: 18_000_000 }
 }
 
 function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, requestedZoom: number) {

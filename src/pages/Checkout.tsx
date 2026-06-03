@@ -273,10 +273,7 @@ export default function Checkout() {
         {/* order-2 no mobile (vem depois do formulário), order-1 no desktop */}
         <aside className="order-2 lg:order-1 space-y-5">
           <div className="checkout-card p-6 relative overflow-hidden">
-            {/* Ícone decorativo no canto */}
-            <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full opacity-60 pointer-events-none"
-              style={{ background: 'radial-gradient(circle, rgba(155,140,255,0.35), transparent 70%)' }} />
-            <Sparkles size={22} className="absolute right-5 top-5" style={{ color: '#9B8CFF' }} />
+            <Sparkles size={20} className="absolute right-5 top-5" style={{ color: 'var(--brand)' }} />
 
             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
               style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.22)', color: '#6D5DF6' }}>
@@ -442,10 +439,7 @@ function Shell({ children, narrow = false }: { children: React.ReactNode; narrow
   return (
     <div data-theme="light" className="w-full" style={{
       height: '100svh', overflowY: 'auto',
-      background: `
-        radial-gradient(circle at 10% 20%, rgba(155,140,255,0.18), transparent 28%),
-        radial-gradient(circle at 90% 55%, rgba(109,93,246,0.14), transparent 30%),
-        linear-gradient(180deg, #FAF8FF 0%, #F6F2FF 45%, #FFFFFF 100%)`,
+      background: 'var(--bg-base)',
     }}>
       <div className={`${narrow ? 'max-w-md' : 'max-w-[1180px]'} mx-auto px-5 py-10 pb-24 ${narrow ? 'min-h-full flex items-center' : ''}`}>
         <div className="w-full">{children}</div>

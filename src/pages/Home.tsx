@@ -153,21 +153,20 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
 
   return (
     <div
-      className="relative overflow-hidden rounded-3xl transition-all duration-300"
+      className="relative overflow-hidden rounded-2xl transition-all duration-300"
       style={featured ? {
-        background: 'linear-gradient(135deg, rgba(109,93,246,0.15) 0%, rgba(155,140,255,0.08) 100%)',
-        border: '1px solid rgba(109,93,246,0.3)',
-        boxShadow: '0 0 32px rgba(109,93,246,0.12), 0 8px 32px rgba(0,0,0,0.4)',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--brand-border)',
+        boxShadow: 'var(--shadow-card)',
       } : {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-color)',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+        background: 'var(--bg-elevated)',
+        border: '1px solid var(--border-subtle)',
+        boxShadow: 'var(--shadow-card)',
       }}
     >
-      {/* Linha de topo no card em destaque */}
+      {/* Faixa de marca no topo do card em destaque */}
       {featured && (
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(109,93,246,0.7), transparent)' }} />
+        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
       )}
 
       {/* Animação de celebração ao marcar Fiz */}
@@ -544,16 +543,15 @@ export default function Home() {
       </div>
 
       {/* ── Frase motivacional do dia ──────────────── */}
-      <div className="relative rounded-2xl p-4 overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, rgba(124,92,255,0.12), rgba(155,140,255,0.05))', border: '1px solid rgba(124,92,255,0.25)' }}>
-        <div className="absolute top-0 left-0 bottom-0 w-1" style={{ background: 'linear-gradient(180deg, #7C5CFF, #A78BFA)' }} />
-        <div className="flex items-start gap-3 pl-2">
-          <Sparkles size={16} style={{ color: '#A78BFA', flexShrink: 0, marginTop: 2 }} />
+      <div className="relative rounded-2xl p-4 overflow-hidden app-card">
+        <div className="absolute top-3 left-0 bottom-3 w-0.5 rounded-full" style={{ background: 'var(--brand)' }} />
+        <div className="flex items-start gap-3 pl-3">
+          <Sparkles size={16} style={{ color: 'var(--brand)', flexShrink: 0, marginTop: 2 }} />
           <div>
-            <p className="text-sm leading-relaxed italic" style={{ color: 'var(--text-primary)' }}>
-              "{quote.text}"
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+              {quote.text}
             </p>
-            <p className="text-xs font-bold mt-1.5" style={{ color: '#9B8CFF' }}>— {quote.author}</p>
+            <p className="text-xs font-bold mt-1.5" style={{ color: 'var(--text-muted)' }}>— {quote.author}</p>
           </div>
         </div>
       </div>
@@ -645,11 +643,10 @@ export default function Home() {
           deixamos o usuário navegar livremente (Biblioteca, Meu Espaço…).
           A missão fica salva e aparece aqui quando estiver pronta. */}
       {busy && (
-        <div className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.25)' }}>
+        <div className="app-card rounded-2xl p-4 flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.3), rgba(155,140,255,0.2))', border: '1px solid rgba(109,93,246,0.3)' }}>
-            <Sparkles size={18} style={{ color: '#9B8CFF' }} className="animate-pulse" />
+            style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+            <Sparkles size={18} style={{ color: 'var(--brand)' }} className="animate-pulse" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
@@ -699,17 +696,9 @@ export default function Home() {
             })}
           </div>
 
-          {/* Surpreenda-me — destaque visual melhorado */}
+          {/* Surpreenda-me — ação secundária nativa */}
           {profile && (
-            <button
-              onClick={handleSurprise}
-              className="w-full py-3.5 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
-              style={{
-                background: 'linear-gradient(135deg, rgba(255,181,71,0.12), rgba(255,181,71,0.06))',
-                border: '1px solid rgba(255,181,71,0.3)',
-                color: '#FFB547',
-              }}
-            >
+            <button onClick={handleSurprise} className="btn-secondary w-full text-sm">
               <Wand2 size={15} /> Surpreenda-me — destravar uma ideia agora
             </button>
           )}
@@ -769,8 +758,7 @@ export default function Home() {
 
       {/* CTA essência vazia */}
       {!checkin && !(profile?.pillars.length) && (
-        <div className="relative rounded-3xl p-5 overflow-hidden"
-          style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.2), rgba(155,140,255,0.1))', border: '1px solid rgba(109,93,246,0.3)' }}>
+        <div className="relative rounded-2xl p-5 overflow-hidden app-card">
           <p className="font-extrabold text-lg mb-1" style={{ color: 'var(--text-primary)' }}>Complete sua essência</p>
           <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>Quanto mais você preenche, mais personalizadas ficam as ideias.</p>
           <button onClick={() => navigate('/essencia')} className="btn-primary text-sm py-2.5 px-4">

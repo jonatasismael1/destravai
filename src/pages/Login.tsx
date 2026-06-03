@@ -83,16 +83,8 @@ export default function Login() {
   return (
     <div
       className="relative overflow-y-auto"
-      style={{ height: '100svh', background: '#0B0B12' }}
+      style={{ height: '100svh', background: 'var(--bg-base)' }}
     >
-      {/* Background orbs */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute -top-20 -right-20 w-[380px] h-[380px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(124,92,255,0.22) 0%, transparent 65%)', filter: 'blur(60px)' }} />
-        <div className="absolute -bottom-20 -left-20 w-[300px] h-[300px] rounded-full"
-          style={{ background: 'radial-gradient(circle, rgba(255,181,71,0.12) 0%, transparent 65%)', filter: 'blur(60px)' }} />
-      </div>
-
       {/* Centraliza quando cabe na tela; rola quando o conteúdo (modo "criar conta")
           é mais alto que a tela. min-h-full dentro de um container de ALTURA FIXA
           é o que permite rolar até o fim sem cortar o campo de senha. */}
@@ -105,8 +97,7 @@ export default function Login() {
             <img
               src="/destravai-logo-completa.png"
               alt="Destravaí"
-              className="h-36 w-auto max-w-[280px]"
-              style={{ filter: 'drop-shadow(0 0 28px rgba(124,92,255,0.5))' }}
+              className="h-28 w-auto max-w-[240px]"
             />
           </div>
 
@@ -126,8 +117,7 @@ export default function Login() {
               {/* Benefícios com ícones vetoriais */}
               <div className="flex flex-col gap-2 mt-5 text-left">
                 {BENEFITS.map(({ icon: Icon, label, color }) => (
-                  <div key={label} className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div key={label} className="list-item">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: `${color}18`, border: `1px solid ${color}30` }}>
                       <Icon size={15} style={{ color }} />
@@ -146,24 +136,14 @@ export default function Login() {
 
         {/* ── Card do formulário ───────────────────────────── */}
         <div className="glass p-6">
-          {/* Tab switcher */}
-          <div
-            className="flex p-1 mb-6 rounded-2xl gap-1"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-          >
+          {/* Tab switcher — segmented control nativo */}
+          <div className="segmented-control mb-6">
             {(['login', 'register'] as Mode[]).map(m => (
               <button
                 key={m}
+                type="button"
+                data-active={mode === m}
                 onClick={() => { setMode(m); setError(''); setNotice('') }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all duration-300"
-                style={mode === m ? {
-                  background: 'linear-gradient(135deg, rgba(124,92,255,0.4), rgba(167,139,250,0.3))',
-                  color: '#A78BFA',
-                  border: '1px solid rgba(124,92,255,0.3)',
-                  boxShadow: '0 0 16px rgba(124,92,255,0.2)',
-                } : {
-                  color: 'var(--text-muted)',
-                }}
               >
                 {m === 'login' ? 'Entrar' : 'Criar conta'}
               </button>
@@ -208,7 +188,7 @@ export default function Login() {
             {error && (
               <div
                 className="rounded-xl px-4 py-3 text-sm font-semibold"
-                style={{ background: 'rgba(255,122,107,0.1)', border: '1px solid rgba(255,122,107,0.2)', color: '#FF7A6B' }}
+                style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: 'var(--danger)' }}
               >
                 {error}
               </div>
@@ -217,7 +197,7 @@ export default function Login() {
             {notice && (
               <div
                 className="rounded-xl px-4 py-3 text-sm font-semibold"
-                style={{ background: 'rgba(83,214,161,0.1)', border: '1px solid rgba(83,214,161,0.25)', color: '#53D6A1' }}
+                style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.25)', color: 'var(--success)' }}
               >
                 {notice}
               </div>
@@ -245,7 +225,7 @@ export default function Login() {
               <button
                 type="button"
                 className="font-bold"
-                style={{ color: '#A78BFA' }}
+                style={{ color: 'var(--brand)' }}
                 onClick={async () => {
                   setError(''); setNotice('')
                   if (!email) { setError('Digite seu e-mail acima primeiro.'); return }
@@ -272,14 +252,14 @@ export default function Login() {
         {/* Links legais */}
         <p className="text-center text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
           Ao continuar, você concorda com os{' '}
-          <Link to="/termos" className="font-semibold underline" style={{ color: '#A78BFA' }}>Termos de Uso</Link>
+          <Link to="/termos" className="font-semibold underline" style={{ color: 'var(--brand)' }}>Termos de Uso</Link>
           {' '}e a{' '}
-          <Link to="/privacidade" className="font-semibold underline" style={{ color: '#A78BFA' }}>Política de Privacidade</Link>.
+          <Link to="/privacidade" className="font-semibold underline" style={{ color: 'var(--brand)' }}>Política de Privacidade</Link>.
         </p>
 
         <p className="text-center text-[11px] mt-4" style={{ color: 'var(--text-muted)' }}>
           Travou ao entrar?{' '}
-          <button type="button" onClick={handleClearSession} className="font-semibold underline" style={{ color: '#A78BFA' }}>
+          <button type="button" onClick={handleClearSession} className="font-semibold underline" style={{ color: 'var(--brand)' }}>
             Limpar sessão e recarregar
           </button>
         </p>

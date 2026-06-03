@@ -3,50 +3,84 @@
 @tailwind utilities;
 
 /* ═══════════════════════════════════════════════════════
-   DESIGN TOKENS — dark (default) / light
+   DESIGN TOKENS — app nativo clássico
+   Dark = preto/charcoal · Light = branco neutro
+   Roxo (--brand) é ACENTO de ação, não fundo permanente.
+   Os nomes antigos de variáveis são mantidos (repontados) para
+   não quebrar telas que já os usam.
    ═══════════════════════════════════════════════════════ */
 :root {
-  --bg-base:         #0B0B12;
-  --bg-card:         rgba(255, 255, 255, 0.04);
-  --bg-card-bright:  rgba(255, 255, 255, 0.08);
-  --bg-input:        rgba(255, 255, 255, 0.05);
+  /* superfícies (preto clássico, levemente elevado) */
+  --bg-base:         #0B0B0D;
+  --bg-elevated:     #141416;
+  --bg-surface:      #1C1C1F;
+  --bg-input:        #202024;
+  /* aliases antigos → novos */
+  --bg-card:         var(--bg-elevated);
+  --bg-card-bright:  var(--bg-surface);
 
-  --text-primary:    #F7F4FF;
-  --text-secondary:  rgba(247, 244, 255, 0.55);
-  --text-muted:      rgba(247, 244, 255, 0.32);
+  --text-primary:    #F5F5F7;
+  --text-secondary:  #B7B7BD;
+  --text-muted:      #777780;
 
-  --border-color:    rgba(42, 38, 56, 0.9);
-  --border-bright:   rgba(55, 50, 75, 1);
+  --border-color:    rgba(255, 255, 255, 0.08);
+  --border-bright:   rgba(255, 255, 255, 0.14);
+  --border-subtle:   rgba(255, 255, 255, 0.08);
+  --border-strong:   rgba(255, 255, 255, 0.14);
 
-  --nav-bg:          rgba(11, 11, 18, 0.80);
-  --nav-border:      rgba(42, 38, 56, 0.8);
-  --divider:         rgba(42, 38, 56, 0.8);
+  --nav-bg:          rgba(11, 11, 13, 0.82);
+  --nav-border:      rgba(255, 255, 255, 0.08);
+  --divider:         rgba(255, 255, 255, 0.07);
 
-  --shadow-card:     0 8px 32px rgba(0, 0, 0, 0.4);
-  --shadow-sm:       0 4px 16px rgba(0, 0, 0, 0.3);
-  --inset-line:      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  /* sombras neutras (sem cor) — profundidade vem de hierarquia, não de glow */
+  --shadow-card:     0 1px 0 rgba(255,255,255,0.04), 0 12px 30px rgba(0,0,0,0.28);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.3), 0 6px 16px rgba(0,0,0,0.22);
+  --inset-line:      inset 0 1px 0 rgba(255,255,255,0.04);
+
+  /* marca — só ação/foco/seleção/Deby */
+  --brand:           #6D5DF6;
+  --brand-soft:      rgba(109, 93, 246, 0.12);
+  --brand-border:    rgba(109, 93, 246, 0.28);
+  --brand-strong:    #5748D8;
+
+  /* estados funcionais */
+  --success:         #22C55E;
+  --warning:         #F59E0B;
+  --danger:          #EF4444;
+  --info:            #0EA5E9;
+
+  --radius-btn:      14px;
+  --radius-input:    12px;
+  --radius-card:     16px;
 }
 
 [data-theme="light"] {
-  --bg-base:         #FAF8FF;
-  --bg-card:         rgba(255, 255, 255, 0.95);
-  --bg-card-bright:  #FFFFFF;
-  --bg-input:        rgba(255, 255, 255, 0.85);
+  --bg-base:         #F8F8FA;
+  --bg-elevated:     #FFFFFF;
+  --bg-surface:      #F1F1F4;
+  --bg-input:        #F2F2F5;
+  --bg-card:         var(--bg-elevated);
+  --bg-card-bright:  var(--bg-surface);
 
-  --text-primary:    #171326;
-  --text-secondary:  #6B667A;
-  --text-muted:      rgba(107, 102, 122, 0.55);
+  --text-primary:    #161618;
+  --text-secondary:  #555560;
+  --text-muted:      #8A8A93;
 
-  --border-color:    rgba(232, 225, 255, 0.9);
-  --border-bright:   rgba(232, 225, 255, 1);
+  --border-color:    rgba(20, 20, 24, 0.08);
+  --border-bright:   rgba(20, 20, 24, 0.14);
+  --border-subtle:   rgba(20, 20, 24, 0.08);
+  --border-strong:   rgba(20, 20, 24, 0.14);
 
-  --nav-bg:          rgba(255, 255, 255, 0.88);
-  --nav-border:      rgba(124, 92, 255, 0.15);
-  --divider:         rgba(124, 92, 255, 0.10);
+  --nav-bg:          rgba(255, 255, 255, 0.85);
+  --nav-border:      rgba(20, 20, 24, 0.08);
+  --divider:         rgba(20, 20, 24, 0.07);
 
-  --shadow-card:     0 4px 24px rgba(124, 92, 255, 0.09);
-  --shadow-sm:       0 2px 12px rgba(124, 92, 255, 0.07);
-  --inset-line:      inset 0 1px 0 rgba(124, 92, 255, 0.06);
+  --shadow-card:     0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  --shadow-sm:       0 1px 2px rgba(0,0,0,0.04), 0 4px 14px rgba(0,0,0,0.05);
+  --inset-line:      inset 0 1px 0 rgba(255,255,255,0.6);
+
+  --brand-soft:      rgba(109, 93, 246, 0.10);
+  --brand-border:    rgba(109, 93, 246, 0.24);
 }
 
 @layer base {
@@ -79,214 +113,251 @@
   }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: rgba(124, 92, 255, 0.4);
+    background: var(--border-strong);
     border-radius: 999px;
   }
 
   ::selection {
-    background: rgba(124, 92, 255, 0.4);
-    color: #fff;
+    background: var(--brand-soft);
+    color: var(--text-primary);
   }
 }
 
 @layer components {
 
-  /* ─── Glass Cards ─────────────────────────────── */
-  .glass {
-    background: var(--bg-card);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--border-color);
-    border-radius: 24px;
-    box-shadow: var(--shadow-card), var(--inset-line);
+  /* ─── Cards / superfícies ──────────────────────
+     Antes "glass" era translúcido+blur+glow; agora são superfícies
+     sólidas elevadas (cara de app nativo). Nomes mantidos. */
+  .glass,
+  .app-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
   }
 
   .glass-sm {
-    background: var(--bg-card);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--border-color);
-    border-radius: 16px;
-    box-shadow: var(--shadow-sm), var(--inset-line);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
   }
 
   .glass-bright {
-    background: var(--bg-card-bright);
-    backdrop-filter: blur(24px);
-    -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--border-bright);
-    border-radius: 24px;
-    box-shadow: var(--shadow-card), var(--inset-line);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
   }
 
+  /* Estado ativo/seleção: acento de marca discreto, sem glow forte */
   .glass-active {
-    background: rgba(124, 92, 255, 0.12);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(124, 92, 255, 0.35);
-    border-radius: 16px;
-    box-shadow: 0 0 20px rgba(124, 92, 255, 0.2), var(--inset-line);
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    border-radius: 14px;
   }
 
-  /* ─── Checkout card (tema claro premium) ──────── */
-  /* Card branco translúcido com borda lilás e sombra suave roxa.
-     Usa tokens, então também funciona no tema escuro se reutilizado. */
-  .checkout-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: 22px;
-    box-shadow: 0 18px 60px rgba(109, 93, 246, 0.12);
+  /* Item de lista nativo (acervo, agenda, ranking) */
+  .list-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 14px;
+    transition: background 0.18s ease, border-color 0.18s ease;
   }
+  .list-item:active { transform: scale(0.995); }
 
-  /* ─── Buttons ─────────────────────────────────── */
+  /* ─── Botões ─────────────────────────────────── */
   .btn-primary {
-    @apply relative inline-flex items-center justify-center gap-2 font-bold rounded-2xl px-6 py-3.5 text-white transition-all duration-200 select-none;
-    background: linear-gradient(135deg, #7C5CFF 0%, #A78BFA 100%);
-    box-shadow: 0 0 24px rgba(124, 92, 255, 0.45), 0 4px 16px rgba(0,0,0,0.3);
+    @apply relative inline-flex items-center justify-center gap-2 font-bold text-white transition-all duration-200 select-none;
+    background: var(--brand);
+    border-radius: var(--radius-btn);
+    padding: 0.85rem 1.4rem;
+    box-shadow: none;
   }
-  .btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 36px rgba(124, 92, 255, 0.6), 0 8px 24px rgba(0,0,0,0.4);
-  }
-  .btn-primary:active {
-    transform: scale(0.97);
-    box-shadow: 0 0 16px rgba(124, 92, 255, 0.4);
-  }
+  .btn-primary:hover { background: var(--brand-strong); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 font-semibold rounded-2xl px-6 py-3.5 transition-all duration-200 select-none;
-    background: var(--bg-card-bright);
-    border: 1px solid var(--border-bright);
+    @apply inline-flex items-center justify-center gap-2 font-semibold transition-all duration-200 select-none;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--text-primary);
+    border-radius: var(--radius-btn);
+    padding: 0.85rem 1.4rem;
   }
-  .btn-secondary:hover {
-    background: var(--bg-card-bright);
-    border-color: var(--border-bright);
-    transform: translateY(-1px);
-  }
-  .btn-secondary:active { transform: scale(0.97); }
+  .btn-secondary:hover { border-color: var(--border-strong); }
+  .btn-secondary:active { transform: scale(0.98); }
 
   .btn-ghost {
     @apply inline-flex items-center gap-2 font-medium rounded-xl px-4 py-2 transition-all duration-200;
-    color: var(--text-muted);
+    color: var(--text-secondary);
   }
   .btn-ghost:hover {
     color: var(--text-primary);
-    background: var(--bg-card);
+    background: var(--bg-surface);
   }
 
   /* ─── Inputs ──────────────────────────────────── */
   .input {
-    @apply w-full font-medium rounded-2xl px-4 py-3.5 transition-all duration-200 outline-none;
+    @apply w-full font-medium transition-all duration-200 outline-none;
     font-size: 16px;
+    border-radius: var(--radius-input);
+    padding: 0.8rem 0.9rem;
     background: var(--bg-input);
-    border: 1px solid var(--border-color);
+    border: 1px solid var(--border-subtle);
     color: var(--text-primary);
   }
-  .input::placeholder {
-    color: var(--text-muted);
-  }
+  .input::placeholder { color: var(--text-muted); }
+  /* Foco: ring de marca leve (sem preencher de roxo) */
   .input:focus {
-    background: rgba(124, 92, 255, 0.08);
-    border-color: rgba(124, 92, 255, 0.5);
-    box-shadow: 0 0 0 3px rgba(124, 92, 255, 0.12), 0 0 20px rgba(124, 92, 255, 0.1);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-soft);
   }
-  /* Estado de erro: borda/realce coral para validação inline por campo. */
   .input-error {
-    border-color: rgba(255, 122, 107, 0.7);
-    background: rgba(255, 122, 107, 0.06);
+    border-color: var(--danger);
+    background: var(--bg-input);
   }
   .input-error:focus {
-    border-color: rgba(255, 122, 107, 0.8);
-    box-shadow: 0 0 0 3px rgba(255, 122, 107, 0.14);
+    border-color: var(--danger);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
   }
 
   select.input option {
-    background: var(--bg-base);
+    background: var(--bg-elevated);
     color: var(--text-primary);
   }
 
   /* ─── Labels ──────────────────────────────────── */
   .label {
-    @apply block text-xs font-bold uppercase tracking-widest mb-2;
-    color: var(--text-muted);
-    letter-spacing: 0.08em;
+    @apply block text-xs font-bold mb-2;
+    color: var(--text-secondary);
+    letter-spacing: 0.01em;
   }
 
   /* ─── Chips ───────────────────────────────────── */
   .chip {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer select-none;
   }
+  /* Ativo: acento de marca suave (sem gradiente forte) */
   .chip-active {
-    background: linear-gradient(135deg, #7C5CFF, #A78BFA);
-    color: white;
-    box-shadow: 0 0 16px rgba(124, 92, 255, 0.4);
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    color: var(--brand);
   }
   .chip-inactive {
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
     color: var(--text-secondary);
   }
   .chip-inactive:hover {
-    background: rgba(124, 92, 255, 0.1);
-    border-color: rgba(124, 92, 255, 0.3);
-    color: #A78BFA;
+    border-color: var(--brand-border);
+    color: var(--text-primary);
   }
 
-  /* ─── Tags ────────────────────────────────────── */
+  /* ─── Tags / pills de status ──────────────────── */
   .tag {
     @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold;
   }
   .tag-purple {
-    background: rgba(124, 92, 255, 0.2);
-    border: 1px solid rgba(124, 92, 255, 0.3);
-    color: #A78BFA;
+    background: var(--brand-soft);
+    border: 1px solid var(--brand-border);
+    color: var(--brand);
   }
   .tag-coral {
-    background: rgba(255, 122, 107, 0.15);
-    border: 1px solid rgba(255, 122, 107, 0.25);
-    color: #FF7A6B;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+    color: var(--warning);
   }
   .tag-mint {
-    background: rgba(83, 214, 161, 0.15);
-    border: 1px solid rgba(83, 214, 161, 0.25);
-    color: #53D6A1;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.24);
+    color: var(--success);
   }
   .tag-amber {
-    background: rgba(255, 181, 71, 0.15);
-    border: 1px solid rgba(255, 181, 71, 0.25);
-    color: #FFB547;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+    color: var(--warning);
+  }
+
+  /* Pílula de status genérica (semântica via modificador inline) */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
+  }
+
+  /* ─── Segmented control (abas nativas) ────────── */
+  .segmented-control {
+    display: flex;
+    gap: 2px;
+    padding: 3px;
+    border-radius: 12px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+  }
+  .segmented-control button {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 9px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    transition: all 0.18s ease;
+  }
+  .segmented-control button[data-active="true"] {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ─── Bottom sheet (modais de baixo) ──────────── */
+  .bottom-sheet {
+    background: var(--bg-elevated);
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
+    border-top: 1px solid var(--border-subtle);
+    box-shadow: 0 -20px 60px rgba(0,0,0,0.4);
+  }
+
+  /* ─── Checkout card (tema claro premium) ──────── */
+  .checkout-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
   }
 
   /* ─── Section Title ───────────────────────────── */
   .section-title {
-    @apply text-base font-extrabold tracking-tight;
+    @apply text-base font-extrabold;
     color: var(--text-primary);
   }
 
-  /* ─── Gradient Text ───────────────────────────── */
+  /* ─── Gradient Text (momento de marca: nome, Deby) ─── */
   .gradient-text {
-    background: linear-gradient(135deg, #A78BFA 0%, #7C5CFF 100%);
+    background: linear-gradient(135deg, #9B8CFF 0%, #6D5DF6 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .gradient-text-coral {
-    background: linear-gradient(135deg, #FF7A6B 0%, #FFB547 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--warning);
   }
 
-  /* ─── Progress Bar ────────────────────────────── */
+  /* ─── Progress Bar (sólida, sem glow) ─────────── */
   .progress-bar {
     @apply h-1.5 rounded-full overflow-hidden;
-    background: var(--border-color);
+    background: var(--bg-surface);
   }
   .progress-fill {
     @apply h-full rounded-full transition-all duration-700;
-    background: linear-gradient(90deg, #7C5CFF, #A78BFA);
-    box-shadow: 0 0 10px rgba(124, 92, 255, 0.5);
+    background: var(--brand);
   }
 
   /* ─── Divider ─────────────────────────────────── */
@@ -299,9 +370,9 @@
   /* ─── Shimmer Loading ─────────────────────────── */
   .shimmer {
     background: linear-gradient(90deg,
-      var(--bg-card) 0%,
-      var(--bg-card-bright) 50%,
-      var(--bg-card) 100%
+      var(--bg-elevated) 0%,
+      var(--bg-surface) 50%,
+      var(--bg-elevated) 100%
     );
     background-size: 400px 100%;
     animation: shimmer 1.8s linear infinite;
@@ -320,5 +391,5 @@
 
   .bg-glass        { background: var(--bg-card); }
   .bg-glass-bright { background: var(--bg-card-bright); }
-  .bg-glass-purple { background: rgba(124, 92, 255, 0.1); }
+  .bg-glass-purple { background: var(--brand-soft); }
 }

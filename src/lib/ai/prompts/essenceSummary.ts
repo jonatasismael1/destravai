@@ -27,6 +27,7 @@ RESPOSTAS DO PROFISSIONAL
 ════════════════════════════════════
 
 Profissão / área de atuação: ${answers.profession ?? 'não informado'}
+${answers.identity_pronoun ? `Identidade (concordância de gênero — siga à risca): a pessoa se identifica como "${answers.identity_pronoun}" (ele = masculino, ela = feminino, neutro = linguagem neutra). Faça toda concordância nesse gênero.` : ''}
 Nicho específico: ${answers.niche ?? 'não informado'}
 Público-alvo: ${answers.audience ?? 'não informado'}
 Tom de voz: ${answers.tone_of_voice ?? 'não informado'}

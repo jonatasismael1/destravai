@@ -12,10 +12,18 @@ export interface EssenceContext {
   common_objections?: string[] | null
   phrases?: string[] | null
   differentials?: string | null
+  pronoun?: string | null   // 'ele' | 'ela' | 'neutro' — concordância de gênero
+}
+
+const PRONOUN_RULE: Record<string, string> = {
+  ele: 'Esta pessoa se identifica no MASCULINO (ele). Faça toda a concordância de gênero no masculino. Nunca a trate no feminino.',
+  ela: 'Esta pessoa se identifica no FEMININO (ela). Faça toda a concordância de gênero no feminino. Nunca a trate no masculino.',
+  neutro: 'Use linguagem neutra de gênero ao se referir a esta pessoa.',
 }
 
 export function buildInitialLibraryPrompt(essence: EssenceContext): string {
   const positioning = essence.ai_positioning ? JSON.stringify(essence.ai_positioning) : ''
+  const pronounRule = essence.pronoun ? PRONOUN_RULE[essence.pronoun] : ''
 
   return `Você é um estrategista de conteúdo para Instagram especializado em criar material prático e personalizado.
 
@@ -36,6 +44,7 @@ Dúvidas frequentes do público: ${(essence.frequent_questions ?? []).join(' / '
 Objeções comuns: ${(essence.common_objections ?? []).join(' / ') || 'não informado'}
 Frases e bordões: ${(essence.phrases ?? []).join(', ') || 'nenhum'}
 Diferenciais: ${essence.differentials ?? 'não informado'}
+${pronounRule ? `Identidade (concordância de gênero — siga à risca): ${pronounRule}` : ''}
 ${positioning ? `Posicionamento completo: ${positioning}` : ''}
 ${essence.ai_summary ? `Resumo da essência: ${essence.ai_summary}` : ''}
 

@@ -1,4 +1,4 @@
-import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea } from '../types'
+import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea, Pronoun } from '../types'
 import type { BrandEssence, LibraryItemType } from './supabase/types'
 import { generateText } from './ai/googleGemini'
 import { buildEssenceSummaryPrompt } from './ai/prompts/essenceSummary'
@@ -36,6 +36,30 @@ const EXPOSURE_LABELS: Record<ExposureLevel, string> = {
   'humor-backstage': 'usa bastidores reais, humor genuíno, momentos autênticos do dia a dia',
 }
 
+// Regra de concordância de gênero por identificação. É o que evita a IA tratar
+// um homem como "esta profissional" (e vice-versa).
+const PRONOUN_RULE: Record<Pronoun, string> = {
+  ele: 'Esta pessoa se identifica no MASCULINO (ele/dele). Faça TODA a concordância de gênero no masculino — artigos, adjetivos e particípios. Nunca a trate no feminino.',
+  ela: 'Esta pessoa se identifica no FEMININO (ela/dela). Faça TODA a concordância de gênero no feminino — artigos, adjetivos e particípios. Nunca a trate no masculino.',
+  neutro: 'Use linguagem neutra de gênero ao se referir a esta pessoa; evite artigos e adjetivos com marca de gênero sempre que possível.',
+}
+
+// Bloco "sobre a pessoa": identidade de gênero + contexto pessoal (quando a
+// pessoa topa expor). Entra em todos os prompts que produzem conteúdo na voz
+// dela. Vazio quando não há dados — mantém o comportamento anterior.
+function personBlock(profile: ProfessionalProfile): string {
+  const lines: string[] = []
+  if (profile.pronoun) lines.push(PRONOUN_RULE[profile.pronoun])
+  const notes = (profile.personalNotes ?? '').trim()
+  if (profile.sharePersonal === false) {
+    lines.push('A pessoa prefere NÃO expor a vida pessoal — mantenha o conteúdo no campo profissional.')
+  } else if (notes) {
+    lines.push(`Contexto pessoal (use com naturalidade para humanizar, sem forçar e só quando fizer sentido): ${notes}`)
+  }
+  if (!lines.length) return ''
+  return `\nSOBRE A PESSOA (regras de identidade — siga à risca)\n${lines.join('\n')}\n`
+}
+
 const TYPE_INSTRUCTIONS: Record<string, string> = {
   story: `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
 Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala (se houver).`,
@@ -71,7 +95,7 @@ Nome profissional: ${profile.professionalName}
 Público-alvo: ${audience}
 Tom de voz: ${toneList || 'profissional, humano e acessível'}
 ${profile.catchphrase ? `Bordão/frase característica: "${profile.catchphrase}"` : ''}
-
+${personBlock(profile)}
 Pilares de conteúdo (temas que domina e quer comunicar):
 ${pillarList || '- Autoridade na área\n- Humanização do atendimento'}
 
@@ -229,7 +253,7 @@ Nome: ${profile.professionalName}
 Área de atuação: ${profile.specialty}
 Tom de voz: ${profile.voiceTone?.join(', ') || 'profissional e humano'}
 Público: ${profile.targetAudience || `interessados em ${profile.specialty}`}
-
+${personBlock(profile)}
 ═══════════════════════════════
 CONTEXTO PESSOAL
 ═══════════════════════════════
@@ -362,7 +386,7 @@ ${positioning ? `Posicionamento: ${positioning}` : ''}
 ${differentials ? `Diferenciais (o que só ele(a) tem): ${differentials}` : ''}
 ${questions ? `Dúvidas frequentes do público: ${questions}` : ''}
 ${objections ? `Objeções a quebrar: ${objections}` : ''}
-
+${personBlock(profile)}
 CONTEXTO AGORA
 ${cfg.ctx}
 ${variationHint ? `VARIAÇÃO PEDIDA: ${variationHint} — adapte a ideia com este foco específico` : ''}
@@ -462,7 +486,7 @@ Nome: ${profile.professionalName}
 Área: ${profile.specialty}
 Tom de voz: ${tone}
 ${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
-
+${personBlock(profile)}
 CONTEÚDO (story/reel que será postado)
 Tema: ${idea.theme}
 Objetivo: ${idea.objective}
@@ -520,7 +544,7 @@ Serviços/produtos: ${services}
 Tom de voz: ${tone}
 ${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
 Público: ${profile.targetAudience || `interessados em ${profile.specialty}`}
-
+${personBlock(profile)}
 TAREFA
 Crie 8 CTAs (chamadas para ação) personalizados para este profissional, cobrindo diferentes objetivos:
 - 2 de interação (comentar, responder, marcar alguém)
@@ -595,8 +619,13 @@ export interface GeneratedLibraryItem {
 }
 
 export async function generateLibraryItems(essence: BrandEssence): Promise<GeneratedLibraryItem[]> {
+  // Passa o gênero (vive no raw_answers_json) para a concordância correta.
+  const pronoun = (essence.raw_answers_json as Record<string, unknown> | null)?.identity_pronoun
   // Biblioteca tem muitos itens → precisa de mais tokens de saída.
-  const raw = await generateText(buildInitialLibraryPrompt(essence), { maxOutputTokens: 8192 })
+  const raw = await generateText(
+    buildInitialLibraryPrompt({ ...essence, pronoun: typeof pronoun === 'string' ? pronoun : null }),
+    { maxOutputTokens: 8192 },
+  )
   const p = extractJSON(raw)
   const items = Array.isArray(p.items) ? p.items : []
   return items.map((i: Record<string, unknown>) => {
@@ -632,7 +661,7 @@ Tom de voz natural: ${tone}
 Como aparece no conteúdo: ${exposure}
 ${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
 ${profile.avoidedWords?.length ? `NUNCA use estas palavras: ${profile.avoidedWords.join(', ')}` : ''}
-
+${personBlock(profile)}
 O QUE A PESSOA QUER FALAR AGORA (tema livre, pode ser pessoal/opinião/cotidiano)
 "${topic}"
 

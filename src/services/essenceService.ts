@@ -44,6 +44,10 @@ export function essenceToProfile(essence: BrandEssence, name = ''): Professional
     frequentQuestions: essence.frequent_questions ?? [],
     commonObjections: essence.common_objections ?? [],
     positioning: essence.ai_positioning ?? '',
+    // Dados pessoais (vivem no raw_answers_json, sem coluna própria / migração).
+    pronoun: ((p) => (p === 'ele' || p === 'ela' || p === 'neutro' ? p : undefined))(str(raw.identity_pronoun)),
+    personalNotes: str(raw.personal_notes),
+    sharePersonal: typeof raw.share_personal === 'boolean' ? raw.share_personal : undefined,
   }
 }
 

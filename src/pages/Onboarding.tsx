@@ -136,6 +136,7 @@ export default function Onboarding() {
     state.profile?.name ?? state.supabaseUser?.user_metadata?.name ?? ''
   )
   const [specialty, setSpecialty] = useState('')
+  const [pronoun, setPronoun] = useState('')
   const [city, setCity] = useState('')
   const [targetAudience, setTargetAudience] = useState('')
   const [instagram, setInstagram] = useState('')
@@ -189,6 +190,7 @@ export default function Onboarding() {
         preferredWords: [],
         avoidedWords: avoidedWords.split(',').map(s => s.trim()).filter(Boolean),
         availableMoments: [],
+        pronoun: pronoun ? (pronoun as 'ele' | 'ela' | 'neutro') : undefined,
       }
       setLocalProfile(localProfile)
 
@@ -213,6 +215,7 @@ export default function Onboarding() {
         instagram,
         exposure_level: exposureLevel,
         avoided_words: avoidedWords.split(',').map(s => s.trim()).filter(Boolean),
+        identity_pronoun: pronoun,
       }
       const savedEssence = await saveBrandEssence(essenceAnswers)
       setEssence(savedEssence)
@@ -260,6 +263,18 @@ export default function Onboarding() {
       <div>
         <label className="label">Nome profissional</label>
         <input className="input" value={professionalName} onChange={e => setProfessionalName(e.target.value)} placeholder="Ex: Ana Lima, Dr. Carlos, @anaverde" />
+      </div>
+      <div>
+        <label className="label">Como você se identifica?</label>
+        <div className="flex gap-2">
+          {[['ele', 'Ele'], ['ela', 'Ela'], ['neutro', 'Neutro']].map(([val, lbl]) => (
+            <button key={val} type="button" onClick={() => setPronoun(val)}
+              className={`chip ${pronoun === val ? 'chip-active' : 'chip-inactive'}`}>{lbl}</button>
+          ))}
+        </div>
+        <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+          Para o conteúdo te tratar no gênero certo.
+        </p>
       </div>
       <div>
         <label className="label">Área de atuação <span style={{ color: '#FF7A6B' }}>*</span></label>

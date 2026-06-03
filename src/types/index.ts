@@ -30,7 +30,15 @@ export interface ProfessionalProfile {
   frequentQuestions?: string[]    // dúvidas que o público sempre faz
   commonObjections?: string[]     // objeções a quebrar antes da venda
   positioning?: string            // posicionamento sintetizado pela IA (ai_positioning)
+  // Dados pessoais que personalizam o conteúdo e evitam erro de gênero. Opcionais.
+  pronoun?: Pronoun               // como a pessoa se identifica (concordância de gênero)
+  personalNotes?: string          // contexto pessoal livre (filhos, cidade, estado civil…)
+  sharePersonal?: boolean         // topa usar a vida pessoal para humanizar o conteúdo
 }
+
+// Como a pessoa se identifica — usado para a IA fazer a concordância de gênero
+// correta (evita "esta profissional" para um homem, por exemplo).
+export type Pronoun = 'ele' | 'ela' | 'neutro'
 
 export type ExposureLevel =
   | 'no-appearance'

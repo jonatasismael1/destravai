@@ -69,9 +69,15 @@ export default function DefinirSenha() {
               <CheckCircle2 size={26} className="text-white" />
             </div>
             <h1 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Senha criada!</h1>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
               Tudo pronto. Agora é só entrar e começar a destravar seus stories.
             </p>
+            <div className="rounded-xl px-4 py-3 mb-6 text-sm" style={{ background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }}>
+              <p style={{ color: 'var(--text-secondary)' }}>
+                Acesse sempre pelo endereço:
+              </p>
+              <p className="font-extrabold mt-0.5" style={{ color: 'var(--brand)' }}>destravai.dbe.digital</p>
+            </div>
             <button onClick={() => navigate('/')} className="btn-primary w-full py-3.5">
               Entrar no app <ArrowRight size={18} />
             </button>
@@ -92,8 +98,11 @@ export default function DefinirSenha() {
               <KeyRound size={18} style={{ color: 'var(--brand)' }} />
               <h1 className="text-xl font-extrabold" style={{ color: 'var(--text-primary)' }}>Crie sua senha</h1>
             </div>
-            <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
               Defina a senha que você vai usar para entrar no Destravaí.
+            </p>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
+              Depois é só acessar por <strong style={{ color: 'var(--brand)' }}>destravai.dbe.digital</strong> com o seu e-mail e esta senha.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">

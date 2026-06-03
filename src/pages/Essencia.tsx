@@ -3,13 +3,20 @@ import { useApp } from '../context/AppContext'
 import { getBrandEssence, saveBrandEssence, updateEssenceSummary } from '../services/essenceService'
 import { generateEssenceSummary } from '../lib/ai'
 import type { BrandEssence } from '../lib/supabase/types'
-import { Save, Plus, X, User, MessageSquare, Layout, Briefcase, Shield, Clock, Sparkles, RefreshCw } from 'lucide-react'
+import { Save, Plus, X, User, MessageSquare, Layout, Briefcase, Shield, Clock, Sparkles, RefreshCw, Heart } from 'lucide-react'
 import { useScreenTour } from '../context/OnboardingContext'
 
-type Tab = 'perfil' | 'tom' | 'topicos' | 'servicos' | 'limites' | 'rotina'
+type Tab = 'perfil' | 'pessoal' | 'tom' | 'topicos' | 'servicos' | 'limites' | 'rotina'
+
+const PRONOUNS: { value: string; label: string }[] = [
+  { value: 'ele', label: 'Ele' },
+  { value: 'ela', label: 'Ela' },
+  { value: 'neutro', label: 'Neutro' },
+]
 
 const TABS: { value: Tab; label: string; icon: React.ReactNode }[] = [
   { value: 'perfil', label: 'Perfil', icon: <User size={12} /> },
+  { value: 'pessoal', label: 'Pessoal', icon: <Heart size={12} /> },
   { value: 'tom', label: 'Tom', icon: <MessageSquare size={12} /> },
   { value: 'topicos', label: 'Tópicos', icon: <Layout size={12} /> },
   { value: 'servicos', label: 'Serviços', icon: <Briefcase size={12} /> },
@@ -72,10 +79,18 @@ type FormState = {
   common_objections: string[]
   phrases: string[]
   references_text: string
+  identity_pronoun: string
+  personal_notes: string
+  share_personal: boolean
 }
 
 function initForm(essence: BrandEssence | null): FormState {
+  const raw = (essence?.raw_answers_json ?? {}) as Record<string, unknown>
+  const rawStr = (v: unknown, fb = '') => (typeof v === 'string' ? v : fb)
   return {
+    identity_pronoun: rawStr(raw.identity_pronoun),
+    personal_notes: rawStr(raw.personal_notes),
+    share_personal: typeof raw.share_personal === 'boolean' ? raw.share_personal : true,
     profession: essence?.profession ?? '',
     niche: essence?.niche ?? '',
     audience: essence?.audience ?? '',
@@ -129,6 +144,12 @@ export default function Essencia() {
     setForm(f => ({ ...f, [key]: value }))
 
   const toAnswers = (): Record<string, unknown> => ({
+    // Preserva chaves que só o onboarding preenche (professional_name, city,
+    // instagram, exposure_level, avoided_words…) para não perdê-las ao salvar aqui.
+    ...((state.essence?.raw_answers_json ?? {}) as Record<string, unknown>),
+    identity_pronoun: form.identity_pronoun,
+    personal_notes: form.personal_notes,
+    share_personal: form.share_personal,
     profession: form.profession,
     niche: form.niche,
     audience: form.audience,
@@ -233,6 +254,49 @@ export default function Essencia() {
                 onChange={e => update('content_goals', e.target.value)}
                 placeholder="Ex: Atrair mais pacientes, vender curso online, aumentar autoridade..." />
             </div>
+          </div>
+        )
+
+      case 'pessoal':
+        return (
+          <div className="space-y-5">
+            <div>
+              <label className="label">Como você se identifica?</label>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                A Deby usa isso para a concordância de gênero no conteúdo — assim não te trata no gênero errado.
+              </p>
+              <div className="flex gap-2">
+                {PRONOUNS.map(p => (
+                  <button key={p.value} onClick={() => update('identity_pronoun', p.value)}
+                    className={`chip ${form.identity_pronoun === p.value ? 'chip-active' : 'chip-inactive'}`}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Topa usar sua vida pessoal para humanizar o conteúdo?</label>
+              <div className="flex gap-2">
+                <button onClick={() => update('share_personal', true)}
+                  className={`chip ${form.share_personal ? 'chip-active' : 'chip-inactive'}`}>Sim, pode usar</button>
+                <button onClick={() => update('share_personal', false)}
+                  className={`chip ${!form.share_personal ? 'chip-active' : 'chip-inactive'}`}>Prefiro não</button>
+              </div>
+            </div>
+
+            {form.share_personal && (
+              <div>
+                <label className="label">Conte um pouco sobre você (opcional)</label>
+                <textarea className="input resize-none" rows={4}
+                  value={form.personal_notes}
+                  onChange={e => update('personal_notes', e.target.value)}
+                  placeholder="Ex.: moro em Maceió, sou casado, tenho 2 filhos, gosto de futebol e praia." />
+                <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                  Filhos, cidade, estado civil, hobbies… só o que você quiser. A Deby usa com naturalidade, sem forçar.
+                </p>
+              </div>
+            )}
           </div>
         )
 

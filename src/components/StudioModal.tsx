@@ -455,14 +455,18 @@ export default function StudioModal({ idea, onClose }: Props) {
     recorder.ondataavailable = e => { if (e.data?.size > 0) chunksRef.current.push(e.data) }
     recorder.onstop = async () => {
       const type = recorder.mimeType || chunksRef.current[0]?.type || mimeType || 'video/webm'
-      let blob = new Blob(chunksRef.current, { type })
+      const rawBlob = new Blob(chunksRef.current, { type })
       // Corrige a duração do MP4 (MediaRecorder grava fMP4 com duração quebrada,
       // o que fazia o Instagram cortar o vídeo em 3-4s). Medimos a duração real
       // pelo relógio. Para WebM/erros, devolve o original sem alterar.
       const realDuration = recordStartRef.current ? (Date.now() - recordStartRef.current) / 1000 : 0
-      blob = await fixMp4Duration(blob, realDuration)
-      blobRef.current = blob
-      setRecordedUrl(URL.createObjectURL(blob))
+      // Download/galeria usa o blob com a duração corrigida (Instagram não corta).
+      // O PREVIEW usa o blob ORIGINAL: o MP4 fragmentado toca inline no <video>,
+      // enquanto a versão com metadados reescritos às vezes não renderiza no
+      // player do navegador (gravava/baixava ok, mas não aparecia no preview).
+      blobRef.current = await fixMp4Duration(rawBlob, realDuration)
+      if (recordedUrl) URL.revokeObjectURL(recordedUrl)
+      setRecordedUrl(URL.createObjectURL(rawBlob))
       stopStream()
       setPhase('preview')
     }

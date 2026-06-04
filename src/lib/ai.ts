@@ -119,31 +119,32 @@ function buildTypeInstruction(req: GenerateRequest): string {
     const count = Math.min(10, Math.max(2, req.sequenceCount ?? 3))
     if (isPhoto) {
       // Sequência de FOTOS: o usuário não grava falando, só posta fotos com texto.
+      // Story NÃO tem campo de legenda → não gere LEGENDA; o CTA vai no TEXTO NA TELA.
       return `Crie uma sequência de EXATAMENTE ${count} FOTOS encadeadas (stories só com FOTO — a pessoa NÃO vai gravar falando). Cada foto deve ter:
 Foto 1 — Gancho visual: a imagem + frase que para o dedo e cria curiosidade
 Fotos 2 a ${Math.max(2, count - 1)} — Desenvolvimento: mostram o processo, bastidor, detalhes ou evolução do que está sendo feito
-Foto ${count} — CTA: imagem de fechamento com convite a uma ação clara
-Para CADA foto descreva: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz), o TEXTO NA TELA (frase curta sobre a foto) e uma LEGENDA. NÃO inclua falas — é conteúdo só de foto. Não crie mais nem menos que ${count} fotos.`
+Foto ${count} — CTA: imagem de fechamento cujo TEXTO NA TELA é a própria chamada para ação
+Para CADA foto descreva apenas: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz) e o TEXTO NA TELA (a frase, curta e pronta, que a pessoa vai escrever no story). NÃO gere fala nem legenda — story não tem legenda. O CTA é o TEXTO NA TELA da última foto. Não crie mais nem menos que ${count} fotos.`
     }
     return `Crie uma sequência de EXATAMENTE ${count} stories encadeados. Cada story deve ter:
 Story 1 — Gancho: captura atenção, cria curiosidade ou identificação
 Stories 2 a ${Math.max(2, count - 1)} — Desenvolvimento: aprofunda, educa, conecta emocionalmente ou apresenta solução
-Story ${count} — CTA: convida a uma ação clara e natural
-Descreva visual, texto na tela e fala para cada story. Não crie mais nem menos que ${count} stories.`
+Story ${count} — CTA: a FALA do último story TERMINA com a chamada para ação dita naturalmente (o CTA é falado, faz parte do roteiro — não fica só à parte)
+Descreva visual, texto na tela e fala para cada story. Story não tem campo de legenda: NÃO gere legenda. Não crie mais nem menos que ${count} stories.`
   }
   if (req.type === 'reel') {
     return `Crie um roteiro completo para um Reels de 30 a 45 segundos. Estrutura:
 - Gancho (primeiros 3 segundos): a frase ou imagem que para o scroll
 - Corpo: desenvolvimento dinâmico, ritmo rápido, 1 ideia por corte
-- Fechamento: conclusão + CTA integrado
-Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição.`
+- Fechamento: conclusão + CTA integrado na fala
+Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição. Reels TEM legenda de publicação.`
   }
   if (isPhoto) {
-    // Story único só com FOTO.
-    return `Crie 1 ideia de STORY COM FOTO (a pessoa NÃO vai gravar falando — só postar uma foto com texto). Descreva: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz), o TEXTO NA TELA (frase curta e impactante sobre a foto) e uma LEGENDA. NÃO inclua falas. Deve ser simples e executável em segundos.`
+    // Story único só com FOTO. Sem legenda; CTA vai dentro do texto na tela.
+    return `Crie 1 ideia de STORY COM FOTO (a pessoa NÃO vai gravar falando — só postar uma foto com texto). Descreva apenas: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz) e o TEXTO NA TELA (a frase, curta e pronta, que a pessoa vai escrever no story — incluindo a chamada para ação ao final). NÃO gere fala nem legenda — story não tem legenda. Deve ser simples e executável em segundos.`
   }
   return `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
-Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala (se houver).`
+Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala. A FALA TERMINA com a chamada para ação dita naturalmente (o CTA é falado, faz parte do roteiro — não fica só à parte). Story não tem campo de legenda: NÃO gere legenda.`
 }
 
 function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {
@@ -154,11 +155,14 @@ function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {
   const modelLabel = req.model ? MODEL_LABELS[req.model] : (req.format || 'Qualquer formato')
   const modelInstruction = req.model ? MODEL_INSTRUCTIONS[req.model] : 'Use a estrutura mais adequada para o tema, objetivo e nível de exposição da pessoa.'
   const isPhoto = req.media === 'photo'
-  // Formato do campo "content": conteúdo COM FOTO usa rótulos FOTO/TEXTO NA TELA/
-  // LEGENDA (sem fala); vídeo/story falado usa FALA/TEXTO NA TELA/CENA/EDIÇÃO.
+  // Reels é a única publicação com campo de legenda; story (único/sequência) não.
+  const hasCaption = req.type === 'reel'
+  // Formato do campo "content": conteúdo COM FOTO usa rótulos FOTO/TEXTO NA TELA
+  // (sem fala, sem legenda — story não tem legenda); vídeo usa FALA/TEXTO NA TELA/
+  // CENA/EDIÇÃO. Reels (vídeo) é o único que pode incluir LEGENDA.
   const contentFormatInstruction = isPhoto
-    ? `roteiro visual em LINHAS ROTULADAS para conteúdo COM FOTO. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FOTO:' = o que fotografar (cena, objeto, ângulo, luz); 'TEXTO NA TELA:' = a frase que aparece escrita sobre a foto; 'LEGENDA:' = legenda curta para o post. NÃO inclua linhas 'FALA:' — este conteúdo é só foto, a pessoa não vai gravar falando. Separe cada bloco com uma quebra de linha.${req.type === 'sequence' ? ` Para SEQUÊNCIA de fotos: preceda cada foto com uma linha contendo APENAS STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
-    : `roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ` Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
+    ? `roteiro visual em LINHAS ROTULADAS para conteúdo COM FOTO. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FOTO:' = o que fotografar (cena, objeto, ângulo, luz); 'TEXTO NA TELA:' = a frase, curta e PRONTA, que a pessoa vai escrever sobre a foto no story (sem aspas, sem instrução). NÃO inclua 'FALA:' (não vai gravar falando) nem 'LEGENDA:' (story não tem legenda). Separe cada bloco com uma quebra de linha.${req.type === 'sequence' ? ` Para SEQUÊNCIA de fotos: preceda cada foto com uma linha contendo APENAS STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
+    : `roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala) — e a ÚLTIMA fala deve TERMINAR com a chamada para ação dita naturalmente; 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição${hasCaption ? "; 'LEGENDA:' = legenda da publicação (só para Reels)" : ''}. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado.${hasCaption ? '' : ' NÃO inclua linha "LEGENDA:" — story não tem campo de legenda.'}${req.type === 'sequence' ? ` Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
   const pillarList = profile.pillars.map((p, i) => `${i + 1}. ${p.name}${p.description ? ` (${p.description})` : ''}`).join('\n')
   const serviceList = profile.services.map(s => `- ${s.name}${s.commercialGoal ? ` (${s.commercialGoal})` : ''}`).join('\n')
   const toneList = profile.voiceTone.join(', ')
@@ -231,7 +235,9 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
   "objective": "o que este conteúdo vai gerar no público (1 frase)",
   "timeEstimate": "tempo real de gravação estimado",
   "content": "${contentFormatInstruction}",
-  "cta": "chamada para ação final natural e não-forçada, que soe como a pessoa falaria",
+  "cta": "${isPhoto
+    ? 'a chamada para ação que JÁ aparece no texto na tela da última foto (repita-a aqui, curta, para referência)'
+    : 'a MESMA chamada para ação que JÁ está integrada ao final da fala do roteiro (repita-a aqui, curta, para referência — ela não substitui o CTA falado)'}",
   "tags": ["categoria1", "categoria2"]
 }`
 }

@@ -5,7 +5,7 @@ import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, M
 import type { ContentIdea, ContentModel, ContentObjective, ContentMedia } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
-import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
+import { splitSequenceStories, stripStoryHeader, extractScreenText, extractPhotoDirection } from '../lib/stories'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
@@ -118,12 +118,11 @@ function loadDraft(): Partial<CriarDraft> {
   try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') } catch { return {} }
 }
 
-const SEQUENCE_COUNT_OPTIONS: SelectOption[] = [
-  { value: '3', label: '3 stories' },
-  { value: '5', label: '5 stories' },
-  { value: '7', label: '7 stories' },
-  { value: 'custom', label: 'Personalizado' },
-]
+// Quantidade de stories/fotos: opções diretas de 2 a 10 (sem "personalizado").
+const SEQUENCE_COUNT_OPTIONS: SelectOption[] = Array.from({ length: 9 }, (_, i) => {
+  const n = String(i + 2)
+  return { value: n, label: n }
+})
 
 const TIME_OPTIONS: SelectOption[] = [
   { value: '2 minutos', label: '2 minutos' },
@@ -200,6 +199,22 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
   )
 }
 
+// Botão "copiar texto" usado no conteúdo com foto — copia APENAS o texto da tela
+// daquele story (sem instruções/observações). Cada botão tem seu próprio estado.
+function CopyScreenTextButton({ text, label = 'Copiar texto' }: { text: string; label?: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all"
+      style={copied
+        ? { background: 'rgba(83,214,161,0.15)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.3)' }
+        : { background: 'var(--brand)', color: '#fff' }}>
+      {copied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> {label}</>}
+    </button>
+  )
+}
+
 function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: {
   idea: ContentIdea
   onVariation: (v: string) => void
@@ -221,7 +236,14 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
   const isMultiStory = stories.length > 1
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(idea.content + (idea.cta ? `\n\nCTA: ${idea.cta}` : ''))
+    // Foto: copia só o texto da tela (de cada story, na ordem). Vídeo/story falado:
+    // copia o roteiro completo + CTA (que também já está integrado à fala).
+    const text = isPhoto
+      ? (isMultiStory
+          ? stories.map((s, i) => `Foto ${i + 1}:\n${extractScreenText(s)}`).join('\n\n')
+          : extractScreenText(idea.content))
+      : idea.content + (idea.cta ? `\n\nCTA: ${idea.cta}` : '')
+    navigator.clipboard.writeText(text)
     setCopied(true); onCopy()
     setTimeout(() => setCopied(false), 2000)
   }
@@ -264,27 +286,68 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
                   theme: `Story ${i + 1} — ${idea.theme}`,
                   content: body,
                 }
+                // Texto da tela limpo deste story (só o que vai escrito na imagem).
+                const screenText = extractScreenText(story)
                 return (
                   <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
                     <div className="flex items-center justify-between mb-2">
                       <span className="tag tag-purple text-[10px]">
                         {isPhoto ? 'Foto' : 'Story'} {i + 1} de {stories.length}
                       </span>
-                      {/* Foto não vai para o teleprompter — sem botão de gravar. */}
-                      {!isPhoto && (
-                        <button onClick={() => onRecord(storyIdea)}
-                          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
-                          style={{ background: 'var(--brand)', color: '#fff' }}>
-                          <Camera size={12} /> Gravar este
-                        </button>
-                      )}
+                      {/* Foto: copia só o texto da tela deste story. Vídeo: grava no teleprompter. */}
+                      {isPhoto
+                        ? <CopyScreenTextButton text={screenText} />
+                        : (
+                          <button onClick={() => onRecord(storyIdea)}
+                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+                            style={{ background: 'var(--brand)', color: '#fff' }}>
+                            <Camera size={12} /> Gravar este
+                          </button>
+                        )}
                     </div>
-                    <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                      {body}
-                    </pre>
+                    {isPhoto ? (
+                      <>
+                        {/* Texto que VAI na tela do story — destacado e pronto para copiar. */}
+                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Texto da tela</p>
+                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed mb-3 rounded-xl p-3"
+                          style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                          {screenText}
+                        </pre>
+                        {/* Direção da foto (o que fotografar) — referência, não entra na cópia. */}
+                        {extractPhotoDirection(story) && (<>
+                          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Como fotografar</p>
+                          <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                            {extractPhotoDirection(story)}
+                          </pre>
+                        </>)}
+                      </>
+                    ) : (
+                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
+                        {body}
+                      </pre>
+                    )}
                   </div>
                 )
               })}
+            </div>
+          ) : isPhoto ? (
+            // Story único com FOTO: destaca o texto da tela (copiável) e mostra a
+            // direção da foto como referência.
+            <div className="rounded-2xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Texto da tela</p>
+                <CopyScreenTextButton text={extractScreenText(idea.content)} />
+              </div>
+              <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed rounded-xl p-3"
+                style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
+                {extractScreenText(idea.content)}
+              </pre>
+              {extractPhotoDirection(idea.content) && (<>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Como fotografar</p>
+                <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  {extractPhotoDirection(idea.content)}
+                </pre>
+              </>)}
             </div>
           ) : (
             <div className="rounded-2xl p-4 mb-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
@@ -294,9 +357,12 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
             </div>
           )}
 
-          {idea.cta && (
+          {/* CTA de referência. Em foto o CTA já está no texto da tela (não repete
+              numa caixa separada). Em vídeo/story falado ele também já está dentro
+              da fala — a caixa serve só de lembrete. */}
+          {idea.cta && !isPhoto && (
             <div className="rounded-2xl p-3 mb-4" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#FF7A6B' }}>CTA</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#FF7A6B' }}>CTA (já incluído no roteiro)</p>
               <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{idea.cta}</p>
             </div>
           )}
@@ -304,11 +370,15 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
           <div className="flex gap-2">
             <button onClick={handleCopy} className="btn-primary flex-1 py-2.5 text-sm"
               style={copied ? { background: 'var(--success)' } : {}}>
-              {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar roteiro</>}
+              {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> {isPhoto ? 'Copiar texto' : 'Copiar roteiro'}</>}
             </button>
-            <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
-              <FileText size={14} />
-            </button>
+            {/* Legenda só faz sentido para Reels (publicação com campo de legenda);
+                story/sequência não têm legenda. */}
+            {idea.type === 'reel' && (
+              <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
+                <FileText size={14} />
+              </button>
+            )}
             {/* Sequência: cada story tem seu próprio "Gravar este" acima — aqui o
                 botão único só aparece para story/reels de VÍDEO (gravação única).
                 Conteúdo de foto não grava no teleprompter. */}
@@ -460,7 +530,6 @@ export default function Criar() {
   const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? draft.contentType ?? 'story')
   const [media, setMedia] = useState<ContentMedia>(draft.media ?? 'video')
   const [sequenceCountMode, setSequenceCountMode] = useState(draft.sequenceCountMode ?? '3')
-  const [customSequenceCount, setCustomSequenceCount] = useState(4)
   const [theme, setTheme] = useState(paramTheme || draft.theme || '')
   const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective || draft.objective || '')
   const [model, setModel] = useState<ContentModel | ''>(draft.model ?? '')
@@ -499,9 +568,7 @@ export default function Criar() {
   const selectedModelLabel = contentModels.find(o => o.value === model)?.label ?? ''
   const structuredContentType = contentType === 'sequence' ? 'story_sequence' : contentType === 'reel' ? 'short_reel' : 'single_story'
   const sequenceCount = contentType === 'sequence'
-    ? sequenceCountMode === 'custom'
-      ? Math.min(10, Math.max(2, customSequenceCount))
-      : Number(sequenceCountMode)
+    ? Math.min(10, Math.max(2, Number(sequenceCountMode) || 3))
     : null
 
   // Persiste o rascunho (roteiros + configuração) na sessão a cada mudança, para
@@ -890,25 +957,7 @@ export default function Criar() {
 
           <DarkSelect label="Objetivo" options={OBJECTIVES} value={objective} onChange={setObjective} placeholder="Selecione o objetivo..." />
           {contentType === 'sequence' && (
-            <div className="space-y-3">
-              <DarkSelect label={media === 'photo' ? 'Quantidade de fotos' : 'Quantidade de stories'} options={SEQUENCE_COUNT_OPTIONS} value={sequenceCountMode} onChange={setSequenceCountMode} />
-              {sequenceCountMode === 'custom' && (
-                <div>
-                  <label className="label">Quantidade personalizada</label>
-                  <input
-                    type="number"
-                    min={2}
-                    max={10}
-                    className="input"
-                    value={customSequenceCount}
-                    onChange={e => setCustomSequenceCount(Math.min(10, Math.max(2, Number(e.target.value) || 2)))}
-                  />
-                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                    Escolha entre 2 e 10 stories.
-                  </p>
-                </div>
-              )}
-            </div>
+            <DarkSelect label={media === 'photo' ? 'Quantidade de fotos' : 'Quantidade de stories'} options={SEQUENCE_COUNT_OPTIONS} value={sequenceCountMode} onChange={setSequenceCountMode} />
           )}
           <DarkSelect
             label="Modelo"

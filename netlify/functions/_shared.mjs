@@ -46,7 +46,12 @@ export function subscriptionRowGrantsAccess(sub) {
   if (!sub) return false
   if (sub.payment_method === 'COURTESY' && sub.access_granted) return true
   if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') return true
-  if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
+  // Dentro do período JÁ PAGO o acesso não cai na hora — vale para quem cancelou
+  // E para quem ficou 'past_due' (cobrança em atraso/retentativa). Sem isto, um
+  // 'overdue' marcado pelo Asaas por 1 dia de atraso derrubava o acesso de quem
+  // ainda tinha mês pago. Quando o período pago realmente acabar, o acesso cai.
+  if (['canceled', 'past_due'].includes(sub.status)
+      && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
   return false
 }
 

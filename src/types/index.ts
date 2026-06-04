@@ -72,8 +72,12 @@ export interface Limits {
 export interface ContentIdea {
   id: string
   type: 'story' | 'sequence' | 'reel'
+  contentType?: ContentType
+  sequenceCount?: number | null
+  model?: ContentModel | null
   theme: string
   objective: string
+  objectiveKey?: ContentObjective
   content: string
   cta: string
   timeEstimate: string
@@ -160,11 +164,37 @@ export interface AppState {
 
 export interface GenerateRequest {
   type: 'story' | 'sequence' | 'reel'
+  contentType?: ContentType
+  sequenceCount?: number | null
   theme: string
-  objective: string
+  objective: ContentObjective | string
+  objectiveLabel?: string
+  model?: ContentModel | null
   format?: string
   exposureLevel: ExposureLevel
   timeAvailable: string
   tone: string[]
   profile: ProfessionalProfile
 }
+
+export type ContentType = 'single_story' | 'story_sequence' | 'short_reel'
+
+export type ContentModel =
+  | 'question_box'
+  | 'poll'
+  | 'backstage'
+  | 'myth_truth'
+  | 'quick_question'
+  | 'soft_sell'
+  | 'objection_break'
+
+export type ContentObjective =
+  | 'educate'
+  | 'connect'
+  | 'sell_service'
+  | 'promote_product'
+  | 'answer_question'
+  | 'break_objection'
+  | 'show_backstage'
+  | 'generate_interaction'
+  | 'reactivate_audience'

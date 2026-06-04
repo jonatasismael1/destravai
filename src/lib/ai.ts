@@ -1,4 +1,4 @@
-import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea, Pronoun } from '../types'
+import type { ContentIdea, GenerateRequest, ExposureLevel, ProfessionalProfile, PersonalContext, JournalEntry, PersonalIdea, Pronoun, ContentModel, ContentObjective, ContentType } from '../types'
 import type { BrandEssence, LibraryItemType } from './supabase/types'
 import { generateText } from './ai/googleGemini'
 import { buildEssenceSummaryPrompt } from './ai/prompts/essenceSummary'
@@ -44,6 +44,44 @@ const PRONOUN_RULE: Record<Pronoun, string> = {
   neutro: 'Use linguagem neutra de gênero ao se referir a esta pessoa; evite artigos e adjetivos com marca de gênero sempre que possível.',
 }
 
+const CONTENT_TYPE_LABELS: Record<ContentType, string> = {
+  single_story: 'Story único',
+  story_sequence: 'Sequência de stories',
+  short_reel: 'Reels curto',
+}
+
+const MODEL_LABELS: Record<ContentModel, string> = {
+  question_box: 'Caixinha de perguntas',
+  poll: 'Enquete',
+  backstage: 'Bastidor comentado',
+  myth_truth: 'Mito e verdade',
+  quick_question: 'Dúvida rápida',
+  soft_sell: 'Venda leve',
+  objection_break: 'Quebra de objeção',
+}
+
+const MODEL_INSTRUCTIONS: Record<ContentModel, string> = {
+  question_box: 'Estruture para abrir ou responder uma caixinha de perguntas, com pergunta clara e fala que incentive resposta.',
+  poll: 'Estruture para enquete, com duas opções simples e uma fala que gere interação.',
+  backstage: 'Mostre bastidor comentado, conectando rotina real com uma lição, decisão ou percepção útil.',
+  myth_truth: 'Use estrutura de mito e verdade, corrigindo uma crença comum de forma simples e convincente.',
+  quick_question: 'Responda uma dúvida rápida do público com linguagem direta e aplicável.',
+  soft_sell: 'Conduza para venda leve, com contexto humano, benefício claro e CTA natural.',
+  objection_break: 'Quebre uma objeção comum antes da venda, sem soar defensivo ou agressivo.',
+}
+
+const OBJECTIVE_LABELS: Record<ContentObjective, string> = {
+  educate: 'Educar',
+  connect: 'Aproximar',
+  sell_service: 'Vender serviço',
+  promote_product: 'Divulgar produto',
+  answer_question: 'Responder dúvida',
+  break_objection: 'Quebrar objeção',
+  show_backstage: 'Mostrar bastidor',
+  generate_interaction: 'Gerar interação',
+  reactivate_audience: 'Reativar audiência',
+}
+
 // Bloco "sobre a pessoa": identidade de gênero + contexto pessoal (quando a
 // pessoa topa expor). Entra em todos os prompts que produzem conteúdo na voz
 // dela. Vazio quando não há dados — mantém o comportamento anterior.
@@ -60,25 +98,33 @@ function personBlock(profile: ProfessionalProfile): string {
   return `\nSOBRE A PESSOA (regras de identidade — siga à risca)\n${lines.join('\n')}\n`
 }
 
-const TYPE_INSTRUCTIONS: Record<string, string> = {
-  story: `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
-Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala (se houver).`,
-
-  sequence: `Crie uma sequência de 3 stories encadeados. Cada story deve ter:
+function buildTypeInstruction(req: GenerateRequest): string {
+  if (req.type === 'sequence') {
+    const count = Math.min(10, Math.max(2, req.sequenceCount ?? 3))
+    return `Crie uma sequência de EXATAMENTE ${count} stories encadeados. Cada story deve ter:
 Story 1 — Gancho: captura atenção, cria curiosidade ou identificação
-Story 2 — Desenvolvimento: aprofunda, educa, conecta emocionalmente ou apresenta solução
-Story 3 — CTA: convida a uma ação clara e natural
-Descreva visual, texto na tela e fala para cada story.`,
-
-  reel: `Crie um roteiro completo para um Reels de 30 a 45 segundos. Estrutura:
+Stories 2 a ${Math.max(2, count - 1)} — Desenvolvimento: aprofunda, educa, conecta emocionalmente ou apresenta solução
+Story ${count} — CTA: convida a uma ação clara e natural
+Descreva visual, texto na tela e fala para cada story. Não crie mais nem menos que ${count} stories.`
+  }
+  if (req.type === 'reel') {
+    return `Crie um roteiro completo para um Reels de 30 a 45 segundos. Estrutura:
 - Gancho (primeiros 3 segundos): a frase ou imagem que para o scroll
 - Corpo: desenvolvimento dinâmico, ritmo rápido, 1 ideia por corte
 - Fechamento: conclusão + CTA integrado
-Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição.`,
+Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição.`
+  }
+  return `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
+Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala (se houver).`
 }
 
 function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {
   const { profile } = req
+  const contentType = req.contentType ?? (req.type === 'sequence' ? 'story_sequence' : req.type === 'reel' ? 'short_reel' : 'single_story')
+  const sequenceCount = req.type === 'sequence' ? Math.min(10, Math.max(2, req.sequenceCount ?? 3)) : null
+  const objectiveLabel = req.objectiveLabel ?? (OBJECTIVE_LABELS[req.objective as ContentObjective] ?? String(req.objective))
+  const modelLabel = req.model ? MODEL_LABELS[req.model] : (req.format || 'Qualquer formato')
+  const modelInstruction = req.model ? MODEL_INSTRUCTIONS[req.model] : 'Use a estrutura mais adequada para o tema, objetivo e nível de exposição da pessoa.'
   const pillarList = profile.pillars.map((p, i) => `${i + 1}. ${p.name}${p.description ? ` (${p.description})` : ''}`).join('\n')
   const serviceList = profile.services.map(s => `- ${s.name}${s.commercialGoal ? ` (${s.commercialGoal})` : ''}`).join('\n')
   const toneList = profile.voiceTone.join(', ')
@@ -92,7 +138,9 @@ PERFIL DO PROFISSIONAL
 ═══════════════════════════════
 Nome profissional: ${profile.professionalName}
 Área de atuação: ${profile.specialty}
+Cidade/base: ${profile.city || 'não informado'}
 Público-alvo: ${audience}
+Objetivo atual da pessoa/marca: ${profile.currentGoal || 'não informado'}
 Tom de voz: ${toneList || 'profissional, humano e acessível'}
 ${profile.catchphrase ? `Bordão/frase característica: "${profile.catchphrase}"` : ''}
 ${personBlock(profile)}
@@ -102,16 +150,23 @@ ${pillarList || '- Autoridade na área\n- Humanização do atendimento'}
 Serviços/produtos que oferece:
 ${serviceList || '- Serviços e atendimentos na área de atuação'}
 
+${profile.differentials ? `Diferenciais da essência: ${profile.differentials}` : ''}
+${profile.positioning ? `Posicionamento sintetizado: ${profile.positioning}` : ''}
+${profile.frequentQuestions?.length ? `Dúvidas frequentes do público: ${profile.frequentQuestions.join('; ')}` : ''}
+${profile.commonObjections?.length ? `Objeções comuns antes da compra: ${profile.commonObjections.join('; ')}` : ''}
+${profile.preferredWords?.length ? `Prefira estas palavras/expressões: ${profile.preferredWords.join(', ')}` : ''}
 ${profile.avoidedWords?.length ? `NUNCA use estas palavras ou expressões: ${profile.avoidedWords.join(', ')}` : ''}
 ${profile.limits?.avoidTopics?.length ? `EVITE completamente estes temas: ${profile.limits.avoidTopics.join(', ')}` : ''}
 
 ═══════════════════════════════
 BRIEFING DO CONTEÚDO
 ═══════════════════════════════
-Formato: ${req.type === 'story' ? 'Story único' : req.type === 'sequence' ? 'Sequência de 3 stories' : 'Reels curto (30-45s)'}
+Tipo de conteúdo: ${contentType} — ${CONTENT_TYPE_LABELS[contentType]}
+${sequenceCount ? `Quantidade de stories: ${sequenceCount} (gere exatamente ${sequenceCount})` : 'Quantidade de stories: não se aplica'}
 Tema central: ${req.theme}
-Objetivo principal: ${req.objective}
-${req.format ? `Estilo/formato específico: ${req.format}` : ''}
+Objetivo principal: ${objectiveLabel} (${req.objective})
+Modelo/estrutura: ${modelLabel}${req.model ? ` (${req.model})` : ''}
+Instrução do modelo: ${modelInstruction}
 Tempo que o profissional tem para gravar: ${req.timeAvailable}
 Como aparece no conteúdo: ${exposureDesc}
 
@@ -129,18 +184,18 @@ DIRETRIZES OBRIGATÓRIAS
 ═══════════════════════════════
 INSTRUÇÃO DE GERAÇÃO
 ═══════════════════════════════
-${TYPE_INSTRUCTIONS[req.type]}
+${buildTypeInstruction(req)}
 ${memoryBlock}
 ${req.type === 'sequence' ? `
 FORMATO OBRIGATÓRIO DA SEQUÊNCIA (para o app separar os stories e a pessoa gravar 1 a 1):
-Dentro de "content", comece CADA um dos 3 stories com uma linha contendo APENAS "STORY 1", depois "STORY 2", depois "STORY 3" (nessa ordem), seguida das linhas rotuladas (FALA:, TEXTO NA TELA:, CENA:) daquele story.` : ''}
+Dentro de "content", comece CADA um dos ${sequenceCount} stories com uma linha contendo APENAS "STORY 1", depois "STORY 2", e assim por diante até "STORY ${sequenceCount}" (nessa ordem), seguida das linhas rotuladas (FALA:, TEXTO NA TELA:, CENA:) daquele story. É proibido gerar quantidade diferente de ${sequenceCount} stories.` : ''}
 
 Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto fora do JSON):
 {
   "theme": "título criativo e descritivo do conteúdo (máx 8 palavras)",
   "objective": "o que este conteúdo vai gerar no público (1 frase)",
   "timeEstimate": "tempo real de gravação estimado",
-  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ' Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, STORY 3.' : ''}",
+  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ` Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}",
   "cta": "chamada para ação final natural e não-forçada, que soe como a pessoa falaria",
   "tags": ["categoria1", "categoria2"]
 }`
@@ -195,6 +250,37 @@ function extractJSON(raw: string): Record<string, unknown> {
   }
 
   throw new Error(`JSON_NOT_FOUND — modelo retornou: "${cleaned.slice(0, 200)}"`)
+}
+
+function countStoryBlocks(content: string) {
+  return (content.match(/^STORY\s+\d+\s*$/gim) ?? []).length
+}
+
+async function repairSequenceIfNeeded(
+  req: GenerateRequest,
+  parsed: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+  if (req.type !== 'sequence') return parsed
+  const expected = Math.min(10, Math.max(2, req.sequenceCount ?? 3))
+  const content = String(parsed.content ?? '')
+  if (countStoryBlocks(content) === expected) return parsed
+
+  const raw = await callGemini(`Reescreva o JSON abaixo mantendo o mesmo tema, objetivo, CTA e tags, mas corrigindo APENAS o campo "content" para ter EXATAMENTE ${expected} stories.
+
+Regras obrigatórias:
+- O campo "content" deve começar cada bloco com uma linha contendo APENAS STORY 1, STORY 2, ... até STORY ${expected}.
+- Não gere STORY ${expected + 1} nem pule números.
+- Em cada story, use linhas rotuladas como FALA:, TEXTO NA TELA:, CENA: e, se necessário, EDIÇÃO:.
+- Responda somente com JSON válido.
+
+JSON original:
+${JSON.stringify(parsed)}`)
+  const repaired = extractJSON(raw)
+  const repairedContent = String(repaired.content ?? '')
+  if (countStoryBlocks(repairedContent) !== expected) {
+    throw new Error(`A IA retornou ${countStoryBlocks(repairedContent) || countStoryBlocks(content)} stories, mas o solicitado foi ${expected}. Tente gerar novamente.`)
+  }
+  return repaired
 }
 
 // Fecha um JSON que foi cortado no meio (resposta truncada da IA). Percorre o
@@ -657,9 +743,15 @@ function buildFreeStoryPrompt(
 
 QUEM ESTÁ FALANDO (mantenha a voz, não a obrigue a falar da profissão)
 Nome: ${profile.professionalName}
+Área/base de autoridade: ${profile.specialty || 'não informado'}
+Cidade/base: ${profile.city || 'não informado'}
 Tom de voz natural: ${tone}
 Como aparece no conteúdo: ${exposure}
 ${profile.catchphrase ? `Bordão: "${profile.catchphrase}"` : ''}
+${profile.differentials ? `Diferenciais pessoais/profissionais: ${profile.differentials}` : ''}
+${profile.positioning ? `Posicionamento da essência: ${profile.positioning}` : ''}
+${profile.frequentQuestions?.length ? `Perguntas frequentes do público: ${profile.frequentQuestions.join('; ')}` : ''}
+${profile.commonObjections?.length ? `Objeções comuns: ${profile.commonObjections.join('; ')}` : ''}
 ${profile.avoidedWords?.length ? `NUNCA use estas palavras: ${profile.avoidedWords.join(', ')}` : ''}
 ${personBlock(profile)}
 O QUE A PESSOA QUER FALAR AGORA (tema livre, pode ser pessoal/opinião/cotidiano)
@@ -697,6 +789,9 @@ export async function generateFreeStory(
   return {
     id: crypto.randomUUID(),
     type: 'story',
+    contentType: 'single_story',
+    sequenceCount: null,
+    model: null,
     theme: String(parsed.theme ?? topic.slice(0, 40)),
     objective: String(parsed.objective ?? 'Conteúdo livre do momento'),
     content: String(parsed.content ?? ''),
@@ -719,6 +814,9 @@ export function ideaFromOwnScript(text: string, opts?: { theme?: string; type?: 
   return {
     id: crypto.randomUUID(),
     type: opts?.type ?? 'story',
+    contentType: opts?.type === 'sequence' ? 'story_sequence' : opts?.type === 'reel' ? 'short_reel' : 'single_story',
+    sequenceCount: null,
+    model: null,
     theme,
     objective: 'Roteiro escrito por você',
     // Sem rótulos: o StudioModal trata texto neutro como fala (teleprompter).
@@ -737,13 +835,18 @@ export async function generateContent(req: GenerateRequest): Promise<ContentIdea
   const memoryBlock = await getMemoryBlock()
   const prompt = buildPrompt(req, memoryBlock)
   const raw = await callGemini(prompt)
-  const parsed = extractJSON(raw)
+  const parsed = await repairSequenceIfNeeded(req, extractJSON(raw))
+  const contentType = req.contentType ?? (req.type === 'sequence' ? 'story_sequence' : req.type === 'reel' ? 'short_reel' : 'single_story')
 
   return {
     id: crypto.randomUUID(),
     type: req.type,
+    contentType,
+    sequenceCount: req.type === 'sequence' ? Math.min(10, Math.max(2, req.sequenceCount ?? 3)) : null,
+    model: req.model ?? null,
     theme: String(parsed.theme ?? req.theme),
-    objective: String(parsed.objective ?? req.objective),
+    objective: String(parsed.objective ?? req.objectiveLabel ?? req.objective),
+    objectiveKey: req.objective as ContentIdea['objectiveKey'],
     content: String(parsed.content ?? ''),
     cta: String(parsed.cta ?? ''),
     timeEstimate: String(parsed.timeEstimate ?? req.timeAvailable),

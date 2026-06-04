@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft } from 'lucide-react'
-import type { ContentIdea } from '../types'
+import type { ContentIdea, ContentModel, ContentObjective } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
 import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
@@ -30,7 +30,15 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<string | null> {
       status: 'saved',
       source: 'ai',
       tags: idea.tags ?? [],
-      metadata: { cta: idea.cta, timeEstimate: idea.timeEstimate, exposureLevel: idea.exposureLevel },
+      metadata: {
+        cta: idea.cta,
+        timeEstimate: idea.timeEstimate,
+        exposureLevel: idea.exposureLevel,
+        content_type: idea.contentType ?? null,
+        sequence_count: idea.sequenceCount ?? null,
+        model: idea.model ?? null,
+        objective: idea.objectiveKey ?? null,
+      },
       is_favorite: false,
     })
     return item.id
@@ -40,30 +48,50 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<string | null> {
 }
 
 const CONTENT_TYPES = [
-  { value: 'story', label: 'Story', Icon: Smartphone, desc: 'Direto ao ponto' },
-  { value: 'sequence', label: 'Sequência', Icon: LayoutList, desc: '3–5 stories' },
-  { value: 'reel', label: 'Reels', Icon: Film, desc: 'Vídeo curto' },
+  { value: 'story', label: 'Story único', Icon: Smartphone, desc: 'Direto ao ponto' },
+  { value: 'sequence', label: 'Sequência', Icon: LayoutList, desc: '2–10 stories' },
+  { value: 'reel', label: 'Reels curto', Icon: Film, desc: 'Vídeo curto' },
 ] as const
 
-const OBJECTIVES = [
-  'Educar', 'Aproximar', 'Vender serviço', 'Divulgar produto',
-  'Responder dúvida', 'Quebrar objeção', 'Mostrar bastidor',
-  'Gerar interação', 'Reativar audiência',
+type SelectOption<T extends string = string> = { value: T; label: string }
+
+const OBJECTIVES: SelectOption<ContentObjective>[] = [
+  { value: 'educate', label: 'Educar' },
+  { value: 'connect', label: 'Aproximar' },
+  { value: 'sell_service', label: 'Vender serviço' },
+  { value: 'promote_product', label: 'Divulgar produto' },
+  { value: 'answer_question', label: 'Responder dúvida' },
+  { value: 'break_objection', label: 'Quebrar objeção' },
+  { value: 'show_backstage', label: 'Mostrar bastidor' },
+  { value: 'generate_interaction', label: 'Gerar interação' },
+  { value: 'reactivate_audience', label: 'Reativar audiência' },
 ]
 
-const FORMATS_STORY = [
-  'Story único', 'Sequência de 3 stories', 'Sequência de 5 stories',
-  'Caixinha de perguntas', 'Enquete', 'Bastidor comentado',
-  'Mito e verdade', 'Dúvida rápida', 'Venda leve',
+const CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
+  { value: '', label: 'Qualquer formato' },
+  { value: 'question_box', label: 'Caixinha de perguntas' },
+  { value: 'poll', label: 'Enquete' },
+  { value: 'backstage', label: 'Bastidor comentado' },
+  { value: 'myth_truth', label: 'Mito e verdade' },
+  { value: 'quick_question', label: 'Dúvida rápida' },
+  { value: 'soft_sell', label: 'Venda leve' },
+  { value: 'objection_break', label: 'Quebra de objeção' },
 ]
 
-const FORMATS_REEL = [
-  'Fala direta', 'No local de trabalho', 'Sentado(a)',
-  'Com texto na tela', 'Respondendo dúvida', 'Mito rápido',
-  'Lista curta', 'Humor leve', 'Gancho comercial', 'Bastidor estratégico',
+const SEQUENCE_COUNT_OPTIONS: SelectOption[] = [
+  { value: '3', label: '3 stories' },
+  { value: '5', label: '5 stories' },
+  { value: '7', label: '7 stories' },
+  { value: 'custom', label: 'Personalizado' },
 ]
 
-const TIME_OPTIONS = ['2 minutos', '5 minutos', '10 minutos', '15 minutos', '30 minutos']
+const TIME_OPTIONS: SelectOption[] = [
+  { value: '2 minutos', label: '2 minutos' },
+  { value: '5 minutos', label: '5 minutos' },
+  { value: '10 minutos', label: '10 minutos' },
+  { value: '15 minutos', label: '15 minutos' },
+  { value: '30 minutos', label: '30 minutos' },
+]
 
 const VARIATION_LABELS = [
   { label: 'Mais simples', icon: '✨' },
@@ -81,16 +109,16 @@ const CTA_TYPE_COLORS: Record<string, { bg: string; border: string; text: string
   'question-box': { bg: 'rgba(155,140,255,0.08)', border: 'rgba(155,140,255,0.2)', text: '#9B8CFF' },
 }
 
-function DarkSelect({ label, options, value, onChange, placeholder }: {
-  label: string; options: string[]; value: string; onChange: (v: string) => void; placeholder?: string
+function DarkSelect<T extends string>({ label, options, value, onChange, placeholder }: {
+  label: string; options: SelectOption<T>[]; value: T | ''; onChange: (v: T | '') => void; placeholder?: string
 }) {
   return (
     <div>
       <label className="label">{label}</label>
       <div className="relative">
-        <select value={value} onChange={e => onChange(e.target.value)} className="input appearance-none pr-10">
+        <select value={value} onChange={e => onChange(e.target.value as T | '')} className="input appearance-none pr-10">
           {placeholder && <option value="">{placeholder}</option>}
-          {options.map(o => <option key={o} value={o}>{o}</option>)}
+          {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <ChevronDown size={15} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-muted)' }} />
       </div>
@@ -365,12 +393,15 @@ export default function Criar() {
   const paramType = searchParams.get('type') as 'story' | 'sequence' | 'reel' | null
   const paramTheme = searchParams.get('theme') ?? ''
   const paramObjective = searchParams.get('objective') ?? ''
+  const initialObjective = OBJECTIVES.find(o => o.value === paramObjective || o.label === paramObjective)?.value ?? ''
 
   const [activeTab, setActiveTab] = useState<'criar' | 'livre' | 'roteiro' | 'ctas'>('criar')
   const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? 'story')
+  const [sequenceCountMode, setSequenceCountMode] = useState('3')
+  const [customSequenceCount, setCustomSequenceCount] = useState(4)
   const [theme, setTheme] = useState(paramTheme)
-  const [objective, setObjective] = useState(paramObjective)
-  const [format, setFormat] = useState('')
+  const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective)
+  const [model, setModel] = useState<ContentModel | ''>('')
   const [timeAvailable, setTimeAvailable] = useState('5 minutos')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ContentIdea | null>(null)
@@ -399,6 +430,14 @@ export default function Criar() {
     ...(profile?.services.map(s => s.name) ?? []),
     'Bastidor do dia', 'Dúvida frequente', 'Mito e verdade', 'Rotina de trabalho',
   ]
+  const selectedObjectiveLabel = OBJECTIVES.find(o => o.value === objective)?.label ?? ''
+  const selectedModelLabel = CONTENT_MODELS.find(o => o.value === model)?.label ?? ''
+  const structuredContentType = contentType === 'sequence' ? 'story_sequence' : contentType === 'reel' ? 'short_reel' : 'single_story'
+  const sequenceCount = contentType === 'sequence'
+    ? sequenceCountMode === 'custom'
+      ? Math.min(10, Math.max(2, customSequenceCount))
+      : Number(sequenceCountMode)
+    : null
 
   const handleGenerate = async (variationHint?: string) => {
     if (!profile) return
@@ -406,9 +445,15 @@ export default function Criar() {
     try {
       const idea = await generateContent({
         type: contentType,
+        contentType: structuredContentType,
+        sequenceCount,
         theme: theme || (profile.pillars[0]?.name ?? profile.specialty ?? 'Conteúdo relevante'),
-        objective: objective ? (variationHint ? `${objective} — ${variationHint}` : objective) : 'Conteúdo relevante e executável',
-        format,
+        objective: objective || 'educate',
+        objectiveLabel: selectedObjectiveLabel
+          ? (variationHint ? `${selectedObjectiveLabel} — ${variationHint}` : selectedObjectiveLabel)
+          : (variationHint ? `Conteúdo relevante e executável — ${variationHint}` : 'Conteúdo relevante e executável'),
+        model: model || null,
+        format: selectedModelLabel,
         exposureLevel: profile.exposureLevel,
         timeAvailable,
         tone: profile.voiceTone,
@@ -431,8 +476,13 @@ export default function Criar() {
     setLoading(true)
     try {
       const idea = await generateContent({
-        type: result.type, theme: result.theme,
-        objective: `${result.objective} — ${hint}`,
+        type: result.type,
+        contentType: result.contentType,
+        sequenceCount: result.sequenceCount,
+        theme: result.theme,
+        objective: result.objectiveKey || 'educate',
+        objectiveLabel: `${result.objective} — ${hint}`,
+        model: result.model ?? null,
         exposureLevel: profile.exposureLevel,
         timeAvailable: result.timeEstimate,
         tone: profile.voiceTone, profile,
@@ -494,7 +544,7 @@ export default function Criar() {
       <div className="pt-4">
         <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravar</h1>
         <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Escolha o formato, defina o tema e receba o roteiro.
+          Escolha o tipo, defina o tema e receba o roteiro.
         </p>
       </div>
 
@@ -663,7 +713,7 @@ export default function Criar() {
           {CONTENT_TYPES.map(({ value, label, Icon, desc }) => (
             <button
               key={value}
-              onClick={() => { setContentType(value); setFormat(''); setResult(null) }}
+              onClick={() => { setContentType(value); setResult(null) }}
               className="rounded-2xl p-3.5 text-center transition-all duration-300 active:scale-95"
               style={contentType === value ? {
                 background: 'var(--brand-soft)',
@@ -717,10 +767,32 @@ export default function Criar() {
           </div>
 
           <DarkSelect label="Objetivo" options={OBJECTIVES} value={objective} onChange={setObjective} placeholder="Selecione o objetivo..." />
+          {contentType === 'sequence' && (
+            <div className="space-y-3">
+              <DarkSelect label="Quantidade de stories" options={SEQUENCE_COUNT_OPTIONS} value={sequenceCountMode} onChange={setSequenceCountMode} />
+              {sequenceCountMode === 'custom' && (
+                <div>
+                  <label className="label">Quantidade personalizada</label>
+                  <input
+                    type="number"
+                    min={2}
+                    max={10}
+                    className="input"
+                    value={customSequenceCount}
+                    onChange={e => setCustomSequenceCount(Math.min(10, Math.max(2, Number(e.target.value) || 2)))}
+                  />
+                  <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    Escolha entre 2 e 10 stories.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           <DarkSelect
-            label={contentType !== 'reel' ? 'Formato' : 'Estilo do reels'}
-            options={contentType !== 'reel' ? FORMATS_STORY : FORMATS_REEL}
-            value={format} onChange={setFormat} placeholder="Qualquer formato"
+            label="Modelo"
+            options={CONTENT_MODELS}
+            value={model}
+            onChange={setModel}
           />
           <DarkSelect label="Tempo disponível" options={TIME_OPTIONS} value={timeAvailable} onChange={setTimeAvailable} />
         </div>

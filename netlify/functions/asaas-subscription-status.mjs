@@ -39,9 +39,10 @@ export const handler = async (event) => {
     const isCourtesy = sub.payment_method === 'COURTESY' && sub.access_granted === true
     // Acesso normal: assinatura ativa e paga.
     const activePaid = ['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid'
-    // Carência: cancelou fora da garantia mas ainda está dentro do período pago.
-    const canceledButInPaidPeriod = sub.status === 'canceled' && !!periodEnd && now <= periodEnd
-    const hasAccess = isCourtesy || activePaid || canceledButInPaidPeriod
+    // Carência: cancelou OU ficou em atraso (past_due), mas ainda dentro do período
+    // já pago. Espelha subscriptionRowGrantsAccess — não derruba o acesso na hora.
+    const inPaidPeriodGrace = ['canceled', 'past_due'].includes(sub.status) && !!periodEnd && now <= periodEnd
+    const hasAccess = isCourtesy || activePaid || inPaidPeriodGrace
 
     return json(200, {
       hasSubscription: true,
@@ -57,8 +58,8 @@ export const handler = async (event) => {
       withinGuarantee,
       canceledAt: sub.canceled_at,
       currentPeriodEnd: sub.current_period_end ?? null,
-      // Até quando o acesso vale quando cancelado dentro do período pago.
-      accessUntil: canceledButInPaidPeriod ? sub.current_period_end : null,
+      // Até quando o acesso vale quando cancelado/em atraso dentro do período pago.
+      accessUntil: inPaidPeriodGrace ? sub.current_period_end : null,
     })
   } catch (err) {
     console.error('[asaas-subscription-status]', err?.message)

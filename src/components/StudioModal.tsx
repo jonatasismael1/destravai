@@ -104,6 +104,23 @@ function getBestMimeType(codec: RecordingCodec) {
   try { return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? '' } catch { return '' }
 }
 
+// iOS/Safari muitas vezes NÃO grava MP4/H.264 via MediaRecorder; o vídeo sai em
+// WebM, que o iPhone não reproduz no <video> nem salva bem na galeria. Detectamos
+// isso UMA vez (no load) para AVISAR o usuário antes de ele gravar um take inteiro
+// e só descobrir no fim que o arquivo não abre.
+function isMp4RecordingSupported() {
+  try {
+    if (typeof MediaRecorder === 'undefined') return true // sem MediaRecorder, não há o que avisar aqui
+    return [
+      'video/mp4;codecs="avc1.640028,mp4a.40.2"',
+      'video/mp4;codecs="avc1.4D4028,mp4a.40.2"',
+      'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+      'video/mp4',
+    ].some(t => MediaRecorder.isTypeSupported(t))
+  } catch { return true }
+}
+const MP4_RECORDING_SUPPORTED = isMp4RecordingSupported()
+
 // Indica se um mimeType é HEVC (para ajustar o nome do arquivo).
 function isHEVC(mime: string) {
   return /hvc1|hev1/i.test(mime)
@@ -254,6 +271,10 @@ export default function StudioModal({ idea, onClose }: Props) {
   const blobRef = useRef<Blob | null>(null)
   const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const scrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Intervalo da contagem regressiva "3-2-1". Guardado em ref para ser cancelado
+  // ao fechar o modal — senão, fechado durante a contagem, ele dispararia
+  // beginRecording() num componente já desmontado.
+  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   // Marca o instante de início para medir a duração REAL (usada ao corrigir o MP4).
   const recordStartRef = useRef(0)
   const drawFrameRef = useRef<number | null>(null)
@@ -332,6 +353,7 @@ export default function StudioModal({ idea, onClose }: Props) {
       if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current)
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
     }
   }, []) // eslint-disable-line
 
@@ -603,6 +625,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const stopRecording = () => {
     if (timerIntervalRef.current) { clearInterval(timerIntervalRef.current); timerIntervalRef.current = null }
     if (scrollIntervalRef.current) { clearInterval(scrollIntervalRef.current); scrollIntervalRef.current = null }
+    if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null }
     if (previewRecorderRef.current?.state === 'recording') previewRecorderRef.current.stop()
     recorderRef.current?.stop()
   }
@@ -612,12 +635,17 @@ export default function StudioModal({ idea, onClose }: Props) {
     if (phase === 'recording') { stopRecording(); return }
     if (!hasCamera) return
     if (countdownEnabled) {
+      // Guarda o id na ref e zera a contagem anterior (anti-duplo-toque) — assim o
+      // cleanup do modal consegue cancelar se o usuário fechar no meio do "3-2-1".
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current)
       let n = 3
       setCountdown(n)
-      const id = setInterval(() => {
+      countdownIntervalRef.current = setInterval(() => {
         n -= 1
-        if (n <= 0) { clearInterval(id); setCountdown(null); beginRecording() }
-        else setCountdown(n)
+        if (n <= 0) {
+          if (countdownIntervalRef.current) { clearInterval(countdownIntervalRef.current); countdownIntervalRef.current = null }
+          setCountdown(null); beginRecording()
+        } else setCountdown(n)
       }, 1000)
     } else {
       beginRecording()
@@ -874,6 +902,15 @@ export default function StudioModal({ idea, onClose }: Props) {
 
       {/* ── Área inferior: zoom + controles ── */}
       <div className="absolute z-30 left-0 right-0 bottom-0 flex flex-col items-center gap-4 pt-4" style={{ paddingBottom: SAFE_BOTTOM, background: 'linear-gradient(to top, rgba(0,0,0,0.55), transparent)' }}>
+        {/* Aviso de compatibilidade (T4): só no setup, quando o aparelho não grava
+            MP4/H.264 — alerta ANTES de gravar um take que o iPhone não reproduziria. */}
+        {!MP4_RECORDING_SUPPORTED && !recording && (
+          <div className="mx-4 px-3.5 py-2 rounded-2xl text-center text-[11px] leading-snug font-semibold"
+            style={{ background: 'rgba(247,185,85,0.16)', border: '1px solid rgba(247,185,85,0.4)', color: '#F7D58A', maxWidth: 340 }}>
+            Seu navegador pode salvar o vídeo num formato que o iPhone não reproduz.
+            Se possível, grave pelo Chrome ou em outro aparelho — ou leia o roteiro aqui e grave pela câmera do celular.
+          </div>
+        )}
         {/* Seletor de ZOOM (pílula) */}
         <div className="flex items-center gap-1 px-2 py-1.5 rounded-full" style={{ background: 'rgba(0,0,0,0.55)' }}>
           {ZOOM_LEVELS.map(z => {

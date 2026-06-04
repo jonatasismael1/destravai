@@ -8,27 +8,36 @@
 // Centralizado aqui para que Home, Criar e Biblioteca usem exatamente a mesma
 // lógica (antes a regra vivia só na Home).
 
-// Regex do cabeçalho de story. Aceita "STORY 1", "HISTÓRIA 2", com "===" opcional
-// antes (alguns modelos decoram com isso). Usado tanto para detectar quanto para
-// dividir o texto.
-const STORY_HEADER = /(?:^|\n)\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+/i
+// Regex do cabeçalho de bloco de uma sequência. Aceita "STORY 1", "HISTÓRIA 2" e
+// também "FOTO 1" (sequência de fotos), com "===" opcional antes (alguns modelos
+// decoram com isso). EXIGE um número depois do rótulo — assim "FOTO:" (rótulo de
+// instrução "o que fotografar", sem número) nunca é confundido com um cabeçalho.
+// Sem reconhecer "FOTO N", uma sequência de fotos caía toda num único bloco.
+const STORY_HEADER = /(?:^|\n)\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA|FOTO)\s*\d+/i
 
-// Divide o conteúdo de uma SEQUÊNCIA em stories individuais usando os marcadores
-// "STORY 1/2/3". Sem marcadores (geração antiga), devolve o conteúdo inteiro como
-// um único item — assim nada quebra com conteúdo legado.
+// Divide o conteúdo de uma SEQUÊNCIA em blocos individuais usando os marcadores
+// "STORY 1/2/3" (ou "FOTO 1/2/3"). Sem marcadores (geração antiga), devolve o
+// conteúdo inteiro como um único item — assim nada quebra com conteúdo legado.
 export function splitSequenceStories(content: string): string[] {
   const text = (content || '').trim()
   if (!text) return []
   if (!STORY_HEADER.test(text)) return [text]
   return text
-    .split(/\n(?=\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+)/i)
+    .split(/\n(?=\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA|FOTO)\s*\d+)/i)
     .map(s => s.trim())
     .filter(Boolean)
 }
 
-// Remove o cabeçalho "STORY N" da primeira linha (para exibir o corpo limpo).
+// Conta os cabeçalhos de bloco de uma sequência (STORY/HISTÓRIA/FOTO + número).
+// Fonte ÚNICA usada pela geração (ai.ts) para validar se veio a quantidade pedida,
+// mantendo a contagem em sincronia com splitSequenceStories.
+export function countSequenceHeaders(content: string): number {
+  return (content.match(/^\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA|FOTO)\s*\d+\b/gim) ?? []).length
+}
+
+// Remove o cabeçalho "STORY N" / "FOTO N" da primeira linha (para exibir o corpo limpo).
 export function stripStoryHeader(story: string): string {
-  return story.replace(/^\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA)\s*\d+\s*[—:-]?\s*/i, '').trim()
+  return story.replace(/^\s*(?:={2,}\s*)?(?:STORY|HIST[ÓO]RIA|FOTO)\s*\d+\s*[—:-]?\s*/i, '').trim()
 }
 
 // Extrai APENAS o "texto na tela" de um bloco de conteúdo (story/foto), ou seja,
@@ -45,7 +54,10 @@ export function extractScreenText(raw: string): string {
 
   for (const rawLine of body.split(/\r?\n/)) {
     const line = rawLine.trim()
-    if (!line) { capturing = false; continue }      // linha vazia encerra o bloco
+    // Linha vazia NÃO encerra o texto da tela: é só uma quebra de parágrafo. Quem
+    // encerra a captura é o próximo RÓTULO (FOTO:, CENA:…). Antes, uma linha em
+    // branco entre frases fazia o "copiar texto" levar só a primeira frase.
+    if (!line) { if (capturing) out.push(''); continue }
     const colon = line.indexOf(':')
     const label = colon > 0 && colon <= 40 ? line.slice(0, colon).toUpperCase().trim() : ''
 
@@ -63,7 +75,8 @@ export function extractScreenText(raw: string): string {
     }
   }
 
-  const screen = out.join('\n').trim()
+  // Junta preservando parágrafos, mas sem acumular linhas em branco no fim/excesso.
+  const screen = out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
   // Sem rótulos reconhecidos (conteúdo legado/sem marcação): devolve o corpo limpo
   // para o botão copiar nunca ficar vazio.
   return screen || body.trim()

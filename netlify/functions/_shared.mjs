@@ -39,23 +39,31 @@ export function isAdminUser(user) {
   return !!user?.email && user.email.toLowerCase() === ADMIN_EMAIL
 }
 
-// Verifica se o usuário tem acesso liberado: admin, cortesia (testador), assinatura
-// ativa e paga, ou cancelada mas ainda dentro do período já pago. Espelha a regra
-// de asaas-subscription-status. Usado para bloquear a IA de quem não tem acesso.
-export async function userHasActiveAccess(admin, user) {
-  if (isAdminUser(user)) return true
-  const { data: sub } = await admin
-    .from('subscriptions')
-    .select('status, payment_status, payment_method, access_granted, current_period_end')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+// Avalia se UMA linha de assinatura concede acesso: cortesia (testador), ativa e
+// paga, ou cancelada mas ainda dentro do período já pago. Fonte ÚNICA da regra —
+// reaproveitada por asaas-subscription-status para não divergir.
+export function subscriptionRowGrantsAccess(sub) {
   if (!sub) return false
   if (sub.payment_method === 'COURTESY' && sub.access_granted) return true
   if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') return true
   if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) return true
   return false
+}
+
+// Verifica se o usuário tem acesso liberado: admin ou QUALQUER assinatura recente
+// que conceda acesso. Usado para bloquear a IA de quem não tem acesso.
+// IMPORTANTE: olha as últimas linhas (não só a mais recente). Se um pagante ATIVO
+// reabre o checkout, nasce uma linha 'pending' mais nova — ler só a última
+// trancaria o pagante fora da IA. Basta UMA linha conceder acesso.
+export async function userHasActiveAccess(admin, user) {
+  if (isAdminUser(user)) return true
+  const { data: subs } = await admin
+    .from('subscriptions')
+    .select('status, payment_status, payment_method, access_granted, current_period_end')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(10)
+  return (subs ?? []).some(subscriptionRowGrantsAccess)
 }
 
 // CORS: o checkout é público (vem da landing), mas só liberamos a origem do app.

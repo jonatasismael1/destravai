@@ -4,6 +4,7 @@ import { generateText } from './ai/googleGemini'
 import { buildEssenceSummaryPrompt } from './ai/prompts/essenceSummary'
 import { buildInitialLibraryPrompt } from './ai/prompts/initialLibrary'
 import { loadUserMemory, buildMemoryBlock } from '../services/userMemoryService'
+import { countSequenceHeaders } from './stories'
 
 // ── Cache curto da memória do usuário ─────────────────────────────────────────
 // Ações como o check-in da Home disparam 3 gerações em sequência. Para não
@@ -120,10 +121,13 @@ function buildTypeInstruction(req: GenerateRequest): string {
     if (isPhoto) {
       // Sequência de FOTOS: o usuário não grava falando, só posta fotos com texto.
       // Story NÃO tem campo de legenda → não gere LEGENDA; o CTA vai no TEXTO NA TELA.
-      return `Crie uma sequência de EXATAMENTE ${count} FOTOS encadeadas (stories só com FOTO — a pessoa NÃO vai gravar falando). Cada foto deve ter:
-Foto 1 — Gancho visual: a imagem + frase que para o dedo e cria curiosidade
-Fotos 2 a ${Math.max(2, count - 1)} — Desenvolvimento: mostram o processo, bastidor, detalhes ou evolução do que está sendo feito
-Foto ${count} — CTA: imagem de fechamento cujo TEXTO NA TELA é a própria chamada para ação
+      // Importante: a numeração/cabeçalho de cada bloco vem do contentFormatInstruction
+      // ("STORY 1, STORY 2, …"). Aqui NÃO usamos "Foto 1/2" para não competir com esse
+      // cabeçalho — senão o modelo emitia "FOTO 1" e a sequência não se dividia direito.
+      return `Crie uma sequência de EXATAMENTE ${count} FOTOS encadeadas (stories só com FOTO — a pessoa NÃO vai gravar falando):
+- A primeira foto é o gancho visual: a imagem + frase que para o dedo e cria curiosidade
+- As fotos do meio desenvolvem: mostram o processo, bastidor, detalhes ou evolução do que está sendo feito
+- A última foto é o CTA: imagem de fechamento cujo TEXTO NA TELA é a própria chamada para ação
 Para CADA foto descreva apenas: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz) e o TEXTO NA TELA (a frase, curta e pronta, que a pessoa vai escrever no story). NÃO gere fala nem legenda — story não tem legenda. O CTA é o TEXTO NA TELA da última foto. Não crie mais nem menos que ${count} fotos.`
     }
     return `Crie uma sequência de EXATAMENTE ${count} stories encadeados. Cada story deve ter:
@@ -293,10 +297,6 @@ function extractJSON(raw: string): Record<string, unknown> {
   throw new Error(`JSON_NOT_FOUND — modelo retornou: "${cleaned.slice(0, 200)}"`)
 }
 
-function countStoryBlocks(content: string) {
-  return (content.match(/^STORY\s+\d+\s*$/gim) ?? []).length
-}
-
 async function repairSequenceIfNeeded(
   req: GenerateRequest,
   parsed: Record<string, unknown>
@@ -304,11 +304,12 @@ async function repairSequenceIfNeeded(
   if (req.type !== 'sequence') return parsed
   const expected = Math.min(10, Math.max(2, req.sequenceCount ?? 3))
   const content = String(parsed.content ?? '')
-  if (countStoryBlocks(content) === expected) return parsed
+  if (countSequenceHeaders(content) === expected) return parsed
 
-  // Rótulos esperados em cada bloco mudam conforme a mídia: foto não tem fala.
+  // Rótulos esperados em cada bloco mudam conforme a mídia: foto não tem fala NEM
+  // legenda (story não tem legenda) — só FOTO: e TEXTO NA TELA:.
   const blockLabels = req.media === 'photo'
-    ? 'FOTO:, TEXTO NA TELA: e LEGENDA: (NUNCA use FALA: — é conteúdo só de foto)'
+    ? 'FOTO: (o que fotografar) e TEXTO NA TELA: (a frase pronta) — NUNCA use FALA: nem LEGENDA: (foto não tem fala nem legenda)'
     : 'FALA:, TEXTO NA TELA:, CENA: e, se necessário, EDIÇÃO:'
   const unit = req.media === 'photo' ? 'fotos' : 'stories'
   const raw = await callGemini(`Reescreva o JSON abaixo mantendo o mesmo tema, objetivo, CTA e tags, mas corrigindo APENAS o campo "content" para ter EXATAMENTE ${expected} ${unit}.
@@ -323,8 +324,8 @@ JSON original:
 ${JSON.stringify(parsed)}`)
   const repaired = extractJSON(raw)
   const repairedContent = String(repaired.content ?? '')
-  if (countStoryBlocks(repairedContent) !== expected) {
-    throw new Error(`A IA retornou ${countStoryBlocks(repairedContent) || countStoryBlocks(content)} stories, mas o solicitado foi ${expected}. Tente gerar novamente.`)
+  if (countSequenceHeaders(repairedContent) !== expected) {
+    throw new Error(`A IA retornou ${countSequenceHeaders(repairedContent) || countSequenceHeaders(content)} stories, mas o solicitado foi ${expected}. Tente gerar novamente.`)
   }
   return repaired
 }

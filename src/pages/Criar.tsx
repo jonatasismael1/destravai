@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft } from 'lucide-react'
-import type { ContentIdea, ContentModel, ContentObjective } from '../types'
+import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft, Image, Images } from 'lucide-react'
+import type { ContentIdea, ContentModel, ContentObjective, ContentMedia } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
 import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
@@ -37,6 +37,7 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<string | null> {
         content_type: idea.contentType ?? null,
         sequence_count: idea.sequenceCount ?? null,
         model: idea.model ?? null,
+        media: idea.media ?? 'video',
         objective: idea.objectiveKey ?? null,
       },
       is_favorite: false,
@@ -67,7 +68,8 @@ const OBJECTIVES: SelectOption<ContentObjective>[] = [
   { value: 'reactivate_audience', label: 'Reativar audiência' },
 ]
 
-const CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
+// Modelos de Story (story único / sequência) — estruturas típicas de stories.
+const STORY_CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
   { value: '', label: 'Qualquer formato' },
   { value: 'question_box', label: 'Caixinha de perguntas' },
   { value: 'poll', label: 'Enquete' },
@@ -77,6 +79,44 @@ const CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
   { value: 'soft_sell', label: 'Venda leve' },
   { value: 'objection_break', label: 'Quebra de objeção' },
 ]
+
+// Modelos de Reels curto — pensados para VÍDEO objetivo (gancho → desenvolvimento
+// → fechamento), e não estruturas de story como caixinha/enquete.
+const REEL_CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
+  { value: '', label: 'Qualquer formato' },
+  { value: 'reel_quick_tip', label: 'Dica rápida' },
+  { value: 'reel_tutorial', label: 'Tutorial / passo a passo' },
+  { value: 'reel_before_after', label: 'Antes e depois' },
+  { value: 'reel_top_list', label: 'Lista rápida (3 itens)' },
+  { value: 'reel_mini_story', label: 'Mini história' },
+  { value: 'myth_truth', label: 'Mito x verdade' },
+  { value: 'reel_trend', label: 'Gancho de tendência' },
+]
+
+// Formato de mídia: vídeo (gravar falando) ou foto. Foto só vale para story/sequência.
+const MEDIA_OPTIONS: { value: ContentMedia; label: string; Icon: typeof Camera; desc: string }[] = [
+  { value: 'video', label: 'Vídeo', Icon: Camera, desc: 'Gravar falando' },
+  { value: 'photo', label: 'Foto', Icon: Image, desc: 'Postar foto(s)' },
+]
+
+// Rascunho da aba Criar guardado na sessão. Mantém os roteiros gerados e a
+// configuração enquanto o usuário está no fluxo (abre o teleprompter, navega e
+// volta) — sem isso, ao remontar a página os roteiros sumiam. sessionStorage:
+// vive durante a sessão da aba e some ao fechar (não polui o armazenamento).
+const DRAFT_KEY = 'destravai-criar-draft'
+type CriarDraft = {
+  result: ContentIdea | null
+  activeTab: 'criar' | 'livre' | 'roteiro' | 'ctas'
+  contentType: 'story' | 'sequence' | 'reel'
+  media: ContentMedia
+  theme: string
+  objective: ContentObjective | ''
+  model: ContentModel | ''
+  sequenceCountMode: string
+}
+function loadDraft(): Partial<CriarDraft> {
+  try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') } catch { return {} }
+}
 
 const SEQUENCE_COUNT_OPTIONS: SelectOption[] = [
   { value: '3', label: '3 stories' },
@@ -173,6 +213,9 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(idea.favorite)
 
+  // Conteúdo de foto: não há gravação/teleprompter — só ideia da foto + texto/legenda.
+  const isPhoto = idea.media === 'photo'
+
   // Sequência → quebra em stories individuais, para ler e gravar 1 a 1.
   const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
   const isMultiStory = stories.length > 1
@@ -194,6 +237,11 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
             <span className="tag tag-purple capitalize">
               {idea.type === 'story' ? 'Story' : idea.type === 'sequence' ? 'Sequência' : 'Reels'}
             </span>
+            {isPhoto && (
+              <span className="tag tag-purple flex items-center gap-1">
+                {idea.type === 'sequence' ? <Images size={11} /> : <Image size={11} />} Foto
+              </span>
+            )}
             <span className="tag tag-amber">{idea.timeEstimate}</span>
           </div>
 
@@ -202,7 +250,9 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
           {isMultiStory ? (
             <div className="space-y-3 mb-3">
               <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                Sequência de {stories.length} stories. Grave um de cada vez:
+                {isPhoto
+                  ? `Sequência de ${stories.length} fotos. Tire e poste na ordem:`
+                  : `Sequência de ${stories.length} stories. Grave um de cada vez:`}
               </p>
               {stories.map((story, i) => {
                 const body = stripStoryHeader(story)
@@ -217,12 +267,17 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
                 return (
                   <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
-                      <button onClick={() => onRecord(storyIdea)}
-                        className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
-                        style={{ background: 'var(--brand)', color: '#fff' }}>
-                        <Camera size={12} /> Gravar este
-                      </button>
+                      <span className="tag tag-purple text-[10px]">
+                        {isPhoto ? 'Foto' : 'Story'} {i + 1} de {stories.length}
+                      </span>
+                      {/* Foto não vai para o teleprompter — sem botão de gravar. */}
+                      {!isPhoto && (
+                        <button onClick={() => onRecord(storyIdea)}
+                          className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
+                          style={{ background: 'var(--brand)', color: '#fff' }}>
+                          <Camera size={12} /> Gravar este
+                        </button>
+                      )}
                     </div>
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                       {body}
@@ -255,8 +310,9 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
               <FileText size={14} />
             </button>
             {/* Sequência: cada story tem seu próprio "Gravar este" acima — aqui o
-                botão único só aparece para story/reels (conteúdo de gravação única). */}
-            {!isMultiStory && (
+                botão único só aparece para story/reels de VÍDEO (gravação única).
+                Conteúdo de foto não grava no teleprompter. */}
+            {!isMultiStory && !isPhoto && (
               <button onClick={() => onRecord()} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gravar">
                 <Camera size={14} />
               </button>
@@ -395,16 +451,22 @@ export default function Criar() {
   const paramObjective = searchParams.get('objective') ?? ''
   const initialObjective = OBJECTIVES.find(o => o.value === paramObjective || o.label === paramObjective)?.value ?? ''
 
-  const [activeTab, setActiveTab] = useState<'criar' | 'livre' | 'roteiro' | 'ctas'>('criar')
-  const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? 'story')
-  const [sequenceCountMode, setSequenceCountMode] = useState('3')
+  // Rascunho salvo da sessão — restaura roteiros/config ao remontar a página
+  // (ex.: voltar do teleprompter). Parâmetros da URL (deep link da Home) têm
+  // prioridade quando presentes.
+  const draft = loadDraft()
+
+  const [activeTab, setActiveTab] = useState<'criar' | 'livre' | 'roteiro' | 'ctas'>(draft.activeTab ?? 'criar')
+  const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? draft.contentType ?? 'story')
+  const [media, setMedia] = useState<ContentMedia>(draft.media ?? 'video')
+  const [sequenceCountMode, setSequenceCountMode] = useState(draft.sequenceCountMode ?? '3')
   const [customSequenceCount, setCustomSequenceCount] = useState(4)
-  const [theme, setTheme] = useState(paramTheme)
-  const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective)
-  const [model, setModel] = useState<ContentModel | ''>('')
+  const [theme, setTheme] = useState(paramTheme || draft.theme || '')
+  const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective || draft.objective || '')
+  const [model, setModel] = useState<ContentModel | ''>(draft.model ?? '')
   const [timeAvailable, setTimeAvailable] = useState('5 minutos')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ContentIdea | null>(null)
+  const [result, setResult] = useState<ContentIdea | null>(draft.result ?? null)
   const [showStudio, setShowStudio] = useState(false)
   // Ideia efetivamente enviada ao teleprompter. Para sequência, é UM story
   // específico; senão, é o próprio result.
@@ -430,14 +492,24 @@ export default function Criar() {
     ...(profile?.services.map(s => s.name) ?? []),
     'Bastidor do dia', 'Dúvida frequente', 'Mito e verdade', 'Rotina de trabalho',
   ]
+  // Reels curto tem seus próprios modelos (vídeo objetivo); story/sequência usam
+  // os modelos clássicos de stories.
+  const contentModels = contentType === 'reel' ? REEL_CONTENT_MODELS : STORY_CONTENT_MODELS
   const selectedObjectiveLabel = OBJECTIVES.find(o => o.value === objective)?.label ?? ''
-  const selectedModelLabel = CONTENT_MODELS.find(o => o.value === model)?.label ?? ''
+  const selectedModelLabel = contentModels.find(o => o.value === model)?.label ?? ''
   const structuredContentType = contentType === 'sequence' ? 'story_sequence' : contentType === 'reel' ? 'short_reel' : 'single_story'
   const sequenceCount = contentType === 'sequence'
     ? sequenceCountMode === 'custom'
       ? Math.min(10, Math.max(2, customSequenceCount))
       : Number(sequenceCountMode)
     : null
+
+  // Persiste o rascunho (roteiros + configuração) na sessão a cada mudança, para
+  // sobreviver à remontagem da página ao navegar/voltar do teleprompter.
+  useEffect(() => {
+    const next: CriarDraft = { result, activeTab, contentType, media, theme, objective, model, sequenceCountMode }
+    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next)) } catch { /* cota cheia: ignora */ }
+  }, [result, activeTab, contentType, media, theme, objective, model, sequenceCountMode])
 
   const handleGenerate = async (variationHint?: string) => {
     if (!profile) return
@@ -447,6 +519,8 @@ export default function Criar() {
         type: contentType,
         contentType: structuredContentType,
         sequenceCount,
+        // Reels é sempre vídeo; story/sequência respeitam a escolha de mídia.
+        media: contentType === 'reel' ? 'video' : media,
         theme: theme || (profile.pillars[0]?.name ?? profile.specialty ?? 'Conteúdo relevante'),
         objective: objective || 'educate',
         objectiveLabel: selectedObjectiveLabel
@@ -479,6 +553,7 @@ export default function Criar() {
         type: result.type,
         contentType: result.contentType,
         sequenceCount: result.sequenceCount,
+        media: result.media ?? 'video',
         theme: result.theme,
         objective: result.objectiveKey || 'educate',
         objectiveLabel: `${result.objective} — ${hint}`,
@@ -713,7 +788,14 @@ export default function Criar() {
           {CONTENT_TYPES.map(({ value, label, Icon, desc }) => (
             <button
               key={value}
-              onClick={() => { setContentType(value); setResult(null) }}
+              onClick={() => {
+                setContentType(value)
+                setResult(null)
+                // Modelos diferem entre Reels e Stories → zera o modelo ao trocar.
+                setModel('')
+                // Reels é sempre vídeo (não tem opção de foto).
+                if (value === 'reel') setMedia('video')
+              }}
               className="rounded-2xl p-3.5 text-center transition-all duration-300 active:scale-95"
               style={contentType === value ? {
                 background: 'var(--brand-soft)',
@@ -736,6 +818,46 @@ export default function Criar() {
             </button>
           ))}
         </div>
+
+        {/* Formato de mídia: vídeo (gravar falando) ou foto (postar foto/fotos sem
+            gravar). Só para story/sequência — Reels é sempre vídeo. Permite criar
+            conteúdo mesmo sem querer aparecer falando. */}
+        {contentType !== 'reel' && (
+          <div>
+            <label className="label">Como vai postar</label>
+            <div className="grid grid-cols-2 gap-2">
+              {MEDIA_OPTIONS.map(({ value, label, Icon, desc }) => {
+                const active = media === value
+                return (
+                  <button
+                    key={value}
+                    onClick={() => { setMedia(value); setResult(null) }}
+                    className="rounded-2xl p-3 flex items-center gap-3 text-left transition-all active:scale-[0.98]"
+                    style={active
+                      ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
+                      : { background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+                  >
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={active
+                        ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
+                        : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
+                      <Icon size={17} style={{ color: active ? 'var(--brand)' : 'var(--text-muted)' }} />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="block text-sm font-extrabold" style={{ color: active ? 'var(--brand)' : 'var(--text-primary)' }}>{label}</span>
+                      <span className="block text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{desc}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            {media === 'photo' && (
+              <p className="text-[11px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                A Deby vai sugerir o que fotografar + texto na tela e legenda. Sem precisar gravar falando.
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Config fields */}
         <div className="space-y-4">
@@ -769,7 +891,7 @@ export default function Criar() {
           <DarkSelect label="Objetivo" options={OBJECTIVES} value={objective} onChange={setObjective} placeholder="Selecione o objetivo..." />
           {contentType === 'sequence' && (
             <div className="space-y-3">
-              <DarkSelect label="Quantidade de stories" options={SEQUENCE_COUNT_OPTIONS} value={sequenceCountMode} onChange={setSequenceCountMode} />
+              <DarkSelect label={media === 'photo' ? 'Quantidade de fotos' : 'Quantidade de stories'} options={SEQUENCE_COUNT_OPTIONS} value={sequenceCountMode} onChange={setSequenceCountMode} />
               {sequenceCountMode === 'custom' && (
                 <div>
                   <label className="label">Quantidade personalizada</label>
@@ -790,10 +912,15 @@ export default function Criar() {
           )}
           <DarkSelect
             label="Modelo"
-            options={CONTENT_MODELS}
+            options={contentModels}
             value={model}
             onChange={setModel}
           />
+          {contentType === 'reel' && (
+            <p className="text-[11px] -mt-2" style={{ color: 'var(--text-muted)' }}>
+              Formatos pensados para vídeo curto: gancho → desenvolvimento → fechamento.
+            </p>
+          )}
           <DarkSelect label="Tempo disponível" options={TIME_OPTIONS} value={timeAvailable} onChange={setTimeAvailable} />
         </div>
 

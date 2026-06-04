@@ -58,6 +58,13 @@ const MODEL_LABELS: Record<ContentModel, string> = {
   quick_question: 'Dúvida rápida',
   soft_sell: 'Venda leve',
   objection_break: 'Quebra de objeção',
+  // Reels curto
+  reel_quick_tip: 'Dica rápida',
+  reel_tutorial: 'Tutorial / passo a passo',
+  reel_before_after: 'Antes e depois',
+  reel_top_list: 'Lista rápida (3 itens)',
+  reel_mini_story: 'Mini história (problema → virada)',
+  reel_trend: 'Gancho de tendência',
 }
 
 const MODEL_INSTRUCTIONS: Record<ContentModel, string> = {
@@ -68,6 +75,13 @@ const MODEL_INSTRUCTIONS: Record<ContentModel, string> = {
   quick_question: 'Responda uma dúvida rápida do público com linguagem direta e aplicável.',
   soft_sell: 'Conduza para venda leve, com contexto humano, benefício claro e CTA natural.',
   objection_break: 'Quebre uma objeção comum antes da venda, sem soar defensivo ou agressivo.',
+  // Reels curto — ritmo de vídeo: gancho forte nos 3s, corte rápido, 1 ideia por cena.
+  reel_quick_tip: 'Entregue UMA dica objetiva e prática. Gancho que promete o resultado nos 3 primeiros segundos, dica em 2-3 cenas curtas e fechamento com CTA. Ritmo rápido, sem enrolação.',
+  reel_tutorial: 'Mostre um passo a passo curto (3 a 5 passos). Cada passo é uma cena rápida com ação visível na tela. Comece pelo resultado final para prender a atenção e feche convidando a salvar/seguir.',
+  reel_before_after: 'Use a estrutura antes → depois. Abra mostrando o problema/situação inicial, faça a virada e revele o resultado. A transição é o ponto alto — destaque o contraste.',
+  reel_top_list: 'Liste 3 itens rápidos (3 erros, 3 motivos, 3 dicas). Gancho anunciando a lista, um corte por item com texto na tela numerado e fechamento com CTA. Cada item em uma frase curta.',
+  reel_mini_story: 'Conte uma micro-história em ritmo de vídeo: problema (gancho) → virada → solução/lição. Narração em primeira pessoa, cenas dinâmicas, fechamento que conecta com o público.',
+  reel_trend: 'Aproveite um formato de gancho de tendência (frase de impacto, pergunta provocativa ou afirmação polêmica nos 3 primeiros segundos) e desenvolva rápido até um fechamento com CTA.',
 }
 
 const OBJECTIVE_LABELS: Record<ContentObjective, string> = {
@@ -99,8 +113,18 @@ function personBlock(profile: ProfessionalProfile): string {
 }
 
 function buildTypeInstruction(req: GenerateRequest): string {
+  const isPhoto = req.media === 'photo'
+
   if (req.type === 'sequence') {
     const count = Math.min(10, Math.max(2, req.sequenceCount ?? 3))
+    if (isPhoto) {
+      // Sequência de FOTOS: o usuário não grava falando, só posta fotos com texto.
+      return `Crie uma sequência de EXATAMENTE ${count} FOTOS encadeadas (stories só com FOTO — a pessoa NÃO vai gravar falando). Cada foto deve ter:
+Foto 1 — Gancho visual: a imagem + frase que para o dedo e cria curiosidade
+Fotos 2 a ${Math.max(2, count - 1)} — Desenvolvimento: mostram o processo, bastidor, detalhes ou evolução do que está sendo feito
+Foto ${count} — CTA: imagem de fechamento com convite a uma ação clara
+Para CADA foto descreva: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz), o TEXTO NA TELA (frase curta sobre a foto) e uma LEGENDA. NÃO inclua falas — é conteúdo só de foto. Não crie mais nem menos que ${count} fotos.`
+    }
     return `Crie uma sequência de EXATAMENTE ${count} stories encadeados. Cada story deve ter:
 Story 1 — Gancho: captura atenção, cria curiosidade ou identificação
 Stories 2 a ${Math.max(2, count - 1)} — Desenvolvimento: aprofunda, educa, conecta emocionalmente ou apresenta solução
@@ -114,6 +138,10 @@ Descreva visual, texto na tela e fala para cada story. Não crie mais nem menos 
 - Fechamento: conclusão + CTA integrado
 Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição.`
   }
+  if (isPhoto) {
+    // Story único só com FOTO.
+    return `Crie 1 ideia de STORY COM FOTO (a pessoa NÃO vai gravar falando — só postar uma foto com texto). Descreva: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz), o TEXTO NA TELA (frase curta e impactante sobre a foto) e uma LEGENDA. NÃO inclua falas. Deve ser simples e executável em segundos.`
+  }
   return `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
 Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala (se houver).`
 }
@@ -125,6 +153,12 @@ function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {
   const objectiveLabel = req.objectiveLabel ?? (OBJECTIVE_LABELS[req.objective as ContentObjective] ?? String(req.objective))
   const modelLabel = req.model ? MODEL_LABELS[req.model] : (req.format || 'Qualquer formato')
   const modelInstruction = req.model ? MODEL_INSTRUCTIONS[req.model] : 'Use a estrutura mais adequada para o tema, objetivo e nível de exposição da pessoa.'
+  const isPhoto = req.media === 'photo'
+  // Formato do campo "content": conteúdo COM FOTO usa rótulos FOTO/TEXTO NA TELA/
+  // LEGENDA (sem fala); vídeo/story falado usa FALA/TEXTO NA TELA/CENA/EDIÇÃO.
+  const contentFormatInstruction = isPhoto
+    ? `roteiro visual em LINHAS ROTULADAS para conteúdo COM FOTO. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FOTO:' = o que fotografar (cena, objeto, ângulo, luz); 'TEXTO NA TELA:' = a frase que aparece escrita sobre a foto; 'LEGENDA:' = legenda curta para o post. NÃO inclua linhas 'FALA:' — este conteúdo é só foto, a pessoa não vai gravar falando. Separe cada bloco com uma quebra de linha.${req.type === 'sequence' ? ` Para SEQUÊNCIA de fotos: preceda cada foto com uma linha contendo APENAS STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
+    : `roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ` Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}`
   const pillarList = profile.pillars.map((p, i) => `${i + 1}. ${p.name}${p.description ? ` (${p.description})` : ''}`).join('\n')
   const serviceList = profile.services.map(s => `- ${s.name}${s.commercialGoal ? ` (${s.commercialGoal})` : ''}`).join('\n')
   const toneList = profile.voiceTone.join(', ')
@@ -162,7 +196,8 @@ ${profile.limits?.avoidTopics?.length ? `EVITE completamente estes temas: ${prof
 BRIEFING DO CONTEÚDO
 ═══════════════════════════════
 Tipo de conteúdo: ${contentType} — ${CONTENT_TYPE_LABELS[contentType]}
-${sequenceCount ? `Quantidade de stories: ${sequenceCount} (gere exatamente ${sequenceCount})` : 'Quantidade de stories: não se aplica'}
+Mídia: ${isPhoto ? 'FOTO (a pessoa vai postar foto(s) com texto na tela e legenda — NÃO grava falando)' : 'Vídeo/fala (a pessoa grava falando)'}
+${sequenceCount ? `Quantidade de ${isPhoto ? 'fotos' : 'stories'}: ${sequenceCount} (gere exatamente ${sequenceCount})` : `Quantidade de ${isPhoto ? 'fotos' : 'stories'}: não se aplica`}
 Tema central: ${req.theme}
 Objetivo principal: ${objectiveLabel} (${req.objective})
 Modelo/estrutura: ${modelLabel}${req.model ? ` (${req.model})` : ''}
@@ -195,7 +230,7 @@ Responda EXCLUSIVAMENTE com este JSON (sem markdown, sem explicação, sem texto
   "theme": "título criativo e descritivo do conteúdo (máx 8 palavras)",
   "objective": "o que este conteúdo vai gerar no público (1 frase)",
   "timeEstimate": "tempo real de gravação estimado",
-  "content": "roteiro em LINHAS ROTULADAS. Cada linha começa com um destes rótulos em MAIÚSCULAS seguido de dois-pontos: 'FALA:' = exatamente o que dizer em voz alta, palavra por palavra, em primeira pessoa (SEM instruções dentro da fala); 'TEXTO NA TELA:' = o que aparece escrito; 'CENA:' = enquadramento/ação; 'EDIÇÃO:' = corte/transição. Separe cada bloco com uma quebra de linha. Use uma linha 'FALA:' para cada trecho falado. Se o conteúdo não tiver fala, não inclua linhas 'FALA:'.${req.type === 'sequence' ? ` Para SEQUÊNCIA: preceda cada story com a linha STORY 1, STORY 2, ... até STORY ${sequenceCount}, gerando exatamente ${sequenceCount} blocos.` : ''}",
+  "content": "${contentFormatInstruction}",
   "cta": "chamada para ação final natural e não-forçada, que soe como a pessoa falaria",
   "tags": ["categoria1", "categoria2"]
 }`
@@ -265,12 +300,17 @@ async function repairSequenceIfNeeded(
   const content = String(parsed.content ?? '')
   if (countStoryBlocks(content) === expected) return parsed
 
-  const raw = await callGemini(`Reescreva o JSON abaixo mantendo o mesmo tema, objetivo, CTA e tags, mas corrigindo APENAS o campo "content" para ter EXATAMENTE ${expected} stories.
+  // Rótulos esperados em cada bloco mudam conforme a mídia: foto não tem fala.
+  const blockLabels = req.media === 'photo'
+    ? 'FOTO:, TEXTO NA TELA: e LEGENDA: (NUNCA use FALA: — é conteúdo só de foto)'
+    : 'FALA:, TEXTO NA TELA:, CENA: e, se necessário, EDIÇÃO:'
+  const unit = req.media === 'photo' ? 'fotos' : 'stories'
+  const raw = await callGemini(`Reescreva o JSON abaixo mantendo o mesmo tema, objetivo, CTA e tags, mas corrigindo APENAS o campo "content" para ter EXATAMENTE ${expected} ${unit}.
 
 Regras obrigatórias:
 - O campo "content" deve começar cada bloco com uma linha contendo APENAS STORY 1, STORY 2, ... até STORY ${expected}.
 - Não gere STORY ${expected + 1} nem pule números.
-- Em cada story, use linhas rotuladas como FALA:, TEXTO NA TELA:, CENA: e, se necessário, EDIÇÃO:.
+- Em cada bloco, use linhas rotuladas como ${blockLabels}.
 - Responda somente com JSON válido.
 
 JSON original:
@@ -844,6 +884,7 @@ export async function generateContent(req: GenerateRequest): Promise<ContentIdea
     contentType,
     sequenceCount: req.type === 'sequence' ? Math.min(10, Math.max(2, req.sequenceCount ?? 3)) : null,
     model: req.model ?? null,
+    media: req.media ?? 'video',
     theme: String(parsed.theme ?? req.theme),
     objective: String(parsed.objective ?? req.objectiveLabel ?? req.objective),
     objectiveKey: req.objective as ContentIdea['objectiveKey'],

@@ -75,6 +75,9 @@ export interface ContentIdea {
   contentType?: ContentType
   sequenceCount?: number | null
   model?: ContentModel | null
+  // Mídia do conteúdo: 'video' (gravar falando, vai para o teleprompter) ou
+  // 'photo' (postar foto/fotos com texto na tela e legenda, sem gravação).
+  media?: ContentMedia
   theme: string
   objective: string
   objectiveKey?: ContentObjective
@@ -166,6 +169,8 @@ export interface GenerateRequest {
   type: 'story' | 'sequence' | 'reel'
   contentType?: ContentType
   sequenceCount?: number | null
+  // Vídeo (gravar falando) ou foto (postar foto com texto/legenda).
+  media?: ContentMedia
   theme: string
   objective: ContentObjective | string
   objectiveLabel?: string
@@ -179,7 +184,11 @@ export interface GenerateRequest {
 
 export type ContentType = 'single_story' | 'story_sequence' | 'short_reel'
 
+// Mídia do conteúdo: vídeo (gravar falando) ou foto (postar imagem com texto).
+export type ContentMedia = 'video' | 'photo'
+
 export type ContentModel =
+  // Modelos de Story (story único / sequência)
   | 'question_box'
   | 'poll'
   | 'backstage'
@@ -187,6 +196,14 @@ export type ContentModel =
   | 'quick_question'
   | 'soft_sell'
   | 'objection_break'
+  // Modelos específicos de Reels curto — pensados para vídeo objetivo, com
+  // começo (gancho), desenvolvimento e fechamento. Diferentes dos de Stories.
+  | 'reel_quick_tip'
+  | 'reel_tutorial'
+  | 'reel_before_after'
+  | 'reel_top_list'
+  | 'reel_mini_story'
+  | 'reel_trend'
 
 export type ContentObjective =
   | 'educate'

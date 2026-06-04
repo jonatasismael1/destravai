@@ -265,6 +265,15 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Idem para o microfone selecionado.
   const selectedMicRef = useRef(selectedMicId)
   selectedMicRef.current = selectedMicId
+  // Refs de fase/câmera lidos dentro de listeners (visibilitychange/popstate) que
+  // só são registrados uma vez — sem isso, eles enxergariam só o valor inicial.
+  const phaseRef = useRef<Phase>(phase)
+  phaseRef.current = phase
+  const facingRef = useRef(facing)
+  facingRef.current = facing
+  // Marca que o fechamento já veio do botão "voltar" (popstate), para não
+  // empurrar/voltar histórico em duplicidade.
+  const poppedRef = useRef(false)
 
   const stopStream = useCallback(() => {
     recordingStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -323,6 +332,46 @@ export default function StudioModal({ idea, onClose }: Props) {
       if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current)
       if (scrollIntervalRef.current) clearInterval(scrollIntervalRef.current)
+    }
+  }, []) // eslint-disable-line
+
+  // Botão "voltar" (navegador/Android): empurramos uma entrada no histórico ao
+  // abrir o teleprompter; quando o usuário toca em voltar, o popstate consome
+  // essa entrada e FECHA o modal — voltando para a área de Criar com os roteiros
+  // preservados, em vez de navegar para a Home e perder o estado.
+  useEffect(() => {
+    window.history.pushState({ studioModal: true }, '')
+    const onPopState = () => {
+      poppedRef.current = true
+      // Libera câmera/áudio e fecha (sem empurrar/voltar histórico de novo).
+      stopRecording()
+      stopStream()
+      onClose()
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, []) // eslint-disable-line
+
+  // Ciclo de vida: ao minimizar o app, trocar de aba/tela ou o app ser
+  // descarregado, LIBERA câmera e microfone (senão a luz da câmera e o áudio
+  // ficam ativos em segundo plano). Ao voltar para o app no modo setup, religa.
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (phaseRef.current === 'recording') stopRecording()
+        stopStream()
+      } else if (phaseRef.current === 'setup' && !streamRef.current) {
+        // Voltou ao app e estava configurando → religa a câmera.
+        startCamera(facingRef.current)
+      }
+    }
+    // pagehide cobre o fechamento/descarte da página (mais confiável no iOS).
+    const onPageHide = () => { stopRecording(); stopStream() }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', onPageHide)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', onPageHide)
     }
   }, []) // eslint-disable-line
 
@@ -575,7 +624,22 @@ export default function StudioModal({ idea, onClose }: Props) {
     }
   }
 
-  const handleClose = () => { stopRecording(); stopStream(); onClose() }
+  // Libera TODOS os recursos de mídia (câmera + microfone) e fecha o modal.
+  // Centraliza o cleanup para garantir que nada fique ativo ao sair.
+  const releaseAndClose = () => {
+    stopRecording()
+    stopStream()
+    onClose()
+  }
+
+  // Fechar via UI (X, "fechar sem salvar"). Se empurramos uma entrada no
+  // histórico ao abrir, desfazemos com history.back() — isso dispara o popstate,
+  // que faz o releaseAndClose. Se o fechamento já veio do "voltar", só libera.
+  const handleClose = () => {
+    if (poppedRef.current) { releaseAndClose(); return }
+    poppedRef.current = true
+    window.history.back()
+  }
 
   const retake = () => {
     setRecordedUrl(''); setScrollPx(0); setTimer(0); setPhase('setup'); startCamera(facing)

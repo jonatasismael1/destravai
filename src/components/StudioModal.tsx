@@ -632,12 +632,17 @@ export default function StudioModal({ idea, onClose }: Props) {
     onClose()
   }
 
-  // Fechar via UI (X, "fechar sem salvar"). Se empurramos uma entrada no
-  // histórico ao abrir, desfazemos com history.back() — isso dispara o popstate,
-  // que faz o releaseAndClose. Se o fechamento já veio do "voltar", só libera.
+  // Fechar via UI (X, "fechar sem salvar"). LIBERA câmera/áudio e fecha
+  // IMEDIATAMENTE — não dá para depender do history.back() disparar o popstate:
+  // se outro fluxo empurrou uma entrada no histórico, ou no iOS PWA (instável), o
+  // back() pode ir para o lugar errado e a câmera ficaria PRESA acesa. O back()
+  // entra só como limpeza da entrada que empurramos ao abrir; como o modal já
+  // desmonta (onClose remove o listener de popstate), o popstate resultante é
+  // inofensivo.
   const handleClose = () => {
     if (poppedRef.current) { releaseAndClose(); return }
     poppedRef.current = true
+    releaseAndClose()
     window.history.back()
   }
 

@@ -2,7 +2,7 @@
 // Retorna o status atual da assinatura do usuário, se está dentro da garantia
 // de 7 dias, a data limite de reembolso e se o acesso está liberado.
 
-import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getUser } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getUser, subscriptionRowGrantsAccess } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
@@ -13,17 +13,21 @@ export const handler = async (event) => {
     if (!user) return json(401, { error: 'Não autorizado' })
 
     const admin = supabaseAdmin()
-    const { data: sub } = await admin
+    const { data: subs } = await admin
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(10)
 
-    if (!sub) {
+    if (!subs?.length) {
       return json(200, { hasSubscription: false, hasAccess: false, status: null })
     }
+
+    // Escolhe a linha que CONCEDE acesso (se houver) — não apenas a mais recente.
+    // Assim um pagante que reabriu o checkout (criando uma 'pending' mais nova) não
+    // perde o acesso da assinatura ativa. Para exibição, cai na mais recente.
+    const sub = subs.find(subscriptionRowGrantsAccess) ?? subs[0]
 
     const now = new Date()
     const deadline = sub.refund_deadline ? new Date(sub.refund_deadline) : null

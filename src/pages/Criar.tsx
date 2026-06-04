@@ -48,6 +48,37 @@ async function persistIdeaToLibrary(idea: ContentIdea): Promise<string | null> {
   }
 }
 
+// Salva a ideia na biblioteca REAPROVEITANDO o item existente quando há um
+// (ex.: variações do mesmo conteúdo) — em vez de criar uma linha nova a cada
+// clique. Sem isso, gerar 1 conteúdo + 4 variações deixava 5 itens quase iguais.
+async function upsertIdeaToLibrary(idea: ContentIdea, existingId: string | null): Promise<string | null> {
+  if (existingId) {
+    try {
+      await updateLibraryItem(existingId, {
+        title: idea.theme,
+        content: idea.content,
+        category: idea.objective || null,
+        status: 'saved',
+        tags: idea.tags ?? [],
+        metadata: {
+          cta: idea.cta,
+          timeEstimate: idea.timeEstimate,
+          exposureLevel: idea.exposureLevel,
+          content_type: idea.contentType ?? null,
+          sequence_count: idea.sequenceCount ?? null,
+          model: idea.model ?? null,
+          media: idea.media ?? 'video',
+          objective: idea.objectiveKey ?? null,
+        },
+      })
+      return existingId
+    } catch {
+      // Se o update falhar (item removido, rede), cria um novo como fallback.
+    }
+  }
+  return persistIdeaToLibrary(idea)
+}
+
 const CONTENT_TYPES = [
   { value: 'story', label: 'Story único', Icon: Smartphone, desc: 'Direto ao ponto' },
   { value: 'sequence', label: 'Sequência', Icon: LayoutList, desc: '2–10 stories' },
@@ -215,7 +246,7 @@ function CopyScreenTextButton({ text, label = 'Copiar texto' }: { text: string; 
   )
 }
 
-function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: {
+function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, busy = false }: {
   idea: ContentIdea
   onVariation: (v: string) => void
   onSave: () => void
@@ -224,6 +255,8 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
   // a ideia derivada (só aquele story). Sem override, grava a ideia inteira.
   onRecord: (override?: ContentIdea) => void
   onCaption: () => void
+  // Geração/variação em andamento → trava os botões de variação (anti-corrida).
+  busy?: boolean
 }) {
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(idea.favorite)
@@ -405,9 +438,10 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption }: 
             <button
               key={v.label}
               onClick={() => onVariation(v.label.toLowerCase())}
-              className="chip chip-inactive text-xs"
+              disabled={busy}
+              className="chip chip-inactive text-xs disabled:opacity-40"
             >
-              <RefreshCw size={10} /> {v.icon} {v.label}
+              <RefreshCw size={10} className={busy ? 'animate-spin' : ''} /> {v.icon} {v.label}
             </button>
           ))}
         </div>
@@ -574,12 +608,25 @@ export default function Criar() {
   // Persiste o rascunho (roteiros + configuração) na sessão a cada mudança, para
   // sobreviver à remontagem da página ao navegar/voltar do teleprompter.
   useEffect(() => {
-    const next: CriarDraft = { result, activeTab, contentType, media, theme, objective, model, sequenceCountMode }
-    try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next)) } catch { /* cota cheia: ignora */ }
+    // Não persiste telas de ERRO: senão o card "Erro na geração" ressuscita ao
+    // voltar do teleprompter, como se fosse conteúdo.
+    const safeResult = result && result.id !== 'error' ? result : null
+    const next: CriarDraft = { result: safeResult, activeTab, contentType, media, theme, objective, model, sequenceCountMode }
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next))
+    } catch {
+      // Cota cheia: o que NÃO pode se perder ao navegar/voltar é o roteiro gerado.
+      // Tenta de novo guardando só o essencial (a config é leve de refazer).
+      try {
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ result: safeResult, activeTab, contentType, media }))
+      } catch {
+        console.warn('[Criar] não foi possível salvar o rascunho (sessionStorage cheio)')
+      }
+    }
   }, [result, activeTab, contentType, media, theme, objective, model, sequenceCountMode])
 
   const handleGenerate = async (variationHint?: string) => {
-    if (!profile) return
+    if (!profile || loading) return // trava corrida: ignora clique enquanto gera
     setLoading(true); setResult(null)
     try {
       const idea = await generateContent({
@@ -613,7 +660,7 @@ export default function Criar() {
   }
 
   const handleVariation = async (hint: string) => {
-    if (!profile || !result) return
+    if (!profile || !result || loading) return // trava corrida entre variações
     setLoading(true)
     try {
       const idea = await generateContent({
@@ -630,7 +677,8 @@ export default function Criar() {
         tone: profile.voiceTone, profile,
       })
       setResult(idea); addIdea(idea)
-      const id = await persistIdeaToLibrary(idea)
+      // Variação substitui o mesmo item na biblioteca (não cria duplicata).
+      const id = await upsertIdeaToLibrary(idea, libraryItemId)
       setLibraryItemId(id)
       if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
     } finally { setLoading(false) }
@@ -651,7 +699,7 @@ export default function Criar() {
 
   // Momento livre: gera um story leve sobre o que a pessoa quer falar agora.
   const handleGenerateFree = async () => {
-    if (!profile || !freeTopic.trim()) return
+    if (!profile || !freeTopic.trim() || loading) return // trava corrida
     setLoading(true); setResult(null)
     try {
       const idea = await generateFreeStory(profile, freeTopic.trim(), freeVibe)
@@ -1025,9 +1073,15 @@ export default function Criar() {
           </button>
         )}
 
-        {result && !loading && (
+        {/* Mantém o card visível DURANTE a variação (com os botões travados via
+            busy) — antes ele sumia e o conteúdo "piscava". Geração nova zera o
+            result, então aí o card fica oculto e o spinner é o do botão principal.
+            key={result.id} remonta o card a cada ideia (estado limpo de "salvo"). */}
+        {result && (
           <ResultCard
+            key={result.id}
             idea={result}
+            busy={loading}
             onVariation={handleVariation}
             onSave={() => {
               updateIdea(result.id, { favorite: true })

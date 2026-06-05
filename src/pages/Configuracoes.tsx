@@ -672,8 +672,8 @@ export default function Configuracoes() {
             className="rounded-t-3xl max-w-md w-full mx-auto flex flex-col overflow-hidden"
             style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', maxHeight: '92vh' }}
           >
-            {/* Área rolável: garante que tudo seja acessível mesmo em telas baixas. */}
-            <div className="p-5 space-y-4 overflow-y-auto">
+            {/* Área rolável: encolhe (min-h-0) para o footer SEMPRE caber abaixo. */}
+            <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Ajustar foto</p>
@@ -748,7 +748,7 @@ export default function Configuracoes() {
 
             {/* Footer fixo: os botões ficam SEMPRE visíveis, sem depender de rolagem. */}
             <div
-              className="grid grid-cols-2 gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              className="flex-shrink-0 grid grid-cols-2 gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
               style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
             >
               <button onClick={closeAvatarPreview} disabled={uploadingAvatar} className="btn-secondary py-3 text-sm disabled:opacity-40">

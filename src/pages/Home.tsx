@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import {
   Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight,
-  Camera, Wand2, FileText, Copy, X,
+  Camera, Wand2, FileText, Copy, X, Pencil,
   Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp, CalendarDays
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
@@ -124,18 +124,31 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
   )
 }
 
-function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, featured }: {
+function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, onUpdate, featured }: {
   idea: ContentIdea
   onDone: () => void
   onSave: () => void
   onVariation: (hint: string) => void
   onRecord: (override?: ContentIdea) => void
   onCaption: () => void
+  // Salva uma edição manual do roteiro/visual feita pela pessoa.
+  onUpdate: (updated: ContentIdea) => void
   featured?: boolean
 }) {
   const [expanded, setExpanded] = useState(featured ?? false)
   const [showVariations, setShowVariations] = useState(false)
   const [celebrating, setCelebrating] = useState(false)
+
+  // Edição manual do roteiro (falas + parte visual), sem gerar de novo.
+  const [editing, setEditing] = useState(false)
+  const [draftContent, setDraftContent] = useState(idea.content)
+  const startEdit = () => { setDraftContent(idea.content); setExpanded(true); setEditing(true) }
+  const cancelEdit = () => { setEditing(false); setDraftContent(idea.content) }
+  const saveEdit = () => {
+    const next = draftContent.trim()
+    if (next && next !== idea.content) onUpdate({ ...idea, content: next })
+    setEditing(false)
+  }
 
   const TYPE_META: Record<string, { label: string }> = {
     story: { label: 'Story' },
@@ -202,7 +215,27 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
 
         {expanded && (
           <div className="mt-4 space-y-3">
-            {isMultiStory ? (
+            {editing ? (
+              // Edição manual: ajusta FALAS e PARTE VISUAL no mesmo texto.
+              <div className="space-y-2">
+                <textarea
+                  className="input w-full text-sm leading-relaxed"
+                  style={{ minHeight: 240, whiteSpace: 'pre-wrap' }}
+                  value={draftContent}
+                  onChange={e => setDraftContent(e.target.value)}
+                  placeholder="Edite o roteiro do seu jeito..."
+                  autoFocus
+                />
+                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                  Dica: linhas com <strong>FALA:</strong> vão para o teleprompter (o que você diz).
+                  <strong> CENA:</strong>, <strong>TEXTO NA TELA:</strong> e <strong>EDIÇÃO:</strong> são a parte visual.
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={cancelEdit} className="btn-secondary flex-1 py-2.5 text-sm">Cancelar</button>
+                  <button onClick={saveEdit} className="btn-primary flex-1 py-2.5 text-sm"><Check size={14} /> Salvar alterações</button>
+                </div>
+              </div>
+            ) : isMultiStory ? (
               <>
                 <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
                   Esta é uma sequência de {stories.length} stories. Grave um de cada vez:
@@ -238,11 +271,17 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
                 })}
               </>
             ) : (
-              <div className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+              <button type="button" onClick={startEdit}
+                className="w-full text-left rounded-2xl p-4 transition-all active:scale-[0.99]"
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+                title="Toque para editar o roteiro">
                 <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                   {idea.content}
                 </pre>
-              </div>
+                <span className="flex items-center gap-1 mt-2 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  <Pencil size={11} /> Toque para editar
+                </span>
+              </button>
             )}
             {idea.cta && (
               <div className="rounded-2xl p-3" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
@@ -253,14 +292,24 @@ function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, feat
           </div>
         )}
 
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="flex items-center gap-1 text-sm font-bold mt-3 transition-colors"
-          style={{ color: '#9B8CFF' }}
-        >
-          {expanded ? 'Fechar roteiro' : 'Ver roteiro completo'}
-          <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-        </button>
+        <div className="flex items-center justify-between gap-2 mt-3">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center gap-1 text-sm font-bold transition-colors"
+            style={{ color: '#9B8CFF' }}
+          >
+            {expanded ? 'Fechar roteiro' : 'Ver roteiro completo'}
+            <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+          </button>
+          {!editing && (
+            <button onClick={startEdit}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 transition-all active:scale-95"
+              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+              title="Editar roteiro e parte visual">
+              <Pencil size={13} /> Editar
+            </button>
+          )}
+        </div>
 
         {idea.status !== 'done' && (
           <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--border-color)' }}>
@@ -443,6 +492,20 @@ export default function Home() {
       const msg = err instanceof Error ? err.message : String(err)
       addToast(`Erro: ${msg.slice(0, 160)}`, 'error')
     }
+  }
+
+  // Salva uma edição manual do roteiro feita no card (missão ou sugestão). Atualiza
+  // o conteúdo do dia (persiste no Supabase) e o histórico local de ideias — assim
+  // o card e o teleprompter já refletem a versão editada.
+  const handleUpdateIdea = (updated: ContentIdea) => {
+    setTodayContent(prev => ({
+      ...prev,
+      mission: prev.mission && prev.mission.id === updated.id
+        ? { ...prev.mission, content: updated.content }
+        : prev.mission,
+      extras: prev.extras.map(e => e.id === updated.id ? { ...e, content: updated.content } : e),
+    }))
+    updateIdea(updated.id, { content: updated.content })
   }
 
   const handleDone = (idea: ContentIdea) => {
@@ -765,6 +828,7 @@ export default function Home() {
                 onVariation={(hint) => handleVariation(mission, hint)}
                 onRecord={(override) => setStudioIdea(override ?? mission)}
                 onCaption={() => handleCaption(mission)}
+                onUpdate={handleUpdateIdea}
                 featured />
             </div>
           )}
@@ -779,7 +843,8 @@ export default function Home() {
                     onSave={() => handleSave(idea)}
                     onVariation={(hint) => handleVariation(idea, hint)}
                     onRecord={(override) => setStudioIdea(override ?? idea)}
-                    onCaption={() => handleCaption(idea)} />
+                    onCaption={() => handleCaption(idea)}
+                    onUpdate={handleUpdateIdea} />
                 ))}
               </div>
             </div>

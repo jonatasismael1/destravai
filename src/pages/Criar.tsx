@@ -267,7 +267,7 @@ function CopyScreenTextButton({ text, label = 'Copiar texto' }: { text: string; 
   )
 }
 
-function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, busy = false }: {
+function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, onUpdate, busy = false }: {
   idea: ContentIdea
   onVariation: (v: string) => void
   onSave: () => void
@@ -276,11 +276,26 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, bu
   // a ideia derivada (só aquele story). Sem override, grava a ideia inteira.
   onRecord: (override?: ContentIdea) => void
   onCaption: () => void
+  // Salva uma edição manual do roteiro/visual feita pela pessoa.
+  onUpdate: (updated: ContentIdea) => void
   // Geração/variação em andamento → trava os botões de variação (anti-corrida).
   busy?: boolean
 }) {
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(idea.favorite)
+
+  // Edição manual do roteiro: a pessoa abre, ajusta o texto (falas e parte
+  // visual) e salva — sem precisar gerar tudo de novo.
+  const [editing, setEditing] = useState(false)
+  const [draftContent, setDraftContent] = useState(idea.content)
+
+  const startEdit = () => { setDraftContent(idea.content); setEditing(true) }
+  const cancelEdit = () => { setEditing(false); setDraftContent(idea.content) }
+  const saveEdit = () => {
+    const next = draftContent.trim()
+    if (next && next !== idea.content) onUpdate({ ...idea, content: next })
+    setEditing(false)
+  }
 
   // Conteúdo de foto: não há gravação/teleprompter — só ideia da foto + texto/legenda.
   const isPhoto = idea.media === 'photo'
@@ -321,9 +336,43 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, bu
             <span className="tag tag-amber">{idea.timeEstimate}</span>
           </div>
 
-          <h3 className="font-extrabold text-lg mb-4" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <h3 className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
+            {!editing && (
+              <button onClick={startEdit}
+                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 transition-all active:scale-95"
+                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+                title="Editar roteiro e parte visual">
+                <PenLine size={13} /> Editar
+              </button>
+            )}
+          </div>
 
-          {isMultiStory ? (
+          {editing ? (
+            // Edição manual: a pessoa ajusta falas E parte visual no mesmo texto.
+            <div className="mb-3 space-y-2">
+              <textarea
+                className="input w-full text-sm leading-relaxed"
+                style={{ minHeight: 280, whiteSpace: 'pre-wrap' }}
+                value={draftContent}
+                onChange={e => setDraftContent(e.target.value)}
+                placeholder="Edite o roteiro do seu jeito..."
+                autoFocus
+              />
+              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+                Dica: linhas com <strong>FALA:</strong> são o que vai para o teleprompter (o que você diz).
+                <strong> CENA:</strong>, <strong>TEXTO NA TELA:</strong> e <strong>EDIÇÃO:</strong> são a parte visual/produção.
+              </p>
+              <div className="flex gap-2">
+                <button onClick={cancelEdit} className="btn-secondary flex-1 py-2.5 text-sm">
+                  Cancelar
+                </button>
+                <button onClick={saveEdit} className="btn-primary flex-1 py-2.5 text-sm">
+                  <Check size={14} /> Salvar alterações
+                </button>
+              </div>
+            </div>
+          ) : isMultiStory ? (
             <div className="space-y-3 mb-3">
               <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
                 {isPhoto
@@ -407,11 +456,17 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, bu
               </>)}
             </div>
           ) : (
-            <div className="rounded-2xl p-4 mb-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
+            <button type="button" onClick={startEdit}
+              className="w-full text-left rounded-2xl p-4 mb-3 transition-all active:scale-[0.99]"
+              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              title="Toque para editar o roteiro">
               <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
                 {idea.content}
               </pre>
-            </div>
+              <span className="flex items-center gap-1 mt-2 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                <PenLine size={11} /> Toque para editar
+              </span>
+            </button>
           )}
 
           {/* CTA de referência. Em foto o CTA já está no texto da tela (não repete
@@ -1177,6 +1232,14 @@ export default function Criar() {
             onCopy={() => {}}
             onRecord={(override) => { setStudioIdea(override ?? result); setShowStudio(true) }}
             onCaption={handleCaption}
+            onUpdate={(updated) => {
+              // Reflete a edição na hora (card + teleprompter), no histórico local
+              // e na biblioteca (persistência). O draft de sessão é salvo pelo
+              // useEffect que observa `result`.
+              setResult(updated)
+              updateIdea(updated.id, { content: updated.content })
+              if (libraryItemId) updateLibraryItem(libraryItemId, { content: updated.content }).catch(() => {})
+            }}
           />
         )}
 

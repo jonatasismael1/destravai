@@ -23,13 +23,24 @@ type RecordingCodec = 'compatible' | 'hevc'
 // ou INSTRUÇÃO (ação, visual, câmera, dica…). Retorna null se não for um rótulo
 // reconhecido — aí o trecho é tratado como texto neutro.
 function labelKind(label: string): 'speech' | 'instruction' | null {
-  const l = label.toUpperCase().trim()
-  if (l.length > 40) return null // texto comum com ":", não é um rótulo
+  const rawL = label.toUpperCase().trim()
+  if (rawL.length > 40) return null // texto comum com ":", não é um rótulo
+
+  // Normaliza removendo acentos e convertendo Ç para C para evitar falhas no \b do JS
+  const l = rawL
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/Ç/g, 'C')
+
   // "TEXTO NA TELA" é legenda (aparece escrito), não é fala → cai em instrução.
-  if (/\b(FALA|ROTEIRO|FRASE|NARRA[ÇC]|TEXTO FALADO|O QUE (FALAR|DIZER))\b/.test(l) && !/TELA/.test(l)) return 'speech'
+  // Permite plurais como FALAS, ROTEIROS e FRASES.
+  if (/\b(FALA|FALAS|ROTEIRO|ROTEIROS|FRASE|FRASES|NARRACAO|NARRACOES|TEXTO FALADO|O QUE (FALAR|DIZER))\b/.test(l) && !/TELA/.test(l)) return 'speech'
+  
   // Rótulos de PRODUÇÃO (visual, edição, áudio, títulos, separações de bloco…):
   // nunca são ditos em voz alta, então não vão para o teleprompter.
-  if (/\b(A[ÇC][ÃA]O|VISUAL|CENA|C[ÂA]MERA|ENQUADRAMENTO|POSI[ÇC]|TELA|LEGENDA|TRANSI[ÇC]|EDI[ÇC]|CORTE|SUGEST|DICA|OBSERVA[ÇC]|HASHTAG|TAGS?|GANCHO|CORPO|FECHAMENTO|STORY|IMAGEM|BASTIDOR|B-?ROLL|[ÁA]UDIO|SOM|TRILHA|M[ÚU]SICA|EFEITO|T[ÍI]TULO|DURA[ÇC][ÃA]O|GRAVA[ÇC]|PARTE|BLOCO)\b/.test(l)) return 'instruction'
+  // Termos normalizados sem acento e aceitando plurais e radicais flexibilizados.
+  if (/\b(ACAO|ACOES|VISUAL|VISUAIS|CENA|CENAS|CAMERA|CAMERAS|ENQUADRAMENTO|ENQUADRAMENTOS|POSICAO|POSICOES|POSICIONAMENTO|TELA|TELAS|LEGENDA|LEGENDAS|TRANSICAO|TRANSICOES|EDICAO|EDICOES|CORTE|CORTES|SUGESTAO|SUGESTOES|SUGESTOES?|DICA|DICAS|OBSERVACAO|OBSERVACOES|HASHTAG|HASHTAGS|TAGS?|GANCHO|GANCHOS|CORPO|FECHAMENTO|FECHAMENTOS|STORY|STORIES|IMAGEM|IMAGENS|BASTIDOR|BASTIDORES|B-?ROLL|AUDIO|AUDIOS|SOM|SONS|TRILHA|TRILHAS|MUSICA|MUSICAS|EFEITO|EFEITOS|TITULO|TITULOS|DURACAO|DURACOES|GRAVACAO|GRAVACOES|PARTES?|BLOCOS?)\b/.test(l)) return 'instruction'
+  
   return null
 }
 
@@ -912,7 +923,9 @@ export default function StudioModal({ idea, onClose }: Props) {
             />
           )}
           {/* Texto / placeholder */}
-          <div className="flex-1 overflow-hidden px-5 pt-5" onClick={() => !recording && setShowEditor(true)}>
+          <div className="flex-1 overflow-hidden px-5" 
+            style={{ paddingTop: `calc(32vh * 0.3 - ${(fontSize * 1.5) / 2}px)` }}
+            onClick={() => !recording && setShowEditor(true)}>
             {script ? (
               <div style={{ transform: recording ? `translateY(-${scrollPx}px)` : 'none' }}>
                 <p style={{ color: 'rgba(255,255,255,0.92)', fontSize, lineHeight: 1.5, whiteSpace: 'pre-line', fontWeight: 600 }}>

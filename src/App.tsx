@@ -77,6 +77,7 @@ function ProtectedRoutes() {
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/espaco" element={<MeuEspaco />} />
           <Route path="/grupos" element={<Grupos />} />
+          <Route path="/voce" element={<Configuracoes />} />
           <Route path="/configuracoes" element={<Configuracoes />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

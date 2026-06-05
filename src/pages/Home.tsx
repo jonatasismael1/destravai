@@ -47,6 +47,8 @@ import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService
 import { trackEvent, loadActivationStatus } from '../services/eventsService'
 import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
+import GroupsOverview from '../components/GroupsOverview'
+import { HeaderActions, TopTabs } from '../components/premium'
 
 // Check-ins com ícones vetoriais (sem emojis estruturais)
 const BASE_CHECKIN_OPTIONS = [
@@ -354,9 +356,17 @@ export default function Home() {
   const [captionIdea, setCaptionIdea] = useState<ContentIdea | null>(null)
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
+  const [homeTab, setHomeTab] = useState<'hoje' | 'grupos'>('hoje')
 
   const profile = state.localProfile
   const progress = state.progress
+  const headerInitials = (state.profile?.name ?? profile?.professionalName ?? 'DB')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(part => part[0])
+    .join('')
+    .toUpperCase() || 'DB'
   const firstName = profile?.professionalName?.split(' ')[0]
     ?? state.profile?.name?.split(' ')[0]
     ?? state.supabaseUser?.user_metadata?.name?.split(' ')[0]
@@ -526,10 +536,27 @@ export default function Home() {
   const dayOfWeek = new Date().toLocaleDateString('pt-BR', { weekday: 'long' })
   const dayNum = new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })
   const quote = getQuoteOfDay() // frase do dia (muda automaticamente a cada dia)
+  const quoteFontSize = quote.text.length > 120 ? 18 : quote.text.length > 92 ? 20 : quote.text.length > 68 ? 22 : 24
   const { checkin, mission, extras } = dayState
 
   return (
     <div className="p-5 space-y-5 pb-8">
+      <div className="pt-4 flex items-start justify-between gap-4">
+        <TopTabs
+          items={[
+            { value: 'hoje', label: 'Hoje' },
+            { value: 'grupos', label: 'Grupos' },
+          ]}
+          value={homeTab}
+          onChange={setHomeTab}
+        />
+        <HeaderActions initials={headerInitials} avatarUrl={state.profile?.avatar_url} showNotifications={false} />
+      </div>
+
+      {homeTab === 'grupos' ? (
+        <GroupsOverview />
+      ) : (
+      <>
       {/* ── Header ─────────────────────────────────── */}
       {/* Configurações agora vivem na navbar (acesso global), então a engrenagem
           do topo foi removida para não duplicar o mesmo atalho na própria Home. */}
@@ -547,16 +574,29 @@ export default function Home() {
       </div>
 
       {/* ── Frase motivacional do dia ──────────────── */}
-      <div className="relative rounded-2xl p-4 overflow-hidden app-card">
-        <div className="absolute top-3 left-0 bottom-3 w-0.5 rounded-full" style={{ background: 'var(--brand)' }} />
-        <div className="flex items-start gap-3 pl-3">
-          <Sparkles size={16} style={{ color: 'var(--brand)', flexShrink: 0, marginTop: 2 }} />
-          <div>
-            <p className="text-sm leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-              {quote.text}
-            </p>
-            <p className="text-xs font-bold mt-1.5" style={{ color: 'var(--text-muted)' }}>— {quote.author}</p>
+      <div className="relative rounded-[26px] p-6 min-h-[190px] overflow-hidden app-card"
+        style={{
+          backgroundImage: "url('/fundo-frase.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.42), inset 0 1px 0 rgba(255,255,255,0.08)',
+        }}>
+        <div className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(90deg, rgba(3,3,7,0.92) 0%, rgba(6,5,12,0.76) 42%, rgba(6,5,12,0.28) 100%), linear-gradient(180deg, rgba(0,0,0,0.12), rgba(0,0,0,0.32))',
+          }}
+        />
+        <div className="absolute inset-x-0 bottom-0 h-20" style={{ background: 'linear-gradient(0deg, rgba(0,0,0,0.42), transparent)' }} />
+        <div className="relative z-10 max-w-[78%]">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(124,92,255,0.18)', border: '1px solid rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)' }}>
+            <Sparkles size={19} style={{ color: '#A995FF' }} />
           </div>
+          <p className="leading-snug font-black mt-5" style={{ color: '#FFFFFF', fontSize: quoteFontSize, textShadow: '0 3px 16px rgba(0,0,0,0.72)' }}>
+            {quote.text}
+          </p>
+          <p className="text-sm font-bold mt-4" style={{ color: 'rgba(255,255,255,0.78)', textShadow: '0 2px 10px rgba(0,0,0,0.65)' }}>— {quote.author}</p>
         </div>
       </div>
 
@@ -672,27 +712,28 @@ export default function Home() {
         <div className="space-y-3"
           style={{ opacity: loading ? 0.45 : 1, pointerEvents: loading ? 'none' : 'auto', transition: 'opacity 0.2s' }}>
           <p className="section-title">Como está seu dia?</p>
-          <div className="grid grid-cols-2 gap-2">
-            {checkinOptions.map(opt => {
+          <div className="grid grid-cols-2 gap-2.5">
+            {checkinOptions.map((opt, index) => {
               const Icon = opt.Icon
+              const isLastWide = checkinOptions.length % 2 === 1 && index === checkinOptions.length - 1
               return (
                 <button
                   key={opt.value + opt.label}
                   onClick={() => handleCheckin(opt.value)}
-                  className="text-left p-4 rounded-2xl transition-all duration-200 active:scale-95"
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+                  className={`text-left p-3 rounded-[20px] transition-all duration-200 active:scale-[0.98] flex items-center gap-3 min-h-[72px] ${isLastWide ? 'col-span-2' : ''}`}
+                  style={{ background: 'var(--interactive-bg)', border: '1px solid var(--interactive-border)' }}
                   onMouseEnter={e => {
-                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(109,93,246,0.1)'
-                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(109,93,246,0.3)'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'rgba(124,92,255,0.10)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(124,92,255,0.20)'
                   }}
                   onMouseLeave={e => {
-                    ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--bg-card)'
-                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border-color)'
+                    ;(e.currentTarget as HTMLButtonElement).style.background = 'var(--interactive-bg)'
+                    ;(e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--interactive-border)'
                   }}
                 >
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center mb-2"
-                    style={{ background: 'rgba(124,92,255,0.1)', border: '1px solid rgba(124,92,255,0.15)' }}>
-                    <Icon size={16} style={{ color: '#9B8CFF' }} />
+                  <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: 'rgba(124,92,255,0.12)' }}>
+                    <Icon size={15} style={{ color: '#9B8CFF' }} />
                   </div>
                   <span className="text-sm font-bold" style={{ color: 'var(--text-primary)' }}>{opt.label}</span>
                 </button>
@@ -801,6 +842,8 @@ export default function Home() {
         ) : captionData ? (
           <CaptionModal caption={captionData.caption} hashtags={captionData.hashtags} onClose={() => { setCaptionIdea(null); setCaptionData(null) }} />
         ) : null
+      )}
+      </>
       )}
     </div>
   )

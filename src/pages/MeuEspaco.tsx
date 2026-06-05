@@ -89,8 +89,6 @@ export default function MeuEspaco() {
   const hasSetup = context.setupCompleted
   const showSetupBanner = !hasSetup && !context.setupSkipped
 
-  const firstName = context.nickname || profile?.professionalName?.split(' ')[0] || 'você'
-
   function saveMood() {
     if (!selectedMood) return
     setTodayMood(selectedMood, moodNote)
@@ -149,14 +147,9 @@ export default function MeuEspaco() {
         {/* Header */}
         <div className="flex items-start justify-between mb-5">
           <div>
-            <p className="text-sm font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
-              {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
-            </p>
-            <h1 className="text-2xl font-extrabold" style={{ color: 'var(--text-primary)' }}>
-              Olá, {firstName} 👋
-            </h1>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Este é o seu espaço pessoal.
+            <h1 className="premium-title">Espaço</h1>
+            <p className="premium-subtitle">
+              Seu lugar para organizar ideias e acompanhar sua evolução.
             </p>
           </div>
           <button

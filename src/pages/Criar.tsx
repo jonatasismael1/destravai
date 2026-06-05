@@ -124,10 +124,12 @@ const REEL_CONTENT_MODELS: SelectOption<ContentModel | ''>[] = [
   { value: 'reel_trend', label: 'Gancho de tendência' },
 ]
 
-// Formato de mídia: vídeo (gravar falando) ou foto. Foto só vale para story/sequência.
-const MEDIA_OPTIONS: { value: ContentMedia; label: string; Icon: typeof Camera; desc: string }[] = [
-  { value: 'video', label: 'Vídeo', Icon: Camera, desc: 'Gravar falando' },
-  { value: 'photo', label: 'Foto', Icon: Image, desc: 'Postar foto(s)' },
+// Formato de mídia: mantém os dois caminhos de negócio existentes (video/photo),
+// mas apresenta três escolhas mais humanas na UI.
+const MEDIA_OPTIONS: { id: 'video' | 'photo' | 'text'; value: ContentMedia; label: string; Icon: typeof Camera; desc: string }[] = [
+  { id: 'video', value: 'video', label: 'Vou aparecer falando', Icon: Camera, desc: 'Roteiro para gravar' },
+  { id: 'photo', value: 'photo', label: 'Vou postar foto ou bastidor', Icon: Image, desc: 'Imagem com texto' },
+  { id: 'text', value: 'photo', label: 'Quero só texto na tela', Icon: FileText, desc: 'Sem aparecer' },
 ]
 
 // Rascunho da aba Criar guardado na sessão. Mantém os roteiros gerados e a
@@ -563,6 +565,7 @@ export default function Criar() {
   const [activeTab, setActiveTab] = useState<'criar' | 'livre' | 'roteiro' | 'ctas'>(draft.activeTab ?? 'criar')
   const [contentType, setContentType] = useState<'story' | 'sequence' | 'reel'>(paramType ?? draft.contentType ?? 'story')
   const [media, setMedia] = useState<ContentMedia>(draft.media ?? 'video')
+  const [postMode, setPostMode] = useState<'video' | 'photo' | 'text'>(draft.media === 'photo' ? 'photo' : 'video')
   const [sequenceCountMode, setSequenceCountMode] = useState(draft.sequenceCountMode ?? '3')
   const [theme, setTheme] = useState(paramTheme || draft.theme || '')
   const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective || draft.objective || '')
@@ -732,9 +735,9 @@ export default function Criar() {
   return (
     <div className="p-5 space-y-6 pb-28">
       <div className="pt-4">
-        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravar</h1>
-        <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Escolha o tipo, defina o tema e receba o roteiro.
+        <h1 className="premium-title">Criar</h1>
+        <p className="premium-subtitle">
+          Escolha o formato e deixe o Destravaí montar o caminho.
         </p>
       </div>
 
@@ -909,7 +912,10 @@ export default function Criar() {
                 // Modelos diferem entre Reels e Stories → zera o modelo ao trocar.
                 setModel('')
                 // Reels é sempre vídeo (não tem opção de foto).
-                if (value === 'reel') setMedia('video')
+                if (value === 'reel') {
+                  setMedia('video')
+                  setPostMode('video')
+                }
               }}
               className="rounded-2xl p-3.5 text-center transition-all duration-300 active:scale-95"
               style={contentType === value ? {
@@ -940,27 +946,27 @@ export default function Criar() {
         {contentType !== 'reel' && (
           <div>
             <label className="label">Como vai postar</label>
-            <div className="grid grid-cols-2 gap-2">
-              {MEDIA_OPTIONS.map(({ value, label, Icon, desc }) => {
-                const active = media === value
+            <div className="grid grid-cols-3 gap-2">
+              {MEDIA_OPTIONS.map(({ id, value, label, Icon, desc }) => {
+                const active = postMode === id
                 return (
                   <button
-                    key={value}
-                    onClick={() => { setMedia(value); setResult(null) }}
-                    className="rounded-2xl p-3 flex items-center gap-3 text-left transition-all active:scale-[0.98]"
+                    key={id}
+                    onClick={() => { setMedia(value); setPostMode(id); setResult(null) }}
+                    className="rounded-[18px] p-2.5 flex flex-col items-start gap-2 text-left transition-all active:scale-[0.98] min-h-[112px]"
                     style={active
-                      ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
-                      : { background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}
+                      ? { background: 'rgba(124,92,255,0.12)', border: '1px solid rgba(124,92,255,0.45)' }
+                      : { background: 'var(--interactive-bg)', border: '1px solid var(--interactive-border)' }}
                   >
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                    <div className="w-8 h-8 rounded-[14px] flex items-center justify-center flex-shrink-0"
                       style={active
-                        ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
-                        : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
-                      <Icon size={17} style={{ color: active ? 'var(--brand)' : 'var(--text-muted)' }} />
+                        ? { background: 'rgba(124,92,255,0.18)' }
+                        : { background: 'var(--interactive-bg-strong)' }}>
+                      <Icon size={15} style={{ color: active ? '#9B8CFF' : 'var(--text-muted)' }} />
                     </div>
                     <div className="min-w-0">
-                      <span className="block text-sm font-extrabold" style={{ color: active ? 'var(--brand)' : 'var(--text-primary)' }}>{label}</span>
-                      <span className="block text-[10px] font-medium" style={{ color: 'var(--text-muted)' }}>{desc}</span>
+                      <span className="block text-[12px] leading-snug font-extrabold" style={{ color: active ? '#9B8CFF' : 'var(--text-primary)' }}>{label}</span>
+                      <span className="block text-[10px] leading-snug font-medium mt-1" style={{ color: 'var(--text-muted)' }}>{desc}</span>
                     </div>
                   </button>
                 )
@@ -1025,7 +1031,7 @@ export default function Criar() {
         <button
           onClick={() => handleGenerate()}
           disabled={loading || !profile}
-          className="btn-primary w-full py-4 text-base disabled:opacity-40"
+          className="btn-tonal w-full py-4 text-base disabled:opacity-40"
         >
           {loading ? (
             <>

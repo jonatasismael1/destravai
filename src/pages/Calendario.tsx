@@ -421,10 +421,10 @@ export default function Calendario() {
   return (
     <div className="flex flex-col min-h-screen">
       <div className="px-5 pt-8 pb-3 relative z-10">
-        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>
-          Calendário
+        <h1 className="premium-title">
+          Agenda
         </h1>
-        <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
+        <p className="premium-subtitle">
           Planeje seu conteúdo
         </p>
 

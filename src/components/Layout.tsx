@@ -1,20 +1,13 @@
 import { ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Sparkles, CalendarDays, NotebookPen, Trophy, Settings } from 'lucide-react'
+import { CalendarDays, Home, NotebookPen, Sparkles, UserCircle } from 'lucide-react'
 
-// Navbar na ordem que conta a história natural do produto — "o que faço hoje?" →
-// criar → planejar → meu espaço (biblioteca/progresso) → comunidade → ajustar.
-// Essência vive em atalhos (Home/Criar/Configurações). Biblioteca passou a viver
-// DENTRO de Espaço (é "minha" também). Ranking ganhou slot próprio: lista de
-// grupos, criar grupo e, dentro de cada um, ranking + chat. Configurações por
-// último: acesso global sem disputar prioridade com as ações do dia a dia.
 const navItems = [
   { to: '/', icon: Home, label: 'Hoje', tour: 'nav-home' },
   { to: '/criar', icon: Sparkles, label: 'Criar', tour: 'nav-criar' },
   { to: '/espaco', icon: NotebookPen, label: 'Espaço', tour: 'nav-espaco' },
   { to: '/calendario', icon: CalendarDays, label: 'Agenda', tour: 'nav-agenda' },
-  { to: '/grupos', icon: Trophy, label: 'Ranking', tour: 'nav-ranking' },
-  { to: '/configuracoes', icon: Settings, label: 'Ajustes', tour: 'nav-ajustes' },
+  { to: '/voce', icon: UserCircle, label: 'Você', tour: 'nav-ajustes' },
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
@@ -25,7 +18,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <main
         className="flex-1 overflow-y-scroll relative z-10"
         style={{
-          paddingBottom: 'calc(76px + env(safe-area-inset-bottom))',
+          paddingBottom: 'calc(82px + env(safe-area-inset-bottom))',
           WebkitOverflowScrolling: 'touch',
           overscrollBehavior: 'contain',
         }}
@@ -33,12 +26,10 @@ export default function Layout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      {/* Bottom navigation — tab bar nativa: ícone + label, ativo só pelo
-          acento de marca e um indicador pequeno (sem bolha/glow roxo). */}
       <nav
         className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-50"
         style={{
-          background: 'var(--nav-bg)',
+          background: 'linear-gradient(180deg, var(--nav-gradient-start), var(--nav-bg))',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderTop: '1px solid var(--nav-border)',
@@ -46,12 +37,13 @@ export default function Layout({ children }: { children: ReactNode }) {
           transition: 'background 0.3s, border-color 0.3s',
         }}
       >
-        <div className="flex items-stretch justify-around px-1 pt-2 pb-1.5">
+        <div className="flex items-stretch justify-around px-3 pt-2.5 pb-2">
           {navItems.map(({ to, icon: Icon, label, tour }) => {
             const isActive = to === '/'
               ? location.pathname === '/'
-              : location.pathname.startsWith(to)
-
+              : to === '/voce'
+                ? location.pathname.startsWith('/voce') || location.pathname.startsWith('/configuracoes')
+                : location.pathname.startsWith(to)
             const color = isActive ? 'var(--brand)' : 'var(--text-muted)'
 
             return (
@@ -59,18 +51,14 @@ export default function Layout({ children }: { children: ReactNode }) {
                 key={to}
                 to={to}
                 data-tour={tour}
-                className="relative flex flex-col items-center justify-start gap-1 flex-1 pt-1.5 pb-1 transition-colors duration-200"
+                className="relative flex flex-col items-center justify-start gap-1 flex-1 pt-2 pb-1 transition-colors duration-200"
               >
-                {/* Indicador superior do item ativo */}
                 <span
-                  className="absolute top-0 h-0.5 w-6 rounded-full transition-opacity duration-200"
-                  style={{ background: 'var(--brand)', opacity: isActive ? 1 : 0 }}
+                  className="absolute top-0 h-0.5 w-8 rounded-full transition-opacity duration-200"
+                  style={{ background: 'linear-gradient(90deg, #8F73FF, #6E48FF)', opacity: isActive ? 1 : 0 }}
                 />
-                <Icon size={22} strokeWidth={isActive ? 2.2 : 1.8} style={{ color }} />
-                <span
-                  className="text-[10px] font-semibold transition-colors duration-200"
-                  style={{ color }}
-                >
+                <Icon size={23} strokeWidth={isActive ? 2.25 : 1.8} style={{ color }} />
+                <span className="text-[10px] font-semibold transition-colors duration-200" style={{ color }}>
                   {label}
                 </span>
               </NavLink>

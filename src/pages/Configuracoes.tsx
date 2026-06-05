@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass,
+  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award,
 } from 'lucide-react'
 import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
@@ -182,6 +182,7 @@ export default function Configuracoes() {
   const profile = state.profile
   const supabaseUser = state.supabaseUser
   const subscription = state.subscription
+  const progress = state.progress
   const planLabel = state.subscriptionLoading
     ? 'Carregando plano'
     : subscription?.hasSubscription
@@ -211,9 +212,9 @@ export default function Configuracoes() {
   return (
     <div className="p-5 space-y-6 pb-28">
       <div className="pt-4">
-        <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Configurações</h1>
-        <p className="text-sm mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Gerencie seu perfil e preferências.
+        <h1 className="premium-title">Você</h1>
+        <p className="premium-subtitle">
+          Perfil, progresso, assinatura e ajustes em um só lugar.
         </p>
       </div>
 
@@ -256,21 +257,40 @@ export default function Configuracoes() {
         </div>
       </div>
 
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: 'Dias ativos', value: progress.currentStreak },
+          { label: 'Conteúdos', value: state.ideas.length },
+          { label: 'Missões', value: progress.missionsCompleted },
+        ].map(stat => (
+          <div key={stat.label} className="premium-card p-3 text-center">
+            <p className="text-2xl font-black tabular-nums" style={{ color: 'var(--text-primary)' }}>{stat.value}</p>
+            <p className="text-[10px] font-bold leading-tight" style={{ color: 'var(--text-muted)' }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
       {/* Perfil — logo abaixo da foto: é o que mais se acessa nas Configurações
           (editar essência e ver progresso), então vem por ordem de prioridade. */}
       <div className="space-y-2">
-        <SectionHeader title="Perfil" />
+        <SectionHeader title="Você" />
         <MenuItem
           icon={User}
-          label="Editar essência"
+          label="Minha essência"
           sublabel="Tom de voz, pilares, serviços"
           onClick={() => navigate('/essencia')}
         />
         <MenuItem
           icon={TrendingUp}
-          label="Meu progresso"
+          label="Progresso"
           sublabel="Consistência, níveis e equilíbrio de conteúdo"
           onClick={() => navigate('/espaco')}
+        />
+        <MenuItem
+          icon={Award}
+          label="Medalhas"
+          sublabel={`${progress.bestStreak} dias no melhor ritmo · ${progress.streakShields} escudos`}
+          onClick={() => navigate('/espaco', { state: { tab: 'progresso' } })}
         />
       </div>
 
@@ -492,7 +512,7 @@ export default function Configuracoes() {
       {/* Plano — fica no rodapé, perto de "Sair": acesso continua existindo, mas
           sem destaque no topo (para não puxar a atenção para cancelar). */}
       <div>
-        <SectionHeader title="Plano" />
+        <SectionHeader title="Assinatura" />
         <div
           className="rounded-2xl p-4"
           style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.2)' }}

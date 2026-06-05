@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft, Image, Images } from 'lucide-react'
@@ -149,6 +149,25 @@ type CriarDraft = {
 }
 function loadDraft(): Partial<CriarDraft> {
   try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? '{}') } catch { return {} }
+}
+
+function saveDraftPatch(patch: Partial<CriarDraft>) {
+  try {
+    const current = loadDraft()
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...current, ...patch }))
+  } catch {
+    console.warn('[Criar] não foi possível atualizar o rascunho')
+  }
+}
+
+type CreateGenerationOutcome =
+  | { id: string; idea: ContentIdea; libraryItemId: string | null }
+  | { id: string; error: ContentIdea }
+
+let pendingCreateGeneration: { id: string; promise: Promise<CreateGenerationOutcome> } | null = null
+
+function clearPendingCreateGeneration(id: string) {
+  if (pendingCreateGeneration?.id === id) pendingCreateGeneration = null
 }
 
 // Quantidade de stories/fotos: opções diretas de 2 a 10 (sem "personalizado").
@@ -571,7 +590,7 @@ export default function Criar() {
   const [objective, setObjective] = useState<ContentObjective | ''>(initialObjective || draft.objective || '')
   const [model, setModel] = useState<ContentModel | ''>(draft.model ?? '')
   const [timeAvailable, setTimeAvailable] = useState('5 minutos')
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(() => !!pendingCreateGeneration)
   const [result, setResult] = useState<ContentIdea | null>(draft.result ?? null)
   const [showStudio, setShowStudio] = useState(false)
   // Ideia efetivamente enviada ao teleprompter. Para sequência, é UM story
@@ -591,6 +610,8 @@ export default function Criar() {
   const [captionLoading, setCaptionLoading] = useState(false)
   const [libraryItemId, setLibraryItemId] = useState<string | null>(null)
   const [savedNotice, setSavedNotice] = useState(false)
+  const mountedRef = useRef(true)
+  const appliedGenerationRef = useRef<string | null>(null)
 
   const profile = state.localProfile
   const themeOptions = [
@@ -607,6 +628,70 @@ export default function Criar() {
   const sequenceCount = contentType === 'sequence'
     ? Math.min(10, Math.max(2, Number(sequenceCountMode) || 3))
     : null
+
+  const applyGenerationOutcome = (outcome: CreateGenerationOutcome) => {
+    if (!mountedRef.current || appliedGenerationRef.current === outcome.id) return
+    appliedGenerationRef.current = outcome.id
+    setLoading(false)
+
+    if ('idea' in outcome) {
+      setResult(outcome.idea)
+      addIdea(outcome.idea)
+      setLibraryItemId(outcome.libraryItemId)
+      if (outcome.libraryItemId) {
+        setSavedNotice(true)
+        setTimeout(() => { if (mountedRef.current) setSavedNotice(false) }, 2500)
+      }
+      return
+    }
+
+    setResult(outcome.error)
+  }
+
+  useEffect(() => {
+    mountedRef.current = true
+    const pending = pendingCreateGeneration
+    if (pending) {
+      setLoading(true)
+      pending.promise.then(applyGenerationOutcome)
+    }
+    return () => { mountedRef.current = false }
+  }, [])
+
+  const startPersistentGeneration = (
+    factory: () => Promise<ContentIdea>,
+    snapshot: Partial<CriarDraft>,
+    createError: (message: string) => ContentIdea,
+  ) => {
+    if (pendingCreateGeneration) {
+      setLoading(true)
+      pendingCreateGeneration.promise.then(applyGenerationOutcome)
+      return
+    }
+
+    const id = crypto.randomUUID()
+    setLoading(true)
+    setResult(null)
+
+    const promise = (async (): Promise<CreateGenerationOutcome> => {
+      try {
+        const idea = await factory()
+        const savedId = await persistIdeaToLibrary(idea)
+        saveDraftPatch({ ...snapshot, result: idea })
+        return { id, idea, libraryItemId: savedId }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        const error = createError(msg)
+        saveDraftPatch({ ...snapshot, result: error })
+        return { id, error }
+      } finally {
+        clearPendingCreateGeneration(id)
+      }
+    })()
+
+    pendingCreateGeneration = { id, promise }
+    promise.then(applyGenerationOutcome)
+  }
 
   // Persiste o rascunho (roteiros + configuração) na sessão a cada mudança, para
   // sobreviver à remontagem da página ao navegar/voltar do teleprompter.
@@ -630,9 +715,9 @@ export default function Criar() {
 
   const handleGenerate = async (variationHint?: string) => {
     if (!profile || loading) return // trava corrida: ignora clique enquanto gera
-    setLoading(true); setResult(null)
-    try {
-      const idea = await generateContent({
+    const snapshot: Partial<CriarDraft> = { activeTab, contentType, media, theme, objective, model, sequenceCountMode }
+    startPersistentGeneration(
+      () => generateContent({
         type: contentType,
         contentType: structuredContentType,
         sequenceCount,
@@ -649,17 +734,13 @@ export default function Criar() {
         timeAvailable,
         tone: profile.voiceTone,
         profile,
-      })
-      setResult(idea); addIdea(idea)
-      // Persiste automaticamente na biblioteca e sinaliza "salvo".
-      const id = await persistIdeaToLibrary(idea)
-      setLibraryItemId(id)
-      if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Criar generateContent]', msg)
-      setResult({ id: 'error', type: contentType, theme: 'Erro na geração', objective: '', content: `Falha ao gerar conteúdo:\n\n${msg}`, cta: '', timeEstimate: '', exposureLevel: profile?.exposureLevel ?? 'no-appearance', status: 'pending', favorite: false, createdAt: new Date().toISOString(), tags: [] })
-    } finally { setLoading(false) }
+      }),
+      snapshot,
+      (msg) => {
+        console.error('[Criar generateContent]', msg)
+        return { id: 'error', type: contentType, theme: 'Erro na geração', objective: '', content: `Falha ao gerar conteúdo:\n\n${msg}`, cta: '', timeEstimate: '', exposureLevel: profile?.exposureLevel ?? 'no-appearance', status: 'pending', favorite: false, createdAt: new Date().toISOString(), tags: [] }
+      },
+    )
   }
 
   const handleVariation = async (hint: string) => {
@@ -703,18 +784,15 @@ export default function Criar() {
   // Momento livre: gera um story leve sobre o que a pessoa quer falar agora.
   const handleGenerateFree = async () => {
     if (!profile || !freeTopic.trim() || loading) return // trava corrida
-    setLoading(true); setResult(null)
-    try {
-      const idea = await generateFreeStory(profile, freeTopic.trim(), freeVibe)
-      setResult(idea); addIdea(idea)
-      const id = await persistIdeaToLibrary(idea)
-      setLibraryItemId(id)
-      if (id) { setSavedNotice(true); setTimeout(() => setSavedNotice(false), 2500) }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      console.error('[Criar generateFree]', msg)
-      setResult({ id: 'error', type: 'story', theme: 'Erro na geração', objective: '', content: `Falha ao gerar:\n\n${msg}`, cta: '', timeEstimate: '', exposureLevel: profile?.exposureLevel ?? 'no-appearance', status: 'pending', favorite: false, createdAt: new Date().toISOString(), tags: [] })
-    } finally { setLoading(false) }
+    const snapshot: Partial<CriarDraft> = { activeTab: 'livre', contentType: 'story', media: 'video', theme: freeTopic.trim(), objective: '', model: '', sequenceCountMode }
+    startPersistentGeneration(
+      () => generateFreeStory(profile, freeTopic.trim(), freeVibe),
+      snapshot,
+      (msg) => {
+        console.error('[Criar generateFree]', msg)
+        return { id: 'error', type: 'story', theme: 'Erro na geração', objective: '', content: `Falha ao gerar:\n\n${msg}`, cta: '', timeEstimate: '', exposureLevel: profile?.exposureLevel ?? 'no-appearance', status: 'pending', favorite: false, createdAt: new Date().toISOString(), tags: [] }
+      },
+    )
   }
 
   // Meu roteiro: usa o texto da própria pessoa e abre o teleprompter direto.

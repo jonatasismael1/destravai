@@ -542,14 +542,16 @@ export default function Home() {
   return (
     <div className="p-5 space-y-5 pb-8">
       <div className="pt-4 flex items-start justify-between gap-4">
-        <TopTabs
-          items={[
-            { value: 'hoje', label: 'Hoje' },
-            { value: 'grupos', label: 'Grupos' },
-          ]}
-          value={homeTab}
-          onChange={setHomeTab}
-        />
+        <div data-tour="home-grupos">
+          <TopTabs
+            items={[
+              { value: 'hoje', label: 'Hoje' },
+              { value: 'grupos', label: 'Grupos' },
+            ]}
+            value={homeTab}
+            onChange={setHomeTab}
+          />
+        </div>
         <HeaderActions initials={headerInitials} avatarUrl={state.profile?.avatar_url} showNotifications={false} />
       </div>
 

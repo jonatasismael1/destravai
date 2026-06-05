@@ -11,7 +11,7 @@ import type { TourScreen } from '../supabase/types'
 // Ao mudar textos de forma relevante, suba o TOUR_VERSION para reexibir a todos.
 // ─────────────────────────────────────────────────────────────────────────
 
-export const TOUR_VERSION = '1.0'
+export const TOUR_VERSION = '1.1'
 
 export interface TourStep {
   /** Valor do data-tour do elemento a destacar. Ausente = passo central. */
@@ -27,6 +27,11 @@ export const TOURS: Record<TourScreen, TourStep[]> = {
     {
       title: 'Seu ponto de partida',
       body: 'Esta é a tela Hoje. Aqui você acompanha suas ideias, atalhos e os próximos passos para postar com mais clareza.',
+    },
+    {
+      target: 'home-grupos',
+      title: 'Constância com amigos',
+      body: 'Toque na aba Grupos para criar ou entrar em um grupo. Cada um pontua por postar, gravar e concluir missões — e o ranking reinicia toda semana.',
     },
     {
       target: 'nav-criar',
@@ -48,14 +53,9 @@ export const TOURS: Record<TourScreen, TourStep[]> = {
       body: 'Ao tocar em Gravar, o teleprompter mostra seu roteiro na tela enquanto você fala — com tamanho e velocidade ajustáveis.',
     },
     {
-      target: 'nav-ranking',
-      title: 'Acompanhe seu ritmo',
-      body: 'Veja sua constância e dispute com amigos para manter a frequência sem depender só da motivação.',
-    },
-    {
       target: 'nav-ajustes',
-      title: 'Ajuste sua experiência',
-      body: 'Edite sua essência, troque o tema e gerencie sua conta. Pode rever este tour por aqui quando quiser.',
+      title: 'Tudo sobre você',
+      body: 'Em Você ficam sua essência, progresso, medalhas e o tema claro/escuro logo no topo. Pode rever este tour por aqui quando quiser.',
     },
     {
       title: 'Pronto para destravar',

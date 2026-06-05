@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award,
+  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award, X,
 } from 'lucide-react'
 import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
@@ -14,10 +14,38 @@ import { createTester } from '../services/subscriptionService'
 import { uploadAvatar } from '../services/profileService'
 import { enableNotifications, disableNotifications, notificationsEnabled, notificationsSupported } from '../services/notificationsService'
 import { supabase } from '../lib/supabase/client'
-import { useRef } from 'react'
 
 const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
 const ADMIN_EMAIL = 'assessoriadbe@gmail.com'
+
+async function cropAvatarFile(file: File, position: { x: number; y: number }): Promise<File> {
+  const objectUrl = URL.createObjectURL(file)
+  try {
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve(img)
+      img.onerror = reject
+      img.src = objectUrl
+    })
+
+    const size = Math.min(image.naturalWidth, image.naturalHeight)
+    const sx = Math.max(0, (image.naturalWidth - size) * (position.x / 100))
+    const sy = Math.max(0, (image.naturalHeight - size) * (position.y / 100))
+    const canvas = document.createElement('canvas')
+    canvas.width = 900
+    canvas.height = 900
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Não foi possível preparar a imagem.')
+    ctx.drawImage(image, sx, sy, size, size, 0, 0, canvas.width, canvas.height)
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(result => result ? resolve(result) : reject(new Error('Não foi possível recortar a imagem.')), 'image/jpeg', 0.92)
+    })
+    return new File([blob], 'avatar.jpg', { type: 'image/jpeg' })
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
+}
 
 function SectionHeader({ title }: { title: string }) {
   return (
@@ -111,8 +139,17 @@ export default function Configuracoes() {
   // Foto de perfil
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
+  const [avatarPosition, setAvatarPosition] = useState({ x: 50, y: 50 })
 
   const handlePickAvatar = () => fileInputRef.current?.click()
+
+  useEffect(() => {
+    return () => {
+      if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+    }
+  }, [avatarPreviewUrl])
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -120,11 +157,28 @@ export default function Configuracoes() {
     if (!file) return
     if (!file.type.startsWith('image/')) { addToast('Escolha um arquivo de imagem.', 'error'); return }
     if (file.size > 5 * 1024 * 1024) { addToast('Imagem muito grande (máx. 5 MB).', 'error'); return }
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+    setAvatarFile(file)
+    setAvatarPreviewUrl(URL.createObjectURL(file))
+    setAvatarPosition({ x: 50, y: 50 })
+  }
+
+  const closeAvatarPreview = () => {
+    if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
+    setAvatarFile(null)
+    setAvatarPreviewUrl('')
+    setAvatarPosition({ x: 50, y: 50 })
+  }
+
+  const handleConfirmAvatar = async () => {
+    if (!avatarFile) return
     setUploadingAvatar(true)
     try {
-      const url = await uploadAvatar(file)
+      const cropped = await cropAvatarFile(avatarFile, avatarPosition)
+      const url = await uploadAvatar(cropped)
       if (state.profile) setProfile({ ...state.profile, avatar_url: url })
       addToast('Foto atualizada!', 'success')
+      closeAvatarPreview()
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Erro ao atualizar a foto.', 'error')
     } finally {
@@ -294,6 +348,37 @@ export default function Configuracoes() {
         />
       </div>
 
+      {/* Aparência — logo após "Medalhas" para deixar o tema claro/escuro
+          fácil de encontrar (configuração de alto uso). */}
+      <div className="space-y-2">
+        <SectionHeader title="Aparência" />
+        <div
+          className="rounded-2xl p-4"
+          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+        >
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+              style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}
+            >
+              {isDark
+                ? <Moon size={17} style={{ color: '#9B8CFF' }} />
+                : <Sun size={17} style={{ color: '#F7B955' }} />
+              }
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
+                {isDark ? 'Tema escuro' : 'Tema claro'}
+              </p>
+              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                {isDark ? 'Muda para o tema claro' : 'Muda para o tema escuro'}
+              </p>
+            </div>
+            <Toggle value={!isDark} onChange={toggleTheme} />
+          </div>
+        </div>
+      </div>
+
       {/* Admin — só para o administrador (assessoriadbe) */}
       {isAdmin && (
         <div className="space-y-2">
@@ -380,36 +465,6 @@ export default function Configuracoes() {
             sublabel="Refazer a apresentação guiada do app"
             onClick={() => { resetTours(); navigate('/') }}
           />
-        </div>
-      </div>
-
-      {/* Aparência */}
-      <div className="space-y-2">
-        <SectionHeader title="Aparência" />
-        <div
-          className="rounded-2xl p-4"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="flex items-center gap-3">
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}
-            >
-              {isDark
-                ? <Moon size={17} style={{ color: '#9B8CFF' }} />
-                : <Sun size={17} style={{ color: '#F7B955' }} />
-              }
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>
-                {isDark ? 'Tema escuro' : 'Tema claro'}
-              </p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                {isDark ? 'Muda para o tema claro' : 'Muda para o tema escuro'}
-              </p>
-            </div>
-            <Toggle value={!isDark} onChange={toggleTheme} />
-          </div>
         </div>
       </div>
 
@@ -601,6 +656,83 @@ export default function Configuracoes() {
       <p className="text-center text-[10px] pb-4" style={{ color: 'var(--text-muted)' }}>
         Destravaí · Feito com ✦ para profissionais que querem aparecer
       </p>
+
+      {avatarPreviewUrl && (
+        <div
+          className="fixed inset-0 z-[160] flex flex-col justify-end"
+          style={{ background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget && !uploadingAvatar) closeAvatarPreview() }}
+        >
+          <div
+            className="rounded-t-3xl p-5 pb-8 space-y-5 max-w-md w-full mx-auto"
+            style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Ajustar foto</p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Escolha o melhor enquadramento antes de salvar.</p>
+              </div>
+              <button
+                onClick={closeAvatarPreview}
+                disabled={uploadingAvatar}
+                className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
+                style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}
+                aria-label="Fechar"
+              >
+                <X size={17} />
+              </button>
+            </div>
+
+            <div className="flex justify-center">
+              <div
+                className="w-48 h-48 rounded-[34px] overflow-hidden"
+                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-card)' }}
+              >
+                <img
+                  src={avatarPreviewUrl}
+                  alt="Prévia da foto de perfil"
+                  className="w-full h-full object-cover"
+                  style={{ objectPosition: `${avatarPosition.x}% ${avatarPosition.y}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <label className="block">
+                <span className="label mb-2">Mover para os lados</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={avatarPosition.x}
+                  onChange={e => setAvatarPosition(pos => ({ ...pos, x: Number(e.target.value) }))}
+                  className="w-full accent-[var(--brand)]"
+                />
+              </label>
+              <label className="block">
+                <span className="label mb-2">Mover para cima/baixo</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={avatarPosition.y}
+                  onChange={e => setAvatarPosition(pos => ({ ...pos, y: Number(e.target.value) }))}
+                  className="w-full accent-[var(--brand)]"
+                />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={closeAvatarPreview} disabled={uploadingAvatar} className="btn-secondary py-3 text-sm disabled:opacity-40">
+                Cancelar
+              </button>
+              <button onClick={handleConfirmAvatar} disabled={uploadingAvatar} className="btn-primary py-3 text-sm disabled:opacity-40">
+                {uploadingAvatar ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><CheckCircle size={15} /> Usar foto</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

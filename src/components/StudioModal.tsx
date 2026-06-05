@@ -27,12 +27,31 @@ function labelKind(label: string): 'speech' | 'instruction' | null {
   if (l.length > 40) return null // texto comum com ":", não é um rótulo
   // "TEXTO NA TELA" é legenda (aparece escrito), não é fala → cai em instrução.
   if (/\b(FALA|ROTEIRO|FRASE|NARRA[ÇC]|TEXTO FALADO|O QUE (FALAR|DIZER))\b/.test(l) && !/TELA/.test(l)) return 'speech'
-  if (/\b(A[ÇC][ÃA]O|VISUAL|CENA|C[ÂA]MERA|ENQUADRAMENTO|POSI[ÇC]|TELA|LEGENDA|TRANSI[ÇC]|EDI[ÇC]|SUGEST|DICA|OBSERVA[ÇC]|HASHTAG|TAGS?|GANCHO|CORPO|FECHAMENTO|STORY)\b/.test(l)) return 'instruction'
+  // Rótulos de PRODUÇÃO (visual, edição, áudio, títulos, separações de bloco…):
+  // nunca são ditos em voz alta, então não vão para o teleprompter.
+  if (/\b(A[ÇC][ÃA]O|VISUAL|CENA|C[ÂA]MERA|ENQUADRAMENTO|POSI[ÇC]|TELA|LEGENDA|TRANSI[ÇC]|EDI[ÇC]|CORTE|SUGEST|DICA|OBSERVA[ÇC]|HASHTAG|TAGS?|GANCHO|CORPO|FECHAMENTO|STORY|IMAGEM|BASTIDOR|B-?ROLL|[ÁA]UDIO|SOM|TRILHA|M[ÚU]SICA|EFEITO|T[ÍI]TULO|DURA[ÇC][ÃA]O|GRAVA[ÇC]|PARTE|BLOCO)\b/.test(l)) return 'instruction'
   return null
 }
 
+// Remove direções de cena EMBUTIDAS numa linha de fala — nunca são ditas em voz
+// alta: colchetes [corte para close], chaves {b-roll} e asteriscos *olha p/ câmera*.
+// Parênteses NÃO são removidos (podem ser um aparte legítimo da fala).
+function stripInlineDirections(text: string): string {
+  return text
+    .replace(/\[[^\]]*\]/g, ' ')
+    .replace(/\{[^}]*\}/g, ' ')
+    .replace(/\*[^*]+\*/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Linha SEM rótulo que, ainda assim, é claramente uma direção de produção (não
+// algo que a pessoa fala). Mantido propositalmente ESPECÍFICO para não descartar
+// fala real (ex.: "use o fio dental" continua valendo como fala).
+const DIRECTION_LINE = /^(?:corte\s+(?:para|r[áa]pido|seco|aqui)\b|corta\s+para\b|inser(?:ir|e|a)\s+(?:um\s+)?corte\b|adicion(?:ar|e)\s+(?:um\s+)?corte\b|imagem\s+de\s+bastidor\b|texto\s+na\s+tela\b|observa[çc][ãa]o\s+visual\b|edi[çc][ãa]o\s+sugerida\b|sugest[ãa]o\s+de\s+edi[çc][ãa]o\b|b-?roll\b|close\s*-?\s*up\b)/i
+
 // Extrai do conteúdo gerado pela IA APENAS o que a pessoa deve falar.
-// Descarta ação, visual, câmera, texto na tela, dica, etc.
+// Descarta ação, visual, câmera, texto na tela, dica, corte, etc.
 // Funciona tanto no formato estruturado (AÇÃO/ROTEIRO/DICA) quanto em roteiros
 // de Reels com cena/fala misturados.
 function extractSpeech(raw: string): string {
@@ -56,14 +75,18 @@ function extractSpeech(raw: string): string {
       flush()
       hasSpeechLabel = true
       current = []
-      const body = line.slice(colon + 1).trim()
+      const body = stripInlineDirections(line.slice(colon + 1).trim())
       if (body) current.push(body)
     } else if (kind === 'instruction') {
       flush()                              // ignora a instrução e o que vier depois dela
+    } else if (DIRECTION_LINE.test(line)) {
+      flush()                              // linha sem rótulo, mas é direção → descarta
     } else if (current) {
-      current.push(line)                   // continuação de uma fala multi-linha
+      const clean = stripInlineDirections(line)
+      if (clean) current.push(clean)       // continuação de uma fala multi-linha
     } else {
-      neutral.push(line)                   // texto sem rótulo (fallback)
+      const clean = stripInlineDirections(line)
+      if (clean) neutral.push(clean)       // texto sem rótulo (fallback)
     }
   }
   flush()
@@ -241,7 +264,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [fontSize, setFontSize] = useState(22)
-  const [scrollSpeed, setScrollSpeed] = useState(1.2)   // px por tick (config do TEXTO)
+  const [scrollSpeed, setScrollSpeed] = useState(1.0)   // px por tick (config do TEXTO)
   const [cardOpacity, setCardOpacity] = useState(0.9)
   // Redução de ruído do navegador. Ligada por padrão (seguro em qualquer ambiente);
   // o usuário pode desligar nos ajustes para uma voz mais natural/encorpada.

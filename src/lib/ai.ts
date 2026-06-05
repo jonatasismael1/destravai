@@ -147,8 +147,9 @@ Descreva cena, posição de câmera, texto na tela, fala e sugestão de edição
     // Story único só com FOTO. Sem legenda; CTA vai dentro do texto na tela.
     return `Crie 1 ideia de STORY COM FOTO (a pessoa NÃO vai gravar falando — só postar uma foto com texto). Descreva apenas: O QUE FOTOGRAFAR (cena, objeto, ângulo, luz) e o TEXTO NA TELA (a frase, curta e pronta, que a pessoa vai escrever no story — incluindo a chamada para ação ao final). NÃO gere fala nem legenda — story não tem legenda. Deve ser simples e executável em segundos.`
   }
-  return `Crie 1 story único e impactante. Estrutura: gancho visual/texto + mensagem central + encerramento.
-Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala. A FALA TERMINA com a chamada para ação dita naturalmente (o CTA é falado, faz parte do roteiro — não fica só à parte). Story não tem campo de legenda: NÃO gere legenda.`
+  return `Crie 1 story único e impactante, gravado de UMA vez só (sem cortes). Estrutura: gancho visual/texto + mensagem central + encerramento.
+Deve ser direto, executável em menos de 30 segundos de atenção. Descreva o visual, o texto na tela e a fala.
+IMPORTANTE: é UM story contínuo — NÃO divida em cenas numeradas, cortes, blocos ou "parte 1/2". Gere a FALA como um texto CORRIDO e fluido (pode usar mais de uma linha 'FALA:', mas sem marcar separações de cena/corte dentro dela). A FALA TERMINA com a chamada para ação dita naturalmente (o CTA é falado, faz parte do roteiro — não fica só à parte). Story não tem campo de legenda: NÃO gere legenda.`
 }
 
 function buildPrompt(req: GenerateRequest, memoryBlock = ''): string {

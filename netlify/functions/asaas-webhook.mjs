@@ -4,7 +4,18 @@
 // URL para cadastrar no painel do Asaas:
 //   https://destravai.dbe.digital/.netlify/functions/asaas-webhook
 
+import { timingSafeEqual } from 'node:crypto'
 import { COMPLETE_PLAN, json, supabaseAdmin, mapPaymentEvent, GUARANTEE_DAYS, serverLog, asaas, grantAccess } from './_shared.mjs'
+
+// Comparação de strings em tempo constante (evita timing attack ao validar o token).
+// Retorna false se algum lado faltar ou os tamanhos diferirem.
+function safeEqual(a, b) {
+  if (!a || !b) return false
+  const bufA = Buffer.from(String(a))
+  const bufB = Buffer.from(String(b))
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}
 
 export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método não permitido' })
@@ -12,7 +23,7 @@ export const handler = async (event) => {
   // 1) Proteção contra webhook falso: valida o header asaas-access-token.
   const token = event.headers['asaas-access-token'] || event.headers['Asaas-Access-Token']
   const expected = process.env.ASAAS_WEBHOOK_TOKEN
-  if (!expected || token !== expected) {
+  if (!expected || !safeEqual(token, expected)) {
     console.warn('[asaas-webhook] token inválido ou ausente')
     return json(401, { error: 'Token inválido' })
   }

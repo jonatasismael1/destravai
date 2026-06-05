@@ -36,7 +36,7 @@ export default function DefinirSenha() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
-    if (password.length < 6) { setError('A senha deve ter ao menos 6 caracteres.'); return }
+    if (password.length < 8) { setError('A senha deve ter ao menos 8 caracteres.'); return }
     if (password !== confirm) { setError('As senhas não conferem.'); return }
     setLoading(true)
     try {
@@ -110,7 +110,7 @@ export default function DefinirSenha() {
                 <label className="label">Nova senha</label>
                 <div className="relative">
                   <input type={show ? 'text' : 'password'} className="input pr-12"
-                    placeholder="Mínimo 6 caracteres" value={password} onChange={e => setPassword(e.target.value)} />
+                    placeholder="Mínimo 8 caracteres" value={password} onChange={e => setPassword(e.target.value)} />
                   <button type="button" onClick={() => setShow(!show)}
                     className="absolute right-4 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}
                     aria-label={show ? 'Ocultar senha' : 'Mostrar senha'}>

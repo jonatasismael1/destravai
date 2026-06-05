@@ -7,8 +7,11 @@
 //      assinatura vinculada (user_id nulo) e tenta revincular; o que não der,
 //      vira ALERTA no log para ação manual.
 //
-// Agendamento: Netlify Scheduled Functions (config.schedule abaixo). Também pode
-// ser disparada manualmente via GET /.netlify/functions/asaas-monitor.
+// Agendamento: Netlify Scheduled Functions (config.schedule abaixo).
+// IMPORTANTE: funções agendadas do Netlify NÃO são acessíveis por URL pública em
+// produção (só rodam pelo cron / "Run now" no painel / CLI no dev). Por isso um
+// atacante externo não alcança esta função. O token abaixo é defesa em profundidade
+// para disparo manual (dev/CLI) e caso esse comportamento do Netlify mude.
 
 import { supabaseAdmin, serverLog, grantAccess, json } from './_shared.mjs'
 

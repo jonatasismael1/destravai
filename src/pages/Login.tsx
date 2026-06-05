@@ -37,7 +37,9 @@ export default function Login() {
 
     if (!email || !password) { setError('Preencha todos os campos.'); return }
     if (mode === 'register' && !name) { setError('Digite seu nome.'); return }
-    if (password.length < 6) { setError('A senha deve ter ao menos 6 caracteres.'); return }
+    // No CADASTRO exigimos senha mais forte (mín. 8). No LOGIN não validamos tamanho:
+    // quem já tem uma senha curta antiga precisa continuar conseguindo entrar.
+    if (mode === 'register' && password.length < 8) { setError('A senha deve ter ao menos 8 caracteres.'); return }
 
     setLoading(true)
     try {
@@ -169,7 +171,7 @@ export default function Login() {
                 <input
                   type={showPass ? 'text' : 'password'}
                   className="input pr-12"
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={mode === 'register' ? 'Mínimo 8 caracteres' : 'Sua senha'}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                 />

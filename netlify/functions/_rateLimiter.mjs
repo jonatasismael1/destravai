@@ -10,6 +10,20 @@ import { supabaseAdmin } from './_shared.mjs'
 // Cache em memória: { key -> { count, windowStart, expiresAt } }
 const _memCache = new Map()
 
+// Fallback quando o Supabase está indisponível. Em vez de "fail-open" puro (liberar
+// TUDO), ainda aplicamos o limite POR INSTÂNCIA usando o cache em memória. Não é
+// perfeito entre instâncias, mas evita abuso ilimitado durante uma queda do banco.
+// Em operação normal nunca é chamado — só nos caminhos de erro do RPC.
+function memFallback(windowKey, limit, windowEnd, now) {
+  const cached = _memCache.get(windowKey)
+  if (cached && now <= cached.expiresAt) {
+    cached.count++
+    return { allowed: cached.count <= limit, remaining: Math.max(0, limit - cached.count), resetAt: new Date(windowEnd) }
+  }
+  _memCache.set(windowKey, { count: 1, expiresAt: windowEnd + 5000 })
+  return { allowed: 1 <= limit, remaining: Math.max(0, limit - 1), resetAt: new Date(windowEnd) }
+}
+
 // Extrai o IP real do evento Netlify (suporta proxies e Netlify Edge).
 export function getClientIp(event) {
   return (
@@ -60,10 +74,10 @@ export async function checkRateLimit(key, limit, windowMs) {
     })
 
     if (error) {
-      // Se o RPC falhar (ex: tabela não existe), falha aberrante = permite passar
-      // (fail-open) para não derrubar o serviço por causa de rate limit.
-      console.warn('[rateLimiter] RPC error, failing open:', error.message)
-      return { allowed: true, remaining: limit, resetAt: new Date(windowEnd) }
+      // Se o RPC falhar (ex: tabela não existe / banco instável), não liberamos tudo:
+      // caímos para o limite por instância em memória (defesa parcial sem derrubar o app).
+      console.warn('[rateLimiter] RPC error, fallback em memória:', error.message)
+      return memFallback(windowKey, limit, windowEnd, now)
     }
 
     const count = data ?? 1
@@ -85,8 +99,8 @@ export async function checkRateLimit(key, limit, windowMs) {
       resetAt: new Date(windowEnd),
     }
   } catch (err) {
-    console.warn('[rateLimiter] Unexpected error, failing open:', err?.message)
-    return { allowed: true, remaining: limit, resetAt: new Date(windowEnd) }
+    console.warn('[rateLimiter] erro inesperado, fallback em memória:', err?.message)
+    return memFallback(windowKey, limit, windowEnd, now)
   }
 }
 

@@ -18,6 +18,15 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 }
 
+// Mascara dados pessoais (e-mail, CPF/CNPJ, telefone) antes de gravar em log.
+// O corpo de erro do Asaas pode ecoar o que o cliente enviou; não queremos PII
+// crua na tabela de logs.
+function maskPII(text) {
+  return String(text || '')
+    .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')   // e-mails
+    .replace(/\d{6,}/g, (m) => `[${m.length} dígitos]`) // CPF/CNPJ/telefone/sequências longas
+}
+
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
   if (event.httpMethod !== 'POST') return json(405, { error: 'Metodo nao permitido' })
@@ -167,8 +176,8 @@ export const handler = async (event) => {
     })
   } catch (err) {
     console.error('[asaas-create-checkout]', err?.message, err?.body || '')
-    await serverLog('asaas-create-checkout', err?.message || 'Erro', 'error', null, {
-      asaasBody: err?.body ? JSON.stringify(err.body).slice(0, 500) : null,
+    await serverLog('asaas-create-checkout', maskPII(err?.message || 'Erro'), 'error', null, {
+      asaasBody: err?.body ? maskPII(JSON.stringify(err.body)).slice(0, 500) : null,
     })
     return json(500, { error: err?.message || 'Erro ao iniciar o pagamento' })
   }

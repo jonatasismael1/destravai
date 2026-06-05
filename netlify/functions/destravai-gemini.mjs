@@ -37,6 +37,20 @@ const AI_PROVIDER_PRIMARY = normalizeProvider(process.env.AI_PROVIDER_PRIMARY) |
 const AI_MODEL_FALLBACK = process.env.AI_MODEL_FALLBACK || ''
 const AI_PROVIDER_FALLBACK = normalizeProvider(process.env.AI_PROVIDER_FALLBACK) || (AI_MODEL_FALLBACK ? providerForModel(AI_MODEL_FALLBACK) : null)
 
+// Allowlist de modelos: impede que um cliente force um modelo CARO via body.model.
+// Só os modelos configurados no servidor (mais extras opcionais em AI_MODELS_ALLOWED)
+// são aceitos quando vêm do cliente. O app não envia 'model' hoje — esta trava só
+// afeta chamadas diretas à API, sem mudar o comportamento normal do app.
+const AI_MODELS_ALLOWED = new Set(
+  [
+    AI_MODEL_PRIMARY,
+    AI_MODEL_FALLBACK,
+    LEGACY_DEFAULT_MODEL,
+    ...OPENROUTER_MODELS,
+    ...((process.env.AI_MODELS_ALLOWED || '').split(',').map((s) => s.trim())),
+  ].filter(Boolean),
+)
+
 const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
@@ -211,7 +225,10 @@ export const handler = async (event) => {
     }
 
     const promptType = body.promptType || 'generic_ai'
-    const requested = body.model ? String(body.model).trim() : ''
+    const requestedRaw = body.model ? String(body.model).trim() : ''
+    // Só aceita o modelo pedido pelo cliente se estiver na allowlist; senão, ignora
+    // e usa o modelo padrão do servidor (evita roteamento para modelo caro).
+    const requested = requestedRaw && AI_MODELS_ALLOWED.has(requestedRaw) ? requestedRaw : ''
     const attempts = buildProviderAttempts(requested)
     // Cadeia OpenRouter (se configurada) tem prioridade; senão, usa o modelo pedido.
     const wantsJson = /JSON/i.test(prompt)

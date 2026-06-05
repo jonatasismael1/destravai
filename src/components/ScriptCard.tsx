@@ -342,11 +342,11 @@ export default function ScriptCard({
               
               {/* Botão Fiz / Copiar dependendo do uso */}
               {onDone ? (
-                <button onClick={handleDone} className="btn-primary flex-1 py-2 text-sm gap-1.5">
+                <button onClick={handleDone} className="btn-primary flex-1 py-2.5 text-sm gap-1.5">
                   <Check size={14} /> Fiz
                 </button>
               ) : (
-                <button onClick={handleCopy} className="btn-primary flex-1 py-2 text-sm gap-1.5"
+                <button onClick={handleCopy} className="btn-primary flex-1 py-2.5 text-sm gap-1.5"
                   style={copied ? { background: 'var(--success)' } : {}}>
                   {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> {isPhoto ? 'Copiar texto' : 'Copiar roteiro'}</>}
                 </button>
@@ -356,7 +356,7 @@ export default function ScriptCard({
               {!isMultiStory && !isPhoto && (
                 <button
                   onClick={() => onRecord()}
-                  className="btn-secondary py-2 px-3.5 text-sm flex items-center justify-center gap-1.5"
+                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
                   title="Gravar"
                   aria-label="Gravar"
                 >
@@ -369,7 +369,7 @@ export default function ScriptCard({
               {isMultiStory && !isPhoto && (
                 <button
                   onClick={() => setExpanded(true)}
-                  className="btn-secondary py-2 px-3.5 text-sm flex items-center justify-center gap-1.5"
+                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
                   title="Gravar 1 a 1"
                   aria-label="Gravar 1 a 1"
                 >
@@ -382,7 +382,7 @@ export default function ScriptCard({
               {idea.type === 'reel' && (
                 <button
                   onClick={onCaption}
-                  className="btn-secondary py-2 px-3.5 text-sm flex items-center justify-center gap-1.5"
+                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
                   title="Legenda"
                   aria-label="Legenda"
                 >
@@ -394,7 +394,7 @@ export default function ScriptCard({
               {/* Botão Salvar (Bookmark) */}
               <button
                 onClick={onSave}
-                className="btn-secondary py-2 px-3.5 text-sm flex items-center justify-center"
+                className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center"
                 title="Salvar"
                 aria-label="Salvar"
                 style={idea.status === 'saved' ? { borderColor: 'rgba(83,214,161,0.4)', color: '#53D6A1' } : {}}
@@ -405,7 +405,7 @@ export default function ScriptCard({
               {/* Botão Variações (Refresh) */}
               <button
                 onClick={() => setShowVariations(!showVariations)}
-                className="btn-secondary py-2 px-3.5 text-sm flex items-center justify-center"
+                className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center"
                 title="Variar"
                 aria-label="Variar"
                 disabled={busy}

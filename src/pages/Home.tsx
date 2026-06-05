@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
+import { triggerConfetti } from '../lib/confetti'
 import {
   Flame, ChevronRight, Check, Sparkles, ArrowRight,
   Wand2, Copy, X,
@@ -268,6 +269,7 @@ export default function Home() {
         : { ...prev, extras: prev.extras.map(i => i.id === idea.id ? { ...i, status: 'done' as const } : i) }
     )
 
+    triggerConfetti()
     addToast('Missão concluída! +10 pontos', 'success')
   }
 

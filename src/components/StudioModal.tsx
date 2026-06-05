@@ -301,8 +301,9 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Câmera
   const [zoom, setZoom] = useState<number>(1)            // 1x/2x/3x/5x = ZOOM
   const [showGrid, setShowGrid] = useState(false)
-  const [countdownEnabled, setCountdownEnabled] = useState(false)
+  const [countdownEnabled, setCountdownEnabled] = useState(true)
   const [countdown, setCountdown] = useState<number | null>(null)
+  const [showReadingLine, setShowReadingLine] = useState(true)
   const [flashOn, setFlashOn] = useState(false)
 
   const liveVideoRef = useRef<HTMLVideoElement>(null)
@@ -896,6 +897,20 @@ export default function StudioModal({ idea, onClose }: Props) {
       {showTeleprompter && (
         <div className="absolute z-20 left-3 right-3 rounded-3xl overflow-hidden flex flex-col"
           style={{ top: `calc(${SAFE_TOP} + 8px)`, height: '32vh', background: `rgba(31,35,41,${cardOpacity})`, backdropFilter: 'blur(4px)' }}>
+          {/* Linha guia de leitura translúcida */}
+          {showReadingLine && (
+            <div
+              className="absolute left-0 right-0 pointer-events-none"
+              style={{
+                top: '30%',
+                height: `${fontSize + 10}px`,
+                background: 'linear-gradient(90deg, rgba(109,93,246,0.15), rgba(155,140,255,0.15))',
+                borderTop: '1px solid rgba(155,140,255,0.35)',
+                borderBottom: '1px solid rgba(155,140,255,0.35)',
+                transform: 'translateY(-50%)',
+              }}
+            />
+          )}
           {/* Texto / placeholder */}
           <div className="flex-1 overflow-hidden px-5 pt-5" onClick={() => !recording && setShowEditor(true)}>
             {script ? (
@@ -1087,6 +1102,25 @@ export default function StudioModal({ idea, onClose }: Props) {
                   )
                 })}
               </div>
+            </div>
+
+            {/* Linha guia de leitura translúcida */}
+            <div className="flex items-center justify-between gap-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex-1 pt-3">
+                <span className="text-sm font-semibold text-white/80">Linha guia de leitura</span>
+                <p className="text-[11px] mt-0.5 text-white/40">
+                  Exibe uma linha horizontal translúcida para ajudar a focar o olhar durante a gravação.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowReadingLine(v => !v)}
+                role="switch"
+                aria-checked={showReadingLine}
+                aria-label="Linha guia de leitura"
+                className="relative flex-shrink-0 rounded-full transition-colors"
+                style={{ width: 48, height: 28, background: showReadingLine ? '#7C5CFF' : 'rgba(255,255,255,0.15)' }}>
+                <span className="absolute rounded-full bg-white transition-all" style={{ top: 4, width: 20, height: 20, left: showReadingLine ? 24 : 4 }} />
+              </button>
             </div>
 
             {/* Áudio: redução de ruído (filtros de chamada) — desligar = voz mais natural */}

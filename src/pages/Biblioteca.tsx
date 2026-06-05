@@ -262,7 +262,7 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
             {expanded && (
               <>
                 <button onClick={handleCopy}
-                  className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-all"
+                  className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl transition-all"
                   style={copied ? {
                     background: 'rgba(83,214,161,0.15)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.3)',
                   } : {
@@ -271,7 +271,7 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
                   {copied ? <Check size={11} /> : <Copy size={11} />}
                 </button>
                 <button onClick={() => (editing ? setEditing(false) : startEdit())}
-                  className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+                  className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl"
                   style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}
                   title="Editar">
                   <Edit3 size={11} />
@@ -282,26 +282,26 @@ function ItemCard({ item, onFavorite, onDelete, onDuplicate, onEdit, onRecord, o
                 aparece para conteúdo de gravação única (story/reels/etc.). */}
             {!isMultiStory && (
               <button onClick={() => onRecord()}
-                className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+                className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl"
                 style={{ background: 'rgba(124,92,255,0.12)', color: '#9B8CFF', border: '1px solid rgba(124,92,255,0.3)' }}
                 title="Gravar com teleprompter" aria-label="Gravar com teleprompter">
                 <Camera size={11} />
               </button>
             )}
             <button onClick={onAddToCalendar}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+              className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl"
               style={{ background: 'rgba(83,214,161,0.1)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.25)' }}
               title="Adicionar ao calendário (hoje)" aria-label="Adicionar ao calendário">
               <CalendarPlus size={11} />
             </button>
             <button onClick={onDuplicate}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+              className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl"
               style={{ background: 'var(--bg-card-bright)', color: 'var(--text-secondary)', border: '1px solid var(--border-bright)' }}
               title="Duplicar">
               <RefreshCw size={11} />
             </button>
             <button onClick={() => setConfirmingDelete(true)}
-              className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl"
+              className="flex items-center gap-1 text-xs font-semibold px-3.5 py-2.5 rounded-xl"
               style={{ background: 'rgba(255,122,107,0.08)', color: '#FF7A6B', border: '1px solid rgba(255,122,107,0.2)' }}
               title="Excluir">
               <Trash2 size={11} />

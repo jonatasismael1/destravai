@@ -262,7 +262,15 @@ export default function Onboarding() {
     <div key={0} className="space-y-4">
       <div>
         <label className="label">Nome profissional</label>
-        <input className="input" value={professionalName} onChange={e => setProfessionalName(e.target.value)} placeholder="Ex: Ana Lima, Dr. Carlos, @anaverde" />
+        <input
+          className="input"
+          value={professionalName}
+          onChange={e => setProfessionalName(e.target.value)}
+          placeholder="Ex: Ana Lima, Dr. Carlos, @anaverde"
+          autoComplete="name"
+          autoCorrect="off"
+          autoCapitalize="words"
+        />
       </div>
       <div>
         <label className="label">Como você se identifica?</label>
@@ -289,11 +297,25 @@ export default function Onboarding() {
       </div>
       <div>
         <label className="label">Cidade</label>
-        <input className="input" value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: São Paulo, SP" />
+        <input
+          className="input"
+          value={city}
+          onChange={e => setCity(e.target.value)}
+          placeholder="Ex: São Paulo, SP"
+          autoComplete="address-level2"
+        />
       </div>
       <div>
         <label className="label">Instagram</label>
-        <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)} placeholder="@seuperfil" />
+        <input
+          className="input"
+          value={instagram}
+          onChange={e => setInstagram(e.target.value)}
+          placeholder="@seuperfil"
+          autoCapitalize="none"
+          autoCorrect="off"
+          autoComplete="username"
+        />
       </div>
     </div>,
 

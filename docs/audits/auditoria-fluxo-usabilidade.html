@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Auditoria 2 - Fluxo, Design, Usabilidade e Segurança - Destravaí</title>
+  <style>
+    :root {
+      --bg: #0b0b12;
+      --panel: #151321;
+      --panel-2: #1d1a2b;
+      --panel-3: #221f32;
+      --line: rgba(255,255,255,.10);
+      --text: #f7f4ff;
+      --soft: #c9c2dc;
+      --muted: #8f89a7;
+      --brand: #9b8cff;
+      --brand-2: #6d5df6;
+      --good: #53d6a1;
+      --warn: #f7b955;
+      --bad: #ff7a6b;
+      --info: #7cc7ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 12% 0%, rgba(109,93,246,.20), transparent 30%),
+        radial-gradient(circle at 88% 12%, rgba(83,214,161,.10), transparent 26%),
+        var(--bg);
+      color: var(--text);
+      font: 15px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .wrap { max-width: 1160px; margin: 0 auto; padding: 42px 20px 80px; }
+    header { border-bottom: 1px solid var(--line); padding-bottom: 28px; margin-bottom: 28px; }
+    .eyebrow { color: var(--brand); font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+    h1 { font-size: clamp(30px, 5vw, 50px); line-height: 1.05; margin: 10px 0 12px; letter-spacing: -.03em; }
+    h2 { font-size: 24px; margin: 42px 0 10px; letter-spacing: -.015em; }
+    h3 { font-size: 17px; margin: 0 0 8px; }
+    p { margin: 0 0 12px; color: var(--soft); }
+    strong { color: var(--text); }
+    code { background: rgba(255,255,255,.07); color: var(--brand); padding: 2px 6px; border-radius: 6px; }
+    .meta { color: var(--muted); font-size: 13px; }
+    .hero {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      gap: 18px;
+      align-items: stretch;
+      margin: 24px 0 8px;
+    }
+    .score {
+      background: linear-gradient(180deg, rgba(109,93,246,.24), rgba(109,93,246,.08));
+      border: 1px solid rgba(155,140,255,.38);
+      border-radius: 14px;
+      padding: 26px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,.25);
+    }
+    .score .num { font-size: 62px; font-weight: 950; color: var(--good); line-height: 1; }
+    .score .label { font-size: 12px; color: var(--soft); font-weight: 900; letter-spacing: .08em; margin-top: 8px; }
+    .verdict {
+      background: rgba(21,19,33,.92);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.20);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 950;
+      letter-spacing: .04em;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    .badge.bad { color: var(--bad); background: rgba(255,122,107,.14); border: 1px solid rgba(255,122,107,.35); }
+    .badge.warn { color: var(--warn); background: rgba(247,185,85,.13); border: 1px solid rgba(247,185,85,.35); }
+    .badge.good { color: var(--good); background: rgba(83,214,161,.12); border: 1px solid rgba(83,214,161,.35); }
+    .badge.info { color: var(--info); background: rgba(124,199,255,.12); border: 1px solid rgba(124,199,255,.32); }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+    .card {
+      background: rgba(21,19,33,.94);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 18px;
+    }
+    .card .top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; margin-bottom: 8px; }
+    .grade { font-weight: 950; border-radius: 999px; padding: 4px 10px; white-space: nowrap; font-size: 12px; }
+    .g-good { color: var(--good); background: rgba(83,214,161,.12); border: 1px solid rgba(83,214,161,.32); }
+    .g-warn { color: var(--warn); background: rgba(247,185,85,.12); border: 1px solid rgba(247,185,85,.32); }
+    .g-bad { color: var(--bad); background: rgba(255,122,107,.12); border: 1px solid rgba(255,122,107,.32); }
+    ul { margin: 10px 0 0; padding-left: 18px; color: var(--soft); }
+    li { margin: 6px 0; }
+    .flow {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .step {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      color: var(--soft);
+      font-weight: 750;
+      min-width: 126px;
+    }
+    .step b { color: var(--text); }
+    .table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; }
+    .table th, .table td { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    .table th { color: var(--text); background: var(--panel-3); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .table td { color: var(--soft); background: rgba(21,19,33,.94); }
+    .callout {
+      border: 1px solid rgba(247,185,85,.38);
+      background: rgba(247,185,85,.10);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .callout.good { border-color: rgba(83,214,161,.38); background: rgba(83,214,161,.10); }
+    .callout.bad { border-color: rgba(255,122,107,.38); background: rgba(255,122,107,.10); }
+    footer { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+    @media (max-width: 720px) {
+      .hero { grid-template-columns: 1fr; }
+      .table { font-size: 13px; }
+      .table th, .table td { padding: 10px; }
+      .step { min-width: 0; flex: 1 1 140px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header>
+      <div class="eyebrow">Auditoria 2 - 02/06/2026</div>
+      <h1>Destravaí: fluxo, design, usabilidade e segurança</h1>
+      <p>Nova auditoria após as alterações recentes. Esta versão substitui a leitura anterior que considerava o paywall local desligado. Para esta análise, considerei como premissas de produção: <strong><code>VITE_PAYWALL_ENABLED=true</code> no Netlify</strong>, checkout validado por você e produto ainda em pré-lançamento, portanto sem prova social real.</p>
+      <p class="meta">Método: inspeção das rotas, componentes, funções Netlify, migrações Supabase/RLS, service worker, prompts de IA, fluxo de assinatura e validação <code>npx tsc --noEmit</code>. Não executei build para não alterar <code>dist</code>; não gerei novas capturas para manter a restrição de alterar somente este HTML.</p>
+      <div class="hero">
+        <div class="score">
+          <div class="num">8,6</div>
+          <div class="label">NOTA GERAL ATUAL</div>
+        </div>
+        <div class="verdict">
+          <span class="badge good">PRONTO PARA VENDA CONTROLADA</span>
+          <h3>Veredito executivo</h3>
+          <p>O Destravaí evoluiu de um MVP com bloqueador comercial para um produto <strong>apto a soft launch e venda controlada</strong>. O fluxo pagamento -> acesso -> onboarding -> uso diário está mais coerente, a Home virou o centro natural do uso, Biblioteca foi melhor encaixada dentro de Espaço, Grupos ganhou uma função clara de ranking/chat e a IA recebeu mais contexto de Essência, memória e rotina.</p>
+          <p>Ainda não recomendo abrir tráfego pesado sem monitoramento. Os principais riscos restantes são: <strong>segurança operacional da IA em fail-open</strong>, ausência de headers de segurança no Netlify, necessidade de monitorar webhook/pagamento em produção e alguns ajustes de clareza na navbar e no design visual.</p>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Decisão de Lançamento</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="badge good">Pode vender</span>
+          <h3>Venda inicial controlada</h3>
+          <p>Pode vender para um grupo pequeno, clientes próximos ou uma primeira lista. O checkout já foi validado por você, e o paywall de produção está ativo no Netlify.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Não escalar ainda</span>
+          <h3>Antes de tráfego pesado</h3>
+          <p>Antes de campanha ampla, configure monitoramento, valide webhook real mais de uma vez, acompanhe logs da IA e corrija o fail-open da checagem de assinatura.</p>
+        </div>
+        <div class="card">
+          <span class="badge info">Pré-lançamento</span>
+          <h3>Sem prova social não é bloqueador</h3>
+          <p>Como o produto ainda não foi lançado, a falta de depoimentos é normal. Use demonstração do produto, garantia, clareza de preço e bastidores reais como substitutos temporários.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Caminho Natural do Cliente</h2>
+      <p>O caminho atual está mais lógico. A experiência ideal do cliente fica assim:</p>
+      <div class="flow">
+        <div class="step"><b>Página de venda</b><br>entende promessa</div>
+        <div class="step"><b>Checkout</b><br>Pix ou cartão</div>
+        <div class="step"><b>E-mail de acesso</b><br>define senha</div>
+        <div class="step"><b>Onboarding</b><br>8 passos</div>
+        <div class="step"><b>Hoje</b><br>missão diária</div>
+        <div class="step"><b>Criar</b><br>roteiros extras</div>
+        <div class="step"><b>Studio</b><br>gravação</div>
+        <div class="step"><b>Espaço</b><br>biblioteca e progresso</div>
+        <div class="step"><b>Agenda</b><br>planejamento</div>
+        <div class="step"><b>Ranking</b><br>constância social</div>
+      </div>
+      <div class="callout good">
+        <p><strong>Leitura principal:</strong> depois de entrar no app, o cliente entende que a primeira ação é responder "o que quero postar hoje?". Isso é bom. O produto não começa mais em uma tela abstrata de IA; começa numa decisão prática do dia.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Notas por Área</h2>
+      <div class="grid">
+        <div class="card"><div class="top"><h3>Página de venda</h3><span class="grade g-good">8,4</span></div><p>Promessa clara e sem depender de prova social falsa. Para pré-lançamento, está aceitável. O próximo ganho é mostrar mais o produto real em uso, especialmente Home, Studio e Biblioteca.</p></div>
+        <div class="card"><div class="top"><h3>Checkout</h3><span class="grade g-good">9,0</span></div><p>Preço claro, Pix/cartão, validação por campo, e ambiente Asaas separado para cartão. Como você validou o checkout, não é mais bloqueador.</p></div>
+        <div class="card"><div class="top"><h3>Paywall e acesso</h3><span class="grade g-good">8,7</span></div><p>Com <code>VITE_PAYWALL_ENABLED=true</code> em produção, o app bloqueia quem não tem acesso. A IA também exige assinatura no backend. Restam riscos operacionais, não de desenho principal.</p></div>
+        <div class="card"><div class="top"><h3>Onboarding</h3><span class="grade g-good">8,8</span></div><p>Os 8 passos estão bons: nome, área, objetivo, exposição, tom, pilares, serviços e limites. O microcopy explica por que cada dado melhora a Deby.</p></div>
+        <div class="card"><div class="top"><h3>Home / Hoje</h3><span class="grade g-good">8,7</span></div><p>É o melhor centro de gravidade do produto. Check-ins como "Tenho 2 min", "Quero vender", "Quero educar" e "Gravar reels" transformam IA em ação concreta.</p></div>
+        <div class="card"><div class="top"><h3>Criar</h3><span class="grade g-good">8,6</span></div><p>Roteiro, momento livre, meu roteiro e CTA secundário estão bem organizados. A troca de "IA" para "Deby" deixa a experiência mais proprietária.</p></div>
+        <div class="card"><div class="top"><h3>Espaço</h3><span class="grade g-good">8,5</span></div><p>Agora reúne Meu espaço, Progresso e Biblioteca. Isso reduz navbar e dá sentido pessoal ao acervo, mas exige que Biblioteca seja muito visível dentro da aba.</p></div>
+        <div class="card"><div class="top"><h3>Biblioteca</h3><span class="grade g-good">8,4</span></div><p>Melhorou com aviso de tempo de geração, filtros, favoritos, edição, duplicação, apagar, agenda e gravação. É uma função central, mesmo fora da navbar.</p></div>
+        <div class="card"><div class="top"><h3>Agenda</h3><span class="grade g-good">8,3</span></div><p>Funciona como planejamento semanal. O atalho da Home ajuda. Recomendo usar Agenda como segunda camada, não como obrigação diária.</p></div>
+        <div class="card"><div class="top"><h3>Ranking / Grupos</h3><span class="grade g-warn">8,1</span></div><p>Ranking, convite por código, perfil de participante e chat deixam a função mais completa. O risco é o nome "Ranking" esconder que ali também existem grupos e chat.</p></div>
+        <div class="card"><div class="top"><h3>IA / Deby</h3><span class="grade g-good">8,5</span></div><p>Prompts usam perfil, tom, pilares, serviços, exposição, limites, diferenciais, dúvidas, objeções e memória. A personalização está boa; o próximo nível é medir qualidade real com usuários.</p></div>
+        <div class="card"><div class="top"><h3>Segurança</h3><span class="grade g-warn">8,0</span></div><p>A base é sólida: Supabase Auth, RLS, service role só no backend, webhook com token, rate limit e service worker sem cache de functions. O fail-open da IA e headers ausentes ainda reduzem a nota.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Navbar e Organização Ideal</h2>
+      <p>A navbar atual é: <strong>Hoje, Criar, Espaço, Agenda, Ranking, Ajustes</strong>. Ela está bem melhor que a versão anterior porque usa palavras completas e coloca o uso diário primeiro.</p>
+      <table class="table">
+        <thead><tr><th>Item</th><th>Leitura atual</th><th>Minha opinião</th></tr></thead>
+        <tbody>
+          <tr><td>Hoje</td><td>Centro diário do app.</td><td><span class="badge good">Manter em 1º</span> É a tela mais importante e o caminho natural.</td></tr>
+          <tr><td>Criar</td><td>Geração sob demanda.</td><td><span class="badge good">Manter em 2º</span> É a segunda ação mais provável após a missão do dia.</td></tr>
+          <tr><td>Espaço</td><td>Pessoal, progresso e biblioteca.</td><td><span class="badge good">Manter</span> A junção faz sentido, mas a aba Biblioteca precisa aparecer como função nobre, não escondida.</td></tr>
+          <tr><td>Agenda</td><td>Planejamento semanal.</td><td><span class="badge good">Manter</span> Nome claro. Melhor que "Cal.".</td></tr>
+          <tr><td>Ranking</td><td>Grupos, competição e chat.</td><td><span class="badge warn">Ajustar nome</span> Eu chamaria de "Grupos" na navbar e deixaria Ranking como aba interna. Isso reduz confusão.</td></tr>
+          <tr><td>Ajustes</td><td>Configurações e admin.</td><td><span class="badge warn">Opcional</span> Para app diário, Ajustes poderia ir para um botão no topo/perfil. Na navbar ele ocupa espaço de função produtiva.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <p><strong>Organização ideal que eu imagino:</strong> Hoje, Criar, Espaço, Agenda, Grupos. Ajustes ficaria no topo ou dentro de Espaço/perfil. Se você quiser manter 6 itens, a ordem atual é defensável, mas eu trocaria o label "Ranking" por "Grupos".</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Design</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="badge good">Fortes</span>
+          <h3>Identidade premium mobile-first</h3>
+          <p>O produto tem uma identidade visual consistente: fundo escuro, roxo como assinatura, cards compactos, ícones Lucide nas ações principais e sensação de app nativo.</p>
+        </div>
+        <div class="card">
+          <span class="badge good">Melhorou</span>
+          <h3>Menos ruído na criação</h3>
+          <p>CTAs viraram ação secundária em Criar, Essência saiu da navbar e Biblioteca foi para Espaço. Isso reduz a quantidade de decisões iniciais.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Atenção</span>
+          <h3>Paleta muito dominante</h3>
+          <p>O uso de roxo/gradientes/orbs é forte em quase todas as telas. Funciona para marca, mas pode cansar e deixar funções diferentes com aparência parecida.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Atenção</span>
+          <h3>Emojis ainda quebram consistência</h3>
+          <p>Home melhorou com ícones vetoriais, mas Meu Espaço, Biblioteca e Grupos ainda usam emojis como estrutura visual em vários pontos. Para um produto pago, Lucide consistente passa mais refinamento.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Atenção</span>
+          <h3>Desktop é secundário</h3>
+          <p>O app é claramente desenhado para mobile/PWA com <code>max-w-md</code>. Isso é coerente com criação para Instagram, mas em desktop ele parece mais estreito que uma ferramenta SaaS tradicional.</p>
+        </div>
+        <div class="card">
+          <span class="badge info">Recomendação</span>
+          <h3>Diferenciar áreas por função</h3>
+          <p>Use pequenas diferenças de acento: Hoje mais ação, Espaço mais pessoal, Agenda mais organização, Grupos mais social. Isso ajuda o cliente a se localizar sem ler tudo.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>IA e Personalização</h2>
+      <table class="table">
+        <thead><tr><th>Critério</th><th>Estado atual</th><th>Nota</th></tr></thead>
+        <tbody>
+          <tr><td>Dados usados</td><td>Perfil, área, público, tom, pilares, serviços, exposição, bordão, palavras evitadas, limites, diferenciais, dúvidas, objeções e memória de uso entram nos prompts principais.</td><td><span class="grade g-good">9,0</span></td></tr>
+          <tr><td>Respostas práticas</td><td>Os prompts pedem fala exata, texto na tela, cena, edição, CTA e tempo estimado. Isso é adequado para transformar ideia em gravação.</td><td><span class="grade g-good">8,8</span></td></tr>
+          <tr><td>Personalização real</td><td>A Deby tem material suficiente para soar menos genérica, principalmente depois da Essência preenchida e uso contínuo.</td><td><span class="grade g-good">8,5</span></td></tr>
+          <tr><td>Risco de qualidade</td><td>A qualidade final ainda precisa de teste com usuários reais por nicho. Sem isso, não dá para afirmar que as respostas serão sempre boas, só que o prompt está bem estruturado.</td><td><span class="grade g-warn">7,8</span></td></tr>
+          <tr><td>Tempo e falha</td><td>Agora há expectativa de 10-15s em pontos importantes. Ainda é essencial capturar falhas recorrentes por modelo e provider.</td><td><span class="grade g-good">8,2</span></td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <p><strong>Minha leitura:</strong> a Deby já pega o que realmente precisa para a proposta atual. O maior ganho agora não é colocar mais campos; é medir respostas reais, guardar exemplos bons/ruins e criar critérios de avaliação por nicho.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Segurança e Confiabilidade</h2>
+      <div class="grid">
+        <div class="card">
+          <span class="badge good">OK</span>
+          <h3>Chaves sensíveis no servidor</h3>
+          <p>Asaas, OpenRouter/Gemini e service role ficam nas Netlify Functions, não no frontend. O frontend chama functions e usa Supabase anon key, que é pública por design.</p>
+        </div>
+        <div class="card">
+          <span class="badge good">OK</span>
+          <h3>RLS e isolamento de dados</h3>
+          <p>As migrações cobrem RLS para perfil, essência, biblioteca, jornada, progresso, eventos, grupos e chat. Grupos usam RPCs para ranking e entrada por código.</p>
+        </div>
+        <div class="card">
+          <span class="badge good">OK</span>
+          <h3>Checkout com proteção básica</h3>
+          <p>Checkout tem validação server-side, rate limit por IP, criação/reuso de usuário, cobrança inicial e webhook idempotente com token <code>ASAAS_WEBHOOK_TOKEN</code>.</p>
+        </div>
+        <div class="card">
+          <span class="badge good">OK</span>
+          <h3>Service worker corrigido</h3>
+          <p>O service worker não cacheia <code>/.netlify/functions/</code>, <code>/auth/</code> ou <code>/api/</code>. Isso evita status de pagamento/login desatualizado.</p>
+        </div>
+        <div class="card">
+          <span class="badge bad">Risco P1</span>
+          <h3>IA em fail-open</h3>
+          <p>A function de IA usa <code>userHasActiveAccess(...).catch(() =&gt; true)</code>. Se a checagem de assinatura falhar, a IA libera. Para lançamento controlado é aceitável temporariamente; para escala, troque para fail-closed com exceção só para admin.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Risco P2</span>
+          <h3>Headers de segurança ausentes</h3>
+          <p>O <code>netlify.toml</code> não define CSP, X-Frame-Options, Referrer-Policy ou Permissions-Policy. Isso não bloqueia venda, mas é ajuste recomendado antes de tráfego amplo.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Risco P2</span>
+          <h3>Webhook responde 200 em erro interno</h3>
+          <p>Isso evita reenvio infinito, mas exige rotina de monitoramento/reprocessamento. Sem alerta, um pagamento confirmado pode ficar dependendo de ação manual sem você perceber rápido.</p>
+        </div>
+        <div class="card">
+          <span class="badge warn">Risco P2</span>
+          <h3>Admin por e-mail</h3>
+          <p>O bypass por <code>ADMIN_EMAIL</code> é simples e útil. Garanta que o e-mail admin seja exato, protegido por MFA e igual entre frontend/backend.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Funções Existentes e Cobertura</h2>
+      <table class="table">
+        <thead><tr><th>Função</th><th>Está ligada?</th><th>Comentário</th></tr></thead>
+        <tbody>
+          <tr><td>Missão do dia</td><td><span class="badge good">Sim</span></td><td>É o melhor fluxo inicial. Gera conteúdo, salva estado, permite marcar como feito, gravar, salvar, variar e gerar legenda.</td></tr>
+          <tr><td>Criar roteiro</td><td><span class="badge good">Sim</span></td><td>Funciona como criação sob demanda fora da missão do dia.</td></tr>
+          <tr><td>Momento livre</td><td><span class="badge good">Sim</span></td><td>Bom diferencial: permite conteúdo pessoal sem forçar nicho ou venda.</td></tr>
+          <tr><td>Meu roteiro</td><td><span class="badge good">Sim</span></td><td>Importante para quem já tem texto e só quer usar teleprompter.</td></tr>
+          <tr><td>CTAs</td><td><span class="badge good">Sim</span></td><td>Agora como ação secundária, no lugar certo.</td></tr>
+          <tr><td>Essência</td><td><span class="badge good">Sim</span></td><td>Fica fora da navbar, mas com atalhos e necessidade clara. Isso é correto para reduzir ruído diário.</td></tr>
+          <tr><td>Biblioteca</td><td><span class="badge good">Sim</span></td><td>Agora dentro de Espaço. Boa decisão, desde que o usuário veja facilmente que ali estão os conteúdos salvos.</td></tr>
+          <tr><td>Agenda</td><td><span class="badge good">Sim</span></td><td>Ligada por navbar, Home e Biblioteca.</td></tr>
+          <tr><td>Studio/Teleprompter</td><td><span class="badge good">Sim</span></td><td>Conecta a missão/roteiro à execução. É uma função que deveria aparecer mais na venda.</td></tr>
+          <tr><td>Grupos/Ranking/Chat</td><td><span class="badge good">Sim</span></td><td>Função social completa. Recomendo nomear como Grupos na navbar.</td></tr>
+          <tr><td>Assinatura/cancelamento</td><td><span class="badge good">Sim</span></td><td>Fluxo existe e tem regras de acesso, garantia, cancelamento e período pago. Precisa de monitoramento.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Plano de Ação</h2>
+      <table class="table">
+        <thead><tr><th>Prioridade</th><th>Ação</th><th>Critério de pronto</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge bad">P1</span></td><td>Trocar checagem da IA de fail-open para fail-closed, ou pelo menos fail-open apenas para admin/teste temporário com log de alerta.</td><td>Falha na consulta de assinatura não libera IA para usuário comum.</td></tr>
+          <tr><td><span class="badge bad">P1</span></td><td>Criar rotina de monitoramento do webhook Asaas e eventos sem assinatura local.</td><td>Pagamento confirmado sem acesso vira alerta imediato e tem processo de reprocessamento.</td></tr>
+          <tr><td><span class="badge warn">P2</span></td><td>Adicionar headers de segurança no Netlify.</td><td>CSP mínima, frame protection, referrer policy e permissions policy aplicadas em produção.</td></tr>
+          <tr><td><span class="badge warn">P2</span></td><td>Renomear "Ranking" para "Grupos" ou deixar claro no primeiro card que ali existem grupos, ranking e chat.</td><td>Usuário entende que o caminho para entrar/criar grupo fica nesse item.</td></tr>
+          <tr><td><span class="badge warn">P2</span></td><td>Dar mais destaque para Biblioteca dentro de Espaço e em momentos pós-salvamento.</td><td>Após salvar uma ideia, o usuário sabe onde ela ficou e consegue voltar a ela sem procurar.</td></tr>
+          <tr><td><span class="badge warn">P2</span></td><td>Trocar emojis estruturais por ícones consistentes nas telas internas principais.</td><td>Visual mais premium e menos dependente de renderização de emoji por dispositivo.</td></tr>
+          <tr><td><span class="badge info">P3</span></td><td>Substituir prova social por demonstração enquanto não houver clientes.</td><td>Landing mostra produto real, fluxo de 30-60s e promessa demonstrável sem depoimento inventado.</td></tr>
+          <tr><td><span class="badge info">P3</span></td><td>Criar rubric de qualidade da Deby por nicho.</td><td>Você avalia respostas com critérios: específico, executável, voz da pessoa, CTA natural e respeito aos limites.</td></tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <p><strong>Ordem recomendada:</strong> primeiro segurança operacional da assinatura/IA, depois clareza de Grupos/Biblioteca, depois polimento visual. Nenhum desses pontos impede uma venda controlada, mas os dois primeiros podem virar problema real se houver volume.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Checklist para Vender</h2>
+      <table class="table">
+        <thead><tr><th>Item</th><th>Status</th><th>Observação</th></tr></thead>
+        <tbody>
+          <tr><td><code>VITE_PAYWALL_ENABLED=true</code> no Netlify</td><td><span class="badge good">Confirmado pelo owner</span></td><td>Depois de qualquer mudança na env, precisa novo deploy para Vite embutir a variável.</td></tr>
+          <tr><td>Checkout validado</td><td><span class="badge good">Confirmado pelo owner</span></td><td>Manter teste periódico Pix/cartão antes de campanha.</td></tr>
+          <tr><td>Webhook Asaas com token certo</td><td><span class="badge warn">Monitorar</span></td><td>É o ponto mais sensível de liberação de acesso.</td></tr>
+          <tr><td>IA com acesso ativo</td><td><span class="badge good">Estrutura pronta</span></td><td>Corrigir fail-open antes de escala.</td></tr>
+          <tr><td>RLS e isolamento</td><td><span class="badge good">Bom</span></td><td>Recomendo rodar <code>npm run test:rls</code> antes do lançamento amplo, se as envs de teste estiverem configuradas.</td></tr>
+          <tr><td>Build/typecheck</td><td><span class="badge good">OK</span></td><td><code>npx tsc --noEmit</code> passou sem erros nesta auditoria.</td></tr>
+          <tr><td>Prova social</td><td><span class="badge info">Não aplicável ainda</span></td><td>Não usar depoimento artificial. Use demo, garantia e clareza.</td></tr>
+          <tr><td>Design final</td><td><span class="badge warn">Bom com ajustes</span></td><td>O produto parece vendável, mas ainda pode ficar mais sofisticado com menos emojis e mais hierarquia visual.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Conclusão</h2>
+      <div class="callout good">
+        <p><strong>Está pronto para vender?</strong> Sim, para venda controlada. Não vejo mais o bloqueador comercial anterior, porque o paywall está ativo no Netlify e o checkout foi validado por você. O produto já tem fluxo suficiente para entregar valor: comprar, acessar, configurar Essência, gerar missão, gravar, salvar, planejar e manter constância.</p>
+        <p><strong>O que eu não deixaria passar antes de escalar:</strong> IA fail-open, monitoramento do webhook e headers de segurança. Esses pontos são menos visíveis que design/navbar, mas são os que mais protegem receita, acesso e confiança.</p>
+      </div>
+    </section>
+
+    <footer>
+      Auditoria atualizada em 02/06/2026. Arquivo: docs/audits/auditoria-fluxo-usabilidade.html. Única alteração realizada nesta rodada: substituição deste HTML.
+    </footer>
+  </main>
+</body>
+</html>

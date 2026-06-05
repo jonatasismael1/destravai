@@ -1,0 +1,27 @@
+{
+  "email": "auditoria-1780428851974@example.com",
+  "userId": "4e94dee7-44bb-4e28-8937-dba99074cde0",
+  "steps": [],
+  "urls": {
+    "afterLogin": "http://127.0.0.1:5173/",
+    "criar": "http://127.0.0.1:5173/criar",
+    "essencia": "http://127.0.0.1:5173/essencia",
+    "biblioteca": "http://127.0.0.1:5173/biblioteca",
+    "calendario": "http://127.0.0.1:5173/calendario",
+    "espaco": "http://127.0.0.1:5173/espaco"
+  },
+  "checks": {
+    "checkout": "Finalize seu acesso ao Destravaí\n\nPrimeiro mês por R$ 29,90. Depois R$ 49,90/mês. Sem fidelidade.\n\nAcesso completo\n\nVocê está levando:\n\nIdeias e roteiros com IA\nMissão do dia para postar sem travar\nStudio com teleprompter\nLegendas e CTAs personalizados\nBiblioteca de conteúdos\nCalendário editorial\nProgresso de constância\n\nPagamento seguro\n\nSeus dados protegidos\n\nCancele fácil\n\nQuando quiser\n\nAcesso por e-mail\n\nRápido e automático\n\nFeito para quem quer aparecer com constância sem perder horas pensando no que postar.\n\nD\n\nDestravai Completo\n\nAcesso total a todas as ferramentas\n\nR$ 29,90\n\nprimeiro ",
+    "checkoutValidation": true,
+    "login": "Stories prontos para você gravar sem travar.\n\nEntrar\nCriar conta\nE-MAIL\nSENHA\nEntrar\n\nEsqueceu a senha? Recuperar\n\nR$29,90 no primeiro mês · Depois R$49,90/mês · Cancele quando quiser\n\nAo continuar, você concorda com os Termos de Uso e a Política de Privacidade.\n\nTravou ao entrar? Limpar sessão e recarregar",
+    "afterLogin": "TERÇA-FEIRA · 2 DE JUNHO\n\nOlá, Ana\n\nO que você quer postar hoje?\n\n\"Tudo que você quer está do outro lado do medo.\"\n\n— Jack Canfield\n\nSEQUÊNCIA\n\n0 dias\n\nESTA SEMANA\n\n0 missões\n\nNÍVEL\nComeçando a aparecer\n\nPróximo: Criando ritmo\n\n0%\n\nVER PROGRESSO COMPLETO\n\nComo está seu dia?\n\nTenho 2 min\nTenho 10 min\nQuero vender\nQuero educar\nAlgo leve\nGravar reels\nNo trabalho\nSurpreenda-me — destravar uma ideia agora\nHOJE\nCRIAR\nESPAÇO\nESSÊNCIA\nBIBLIOTECA\nCAL.",
+    "afterCheckin": "TERÇA-FEIRA · 2 DE JUNHO\n\nOlá, Ana\n\nO que você quer postar hoje?\n\n\"Tudo que você quer está do outro lado do medo.\"\n\n— Jack Canfield\n\nSEQUÊNCIA\n\n0 dias\n\nESTA SEMANA\n\n0 missões\n\nNÍVEL\nComeçando a aparecer\n\nPróximo: Criando ritmo\n\n0%\n\nVER PROGRESSO COMPLETO\n\nComo está seu dia?\n\nTenho 2 min\nTenho 10 min\nQuero vender\nQuero educar\nAlgo leve\nGravar reels\nNo trabalho\nSurpreenda-me — destravar uma ideia agora\nHOJE\nCRIAR\nESPAÇO\nESSÊNCIA\nBIBLIOTECA\nCAL.",
+    "aiGeneratedMission": false,
+    "aiErrorVisible": false
+  },
+  "errors": [
+    "console: Failed to load resource: the server responded with a status of 402 ()",
+    "console: [Home checkin] Sua assinatura não está ativa. Reative para continuar usando a IA.",
+    "console: Failed to load resource: the server responded with a status of 402 ()"
+  ]
+}

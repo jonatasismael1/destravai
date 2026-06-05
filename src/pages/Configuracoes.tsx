@@ -6,7 +6,8 @@ import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
 import {
   User, ChevronRight, Sun, Moon, TrendingUp, KeyRound, LifeBuoy, Camera,
-  Compass, Award, X, Pencil, Mail, Loader2, CheckCircle, RefreshCw, AlertCircle,
+  Compass, X, Pencil, Mail, Loader2, CheckCircle, RefreshCw, AlertCircle,
+  BookOpen,
 } from 'lucide-react'
 import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
 import { uploadAvatar, updateProfile } from '../services/profileService'
@@ -306,10 +307,10 @@ export default function Configuracoes() {
           onClick={() => navigate('/espaco', { state: { tab: 'progresso' } })}
         />
         <MenuItem
-          icon={Award}
-          label="Medalhas"
-          sublabel={`${progress.bestStreak} dias no melhor ritmo · ${progress.streakShields} escudos`}
-          onClick={() => navigate('/espaco', { state: { tab: 'progresso' } })}
+          icon={BookOpen}
+          label="Biblioteca"
+          sublabel="Seus roteiros e ideias salvos"
+          onClick={() => navigate('/espaco', { state: { tab: 'biblioteca' } })}
         />
       </div>
 

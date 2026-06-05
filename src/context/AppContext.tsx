@@ -517,7 +517,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setSidebarOpen = (open: boolean) => {
     setState(s => ({ ...s, sidebarOpen: open }))
+    if (open) {
+      window.location.hash = 'ajustes'
+    } else {
+      if (window.location.hash === '#ajustes') {
+        window.history.back()
+      }
+    }
   }
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (window.location.hash !== '#ajustes' && state.sidebarOpen) {
+        setState(s => ({ ...s, sidebarOpen: false }))
+      }
+    }
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [state.sidebarOpen])
+
+  useEffect(() => {
+    if (window.location.hash === '#ajustes') {
+      window.history.replaceState(null, '', window.location.pathname)
+    }
+  }, [])
 
   return (
     <AppContext.Provider value={{

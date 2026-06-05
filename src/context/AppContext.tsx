@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react'
 import type { User as SupabaseUser, Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase/client'
 import type { DestravaiProfile, BrandEssence } from '../lib/supabase/types'
@@ -7,6 +7,7 @@ import { calculateStreakWithShield, calculateLevel, getWeekKey, inferCategory } 
 import { getCurrentProfile } from '../services/profileService'
 import { getBrandEssence, essenceToProfile } from '../services/essenceService'
 import { getSubscriptionStatus, type SubscriptionStatus } from '../services/subscriptionService'
+import { syncAccessEmail } from '../services/accountService'
 import { generateCheckinIdea } from '../lib/ai'
 import {
   createJournalEntry as createStoredJournalEntry,
@@ -290,6 +291,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })()
     return () => { cancelled = true }
   }, [state.supabaseUser?.id])
+
+  // Sincroniza o e-mail de acesso (Auth) com perfil/Asaas DEPOIS que a pessoa troca
+  // o e-mail e confirma pelo link. A troca confirmada muda só o Auth; aqui detectamos
+  // a divergência (perfil com e-mail antigo != e-mail de Auth atual) e propagamos uma
+  // vez, best-effort. Guard por e-mail evita repetir na mesma sessão.
+  const emailSyncedFor = useRef<string | null>(null)
+  useEffect(() => {
+    const authEmail = state.supabaseUser?.email?.toLowerCase()
+    const profileEmail = state.profile?.email?.toLowerCase()
+    // Só age quando o perfil tem um e-mail DIFERENTE (cenário real de troca).
+    if (!authEmail || !profileEmail || profileEmail === authEmail) return
+    if (emailSyncedFor.current === authEmail) return
+    emailSyncedFor.current = authEmail
+    void syncAccessEmail().then(ok => {
+      // Reflete localmente para o card de perfil não mostrar o e-mail antigo.
+      if (ok) setState(s => (s.profile ? { ...s, profile: { ...s.profile, email: authEmail } } : s))
+    })
+  }, [state.supabaseUser?.email, state.profile?.email])
 
   const refreshSubscription = async () => {
     const subscription = await getSubscriptionStatus().catch(() => null)

@@ -3,15 +3,15 @@ import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import {
-  Clock, Flame, ChevronRight, Check, Bookmark, RefreshCw, Sparkles, ArrowRight,
-  Camera, Wand2, FileText, Copy, X, Pencil,
+  Flame, ChevronRight, Check, Sparkles, ArrowRight,
+  Wand2, Copy, X,
   Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp, CalendarDays
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateCheckinIdea, generateCaption } from '../lib/ai'
 import { createLibraryItem } from '../services/libraryService'
-import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
+import ScriptCard from '../components/ScriptCard'
 
 // Persiste uma ideia da Home na biblioteca do Supabase (o botão "salvar" antes só
 // mudava o estado local e mostrava o toast, sem criar o item de verdade).
@@ -73,13 +73,6 @@ const MOMENT_TO_CHECKIN: Record<string, { value: string; Icon: typeof Zap }> = {
   'À noite': { value: 'light', Icon: Sun },
 }
 
-const VARIATION_OPTIONS = [
-  { label: 'Mais fácil', hint: 'mais simples e rápido de executar' },
-  { label: 'Mais vendedor', hint: 'com foco em venda e CTA direto' },
-  { label: 'Com humor', hint: 'com leveza e humor natural' },
-  { label: 'Sem aparecer', hint: 'sem precisar aparecer no vídeo' },
-]
-
 // Mapeamento de nível → missões necessárias para o próximo
 // Nomes espelham calculateLevel() em src/lib/progress.ts
 const LEVEL_MAP: Record<string, { next: string; missionTarget: number; missionFrom: number }> = {
@@ -124,264 +117,11 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
   )
 }
 
-function IdeaCard({ idea, onDone, onSave, onVariation, onRecord, onCaption, onUpdate, featured }: {
-  idea: ContentIdea
-  onDone: () => void
-  onSave: () => void
-  onVariation: (hint: string) => void
-  onRecord: (override?: ContentIdea) => void
-  onCaption: () => void
-  // Salva uma edição manual do roteiro/visual feita pela pessoa.
-  onUpdate: (updated: ContentIdea) => void
-  featured?: boolean
-}) {
-  const [expanded, setExpanded] = useState(featured ?? false)
-  const [showVariations, setShowVariations] = useState(false)
-  const [celebrating, setCelebrating] = useState(false)
-
-  // Edição manual do roteiro (falas + parte visual), sem gerar de novo.
-  const [editing, setEditing] = useState(false)
-  const [draftContent, setDraftContent] = useState(idea.content)
-  const startEdit = () => { setDraftContent(idea.content); setExpanded(true); setEditing(true) }
-  const cancelEdit = () => { setEditing(false); setDraftContent(idea.content) }
-  const saveEdit = () => {
-    const next = draftContent.trim()
-    if (next && next !== idea.content) onUpdate({ ...idea, content: next })
-    setEditing(false)
-  }
-
-  const TYPE_META: Record<string, { label: string }> = {
-    story: { label: 'Story' },
-    sequence: { label: 'Sequência' },
-    reel: { label: 'Reels' },
-  }
-  const meta = TYPE_META[idea.type] ?? { label: idea.type }
-
-  // Sequência → stories individuais, para ler e gravar 1 a 1.
-  const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
-  const isMultiStory = stories.length > 1
-
-  const handleDone = () => {
-    setCelebrating(true)
-    setTimeout(() => setCelebrating(false), 1200)
-    onDone()
-  }
-
-  return (
-    <div
-      className="relative overflow-hidden rounded-2xl transition-all duration-300"
-      style={featured ? {
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--brand-border)',
-        boxShadow: 'var(--shadow-card)',
-      } : {
-        background: 'var(--bg-elevated)',
-        border: '1px solid var(--border-subtle)',
-        boxShadow: 'var(--shadow-card)',
-      }}
-    >
-      {/* Faixa de marca no topo do card em destaque */}
-      {featured && (
-        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
-      )}
-
-      {/* Animação de celebração ao marcar Fiz */}
-      {celebrating && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none"
-          style={{ background: 'rgba(83,214,161,0.08)' }}>
-          <div className="flex flex-col items-center gap-2 animate-fade-up">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 0 30px rgba(83,214,161,0.5)' }}>
-              <Check size={28} className="text-white" />
-            </div>
-            <p className="text-sm font-extrabold" style={{ color: '#53D6A1' }}>+10 pontos!</p>
-          </div>
-        </div>
-      )}
-
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1">
-            <div className="flex flex-wrap gap-1.5 mb-2">
-              <span className="tag tag-purple">{meta.label}</span>
-              <span className="tag tag-amber flex items-center gap-1"><Clock size={9} /> {idea.timeEstimate}</span>
-              {idea.status === 'done' && <span className="tag tag-mint flex items-center gap-1"><Check size={9} /> Feito</span>}
-              {idea.status === 'saved' && <span className="tag" style={{ background: 'rgba(109,93,246,0.15)', border: '1px solid rgba(109,93,246,0.3)', color: '#9B8CFF' }}>Salvo</span>}
-            </div>
-            <h3 className="font-extrabold text-base leading-snug" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
-            <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>{idea.objective}</p>
-          </div>
-        </div>
-
-        {expanded && (
-          <div className="mt-4 space-y-3">
-            {editing ? (
-              // Edição manual: ajusta FALAS e PARTE VISUAL no mesmo texto.
-              <div className="space-y-2">
-                <textarea
-                  className="input w-full text-sm leading-relaxed"
-                  style={{ minHeight: 240, whiteSpace: 'pre-wrap' }}
-                  value={draftContent}
-                  onChange={e => setDraftContent(e.target.value)}
-                  placeholder="Edite o roteiro do seu jeito..."
-                  autoFocus
-                />
-                <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                  Dica: linhas com <strong>FALA:</strong> vão para o teleprompter (o que você diz).
-                  <strong> CENA:</strong>, <strong>TEXTO NA TELA:</strong> e <strong>EDIÇÃO:</strong> são a parte visual.
-                </p>
-                <div className="flex gap-2">
-                  <button onClick={cancelEdit} className="btn-secondary flex-1 py-2.5 text-sm">Cancelar</button>
-                  <button onClick={saveEdit} className="btn-primary flex-1 py-2.5 text-sm"><Check size={14} /> Salvar alterações</button>
-                </div>
-              </div>
-            ) : isMultiStory ? (
-              <>
-                <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                  Esta é uma sequência de {stories.length} stories. Grave um de cada vez:
-                </p>
-                {stories.map((story, i) => {
-                  const body = stripStoryHeader(story)
-                  // Ideia derivada SÓ deste story — vai para o gravador/teleprompter.
-                  const storyIdea: ContentIdea = {
-                    ...idea,
-                    id: `${idea.id}-s${i + 1}`,
-                    type: 'story',
-                    theme: `Story ${i + 1} — ${idea.theme}`,
-                    content: body,
-                  }
-                  return (
-                    <div key={i} className="rounded-2xl p-4"
-                      style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="tag tag-purple text-[10px]">Story {i + 1} de {stories.length}</span>
-                        {idea.status !== 'done' && (
-                          <button onClick={() => onRecord(storyIdea)}
-                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
-                            style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff' }}>
-                            <Camera size={12} /> Gravar este
-                          </button>
-                        )}
-                      </div>
-                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                        {body}
-                      </pre>
-                    </div>
-                  )
-                })}
-              </>
-            ) : (
-              <button type="button" onClick={startEdit}
-                className="w-full text-left rounded-2xl p-4 transition-all active:scale-[0.99]"
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-                title="Toque para editar o roteiro">
-                <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                  {idea.content}
-                </pre>
-                <span className="flex items-center gap-1 mt-2 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-                  <Pencil size={11} /> Toque para editar
-                </span>
-              </button>
-            )}
-            {idea.cta && (
-              <div className="rounded-2xl p-3" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#FF7A6B' }}>CTA</p>
-                <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{idea.cta}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="flex items-center justify-between gap-2 mt-3">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-sm font-bold transition-colors"
-            style={{ color: '#9B8CFF' }}
-          >
-            {expanded ? 'Fechar roteiro' : 'Ver roteiro completo'}
-            <ChevronRight size={14} style={{ transform: expanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-          </button>
-          {!editing && (
-            <button onClick={startEdit}
-              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 transition-all active:scale-95"
-              style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
-              title="Editar roteiro e parte visual">
-              <Pencil size={13} /> Editar
-            </button>
-          )}
-        </div>
-
-        {idea.status !== 'done' && (
-          <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-            <div className="flex gap-2">
-              {/* Botão Fiz — ação principal com label */}
-              <button onClick={handleDone} className="btn-primary flex-1 py-2.5 text-sm gap-1.5">
-                <Check size={14} /> Fiz
-              </button>
-              {/* Gravar — para sequência, abre o roteiro para escolher o story.
-                  IMPORTANTE: usar () => onRecord() (sem passar o evento de clique,
-                  que o onRecord agora interpretaria como ideia derivada). */}
-              <button
-                onClick={() => (isMultiStory ? setExpanded(true) : onRecord())}
-                className="btn-secondary py-2.5 px-3.5 text-sm flex items-center gap-1.5"
-                aria-label="Gravar com teleprompter"
-                title={isMultiStory ? 'Escolha um story para gravar' : 'Gravar'}
-              >
-                <Camera size={14} />
-                <span className="text-xs hidden sm:inline">{isMultiStory ? 'Gravar 1 a 1' : 'Gravar'}</span>
-              </button>
-              <button
-                onClick={onCaption}
-                className="btn-secondary py-2.5 px-3.5 text-sm flex items-center gap-1.5"
-                aria-label="Gerar legenda"
-                title="Legenda"
-              >
-                <FileText size={14} />
-                <span className="text-xs hidden sm:inline">Legenda</span>
-              </button>
-              <button
-                onClick={onSave}
-                className="btn-secondary py-2.5 px-3.5 text-sm"
-                aria-label="Salvar ideia"
-                title="Salvar"
-                style={idea.status === 'saved' ? { borderColor: 'rgba(109,93,246,0.4)', color: '#9B8CFF' } : {}}
-              >
-                <Bookmark size={14} />
-              </button>
-              <button
-                onClick={() => setShowVariations(!showVariations)}
-                className="btn-secondary py-2.5 px-3.5 text-sm"
-                aria-label="Gerar variação"
-                title="Variar"
-              >
-                <RefreshCw size={14} />
-              </button>
-            </div>
-
-            {showVariations && (
-              <div className="flex flex-wrap gap-1.5 pt-1 animate-fade-up">
-                {VARIATION_OPTIONS.map(v => (
-                  <button
-                    key={v.label}
-                    onClick={() => { onVariation(v.hint); setShowVariations(false) }}
-                    className="chip chip-inactive text-xs"
-                  >
-                    {v.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
 
 export default function Home() {
   const {
     state, addIdea, updateIdea, updateMission, completeMission,
-    generateTodayContent, setTodayContent, resetTodayContent,
+    generateTodayContent, setTodayContent, resetTodayContent, setSidebarOpen,
   } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
@@ -604,18 +344,31 @@ export default function Home() {
 
   return (
     <div className="p-5 space-y-5 pb-8">
-      <div className="pt-4 flex items-start justify-between gap-4">
-        <div data-tour="home-grupos">
-          <TopTabs
-            items={[
-              { value: 'hoje', label: 'Hoje' },
-              { value: 'grupos', label: 'Grupos' },
-            ]}
-            value={homeTab}
-            onChange={setHomeTab}
-          />
-        </div>
-        <HeaderActions initials={headerInitials} avatarUrl={state.profile?.avatar_url} showNotifications={false} />
+      {/* Cabeçalho superior: Logo e Avatar */}
+      <div className="pt-4 flex items-center justify-between gap-4">
+        <img
+          src="/destravai-logo-completa.png"
+          alt="Destravaí"
+          className="h-24 -my-6 w-auto object-contain"
+        />
+        <HeaderActions
+          initials={headerInitials}
+          avatarUrl={state.profile?.avatar_url}
+          showNotifications={false}
+          onProfileClick={() => setSidebarOpen(true)}
+        />
+      </div>
+
+      {/* Abas */}
+      <div data-tour="home-grupos" className="w-fit">
+        <TopTabs
+          items={[
+            { value: 'hoje', label: 'Hoje' },
+            { value: 'grupos', label: 'Grupos' },
+          ]}
+          value={homeTab}
+          onChange={setHomeTab}
+        />
       </div>
 
       {homeTab === 'grupos' ? (
@@ -824,7 +577,7 @@ export default function Home() {
                 </div>
                 <p className="section-title">Missão de hoje</p>
               </div>
-              <IdeaCard idea={mission} onDone={() => handleDone(mission)} onSave={() => handleSave(mission)}
+              <ScriptCard idea={mission} onDone={() => handleDone(mission)} onSave={() => handleSave(mission)}
                 onVariation={(hint) => handleVariation(mission, hint)}
                 onRecord={(override) => setStudioIdea(override ?? mission)}
                 onCaption={() => handleCaption(mission)}
@@ -838,7 +591,7 @@ export default function Home() {
               <p className="section-title mb-3">Mais ideias para hoje</p>
               <div className="space-y-3">
                 {extras.map(idea => (
-                  <IdeaCard key={idea.id} idea={idea}
+                  <ScriptCard key={idea.id} idea={idea}
                     onDone={() => handleDone(idea)}
                     onSave={() => handleSave(idea)}
                     onVariation={(hint) => handleVariation(idea, hint)}

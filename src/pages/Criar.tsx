@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Sparkles, RefreshCw, Copy, Check, Bookmark, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft, Image, Images } from 'lucide-react'
+import { Sparkles, RefreshCw, Copy, Check, ChevronDown, Zap, Camera, Mic, FileText, X, Smartphone, Film, LayoutList, PenLine, Coffee, Star, ChevronRight, ChevronLeft, Image } from 'lucide-react'
 import type { ContentIdea, ContentModel, ContentObjective, ContentMedia } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
 import { generateContent, generateCaption, generatePersonalizedCTAs, generateFreeStory, ideaFromOwnScript } from '../lib/ai'
-import { splitSequenceStories, stripStoryHeader, extractScreenText, extractPhotoDirection } from '../lib/stories'
+import ScriptCard from '../components/ScriptCard'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
 import VoiceDictation from '../components/VoiceDictation'
@@ -184,14 +184,6 @@ const TIME_OPTIONS: SelectOption[] = [
   { value: '30 minutos', label: '30 minutos' },
 ]
 
-const VARIATION_LABELS = [
-  { label: 'Mais simples', icon: '✨' },
-  { label: 'Mais vendedor', icon: '💼' },
-  { label: 'Com humor', icon: '😄' },
-  { label: 'Sem aparecer', icon: '🖼️' },
-  { label: 'Mais técnico', icon: '🔬' },
-]
-
 const CTA_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   interaction: { bg: 'rgba(109,93,246,0.08)', border: 'rgba(109,93,246,0.2)', text: '#9B8CFF' },
   save: { bg: 'rgba(83,214,161,0.08)', border: 'rgba(83,214,161,0.2)', text: '#53D6A1' },
@@ -244,286 +236,8 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
         </div>
         <button onClick={handleCopy} className="btn-primary w-full py-3 text-sm"
           style={copied ? { background: 'var(--success)' } : {}}>
-          {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar legenda + hashtags</>}
+          {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar texto</>}
         </button>
-      </div>
-    </div>
-  )
-}
-
-// Botão "copiar texto" usado no conteúdo com foto — copia APENAS o texto da tela
-// daquele story (sem instruções/observações). Cada botão tem seu próprio estado.
-function CopyScreenTextButton({ text, label = 'Copiar texto' }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
-      className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all"
-      style={copied
-        ? { background: 'rgba(83,214,161,0.15)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.3)' }
-        : { background: 'var(--brand)', color: '#fff' }}>
-      {copied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> {label}</>}
-    </button>
-  )
-}
-
-function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, onUpdate, busy = false }: {
-  idea: ContentIdea
-  onVariation: (v: string) => void
-  onSave: () => void
-  onCopy: () => void
-  // Aceita um override: ao gravar UM story específico de uma sequência, passamos
-  // a ideia derivada (só aquele story). Sem override, grava a ideia inteira.
-  onRecord: (override?: ContentIdea) => void
-  onCaption: () => void
-  // Salva uma edição manual do roteiro/visual feita pela pessoa.
-  onUpdate: (updated: ContentIdea) => void
-  // Geração/variação em andamento → trava os botões de variação (anti-corrida).
-  busy?: boolean
-}) {
-  const [copied, setCopied] = useState(false)
-  const [saved, setSaved] = useState(idea.favorite)
-
-  // Edição manual do roteiro: a pessoa abre, ajusta o texto (falas e parte
-  // visual) e salva — sem precisar gerar tudo de novo.
-  const [editing, setEditing] = useState(false)
-  const [draftContent, setDraftContent] = useState(idea.content)
-
-  const startEdit = () => { setDraftContent(idea.content); setEditing(true) }
-  const cancelEdit = () => { setEditing(false); setDraftContent(idea.content) }
-  const saveEdit = () => {
-    const next = draftContent.trim()
-    if (next && next !== idea.content) onUpdate({ ...idea, content: next })
-    setEditing(false)
-  }
-
-  // Conteúdo de foto: não há gravação/teleprompter — só ideia da foto + texto/legenda.
-  const isPhoto = idea.media === 'photo'
-
-  // Sequência → quebra em stories individuais, para ler e gravar 1 a 1.
-  const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
-  const isMultiStory = stories.length > 1
-
-  const handleCopy = () => {
-    // Foto: copia só o texto da tela (de cada story, na ordem). Vídeo/story falado:
-    // copia o roteiro completo + CTA (que também já está integrado à fala).
-    const text = isPhoto
-      ? (isMultiStory
-          ? stories.map((s, i) => `Foto ${i + 1}:\n${extractScreenText(s)}`).join('\n\n')
-          : extractScreenText(idea.content))
-      : idea.content + (idea.cta ? `\n\nCTA: ${idea.cta}` : '')
-    navigator.clipboard.writeText(text)
-    setCopied(true); onCopy()
-    setTimeout(() => setCopied(false), 2000)
-  }
-  const handleSave = () => { setSaved(true); onSave() }
-
-  return (
-    <div className="space-y-4 animate-fade-up">
-      <div className="relative rounded-2xl overflow-hidden app-card">
-        <div className="absolute top-0 left-0 right-0 h-1" style={{ background: 'var(--brand)' }} />
-
-        <div className="p-5">
-          <div className="flex flex-wrap gap-1.5 mb-3">
-            <span className="tag tag-purple capitalize">
-              {idea.type === 'story' ? 'Story' : idea.type === 'sequence' ? 'Sequência' : 'Reels'}
-            </span>
-            {isPhoto && (
-              <span className="tag tag-purple flex items-center gap-1">
-                {idea.type === 'sequence' ? <Images size={11} /> : <Image size={11} />} Foto
-              </span>
-            )}
-            <span className="tag tag-amber">{idea.timeEstimate}</span>
-          </div>
-
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <h3 className="font-extrabold text-lg" style={{ color: 'var(--text-primary)' }}>{idea.theme}</h3>
-            {!editing && (
-              <button onClick={startEdit}
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full flex-shrink-0 transition-all active:scale-95"
-                style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
-                title="Editar roteiro e parte visual">
-                <PenLine size={13} /> Editar
-              </button>
-            )}
-          </div>
-
-          {editing ? (
-            // Edição manual: a pessoa ajusta falas E parte visual no mesmo texto.
-            <div className="mb-3 space-y-2">
-              <textarea
-                className="input w-full text-sm leading-relaxed"
-                style={{ minHeight: 280, whiteSpace: 'pre-wrap' }}
-                value={draftContent}
-                onChange={e => setDraftContent(e.target.value)}
-                placeholder="Edite o roteiro do seu jeito..."
-                autoFocus
-              />
-              <p className="text-[11px] leading-relaxed" style={{ color: 'var(--text-muted)' }}>
-                Dica: linhas com <strong>FALA:</strong> são o que vai para o teleprompter (o que você diz).
-                <strong> CENA:</strong>, <strong>TEXTO NA TELA:</strong> e <strong>EDIÇÃO:</strong> são a parte visual/produção.
-              </p>
-              <div className="flex gap-2">
-                <button onClick={cancelEdit} className="btn-secondary flex-1 py-2.5 text-sm">
-                  Cancelar
-                </button>
-                <button onClick={saveEdit} className="btn-primary flex-1 py-2.5 text-sm">
-                  <Check size={14} /> Salvar alterações
-                </button>
-              </div>
-            </div>
-          ) : isMultiStory ? (
-            <div className="space-y-3 mb-3">
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                {isPhoto
-                  ? `Sequência de ${stories.length} fotos. Tire e poste na ordem:`
-                  : `Sequência de ${stories.length} stories. Grave um de cada vez:`}
-              </p>
-              {stories.map((story, i) => {
-                const body = stripStoryHeader(story)
-                // Ideia derivada SÓ deste story → vai para o teleprompter sozinha.
-                const storyIdea: ContentIdea = {
-                  ...idea,
-                  id: `${idea.id}-s${i + 1}`,
-                  type: 'story',
-                  theme: `Story ${i + 1} — ${idea.theme}`,
-                  content: body,
-                  // O CTA pertence só ao ÚLTIMO story (é onde a fala fecha com a
-                  // chamada). Sem isso, o teleprompter acrescentaria o CTA em todos.
-                  cta: i === stories.length - 1 ? idea.cta : '',
-                }
-                // Texto da tela limpo deste story (só o que vai escrito na imagem).
-                const screenText = extractScreenText(story)
-                return (
-                  <div key={i} className="rounded-2xl p-4" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="tag tag-purple text-[10px]">
-                        {isPhoto ? 'Foto' : 'Story'} {i + 1} de {stories.length}
-                      </span>
-                      {/* Foto: copia só o texto da tela deste story. Vídeo: grava no teleprompter. */}
-                      {isPhoto
-                        ? <CopyScreenTextButton text={screenText} />
-                        : (
-                          <button onClick={() => onRecord(storyIdea)}
-                            className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full"
-                            style={{ background: 'var(--brand)', color: '#fff' }}>
-                            <Camera size={12} /> Gravar este
-                          </button>
-                        )}
-                    </div>
-                    {isPhoto ? (
-                      <>
-                        {/* Texto que VAI na tela do story — destacado e pronto para copiar. */}
-                        <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Texto da tela</p>
-                        <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed mb-3 rounded-xl p-3"
-                          style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                          {screenText}
-                        </pre>
-                        {/* Direção da foto (o que fotografar) — referência, não entra na cópia. */}
-                        {extractPhotoDirection(story) && (<>
-                          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: 'var(--text-muted)' }}>Como fotografar</p>
-                          <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                            {extractPhotoDirection(story)}
-                          </pre>
-                        </>)}
-                      </>
-                    ) : (
-                      <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                        {body}
-                      </pre>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          ) : isPhoto ? (
-            // Story único com FOTO: destaca o texto da tela (copiável) e mostra a
-            // direção da foto como referência.
-            <div className="rounded-2xl p-4 mb-3 space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Texto da tela</p>
-                <CopyScreenTextButton text={extractScreenText(idea.content)} />
-              </div>
-              <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed rounded-xl p-3"
-                style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                {extractScreenText(idea.content)}
-              </pre>
-              {extractPhotoDirection(idea.content) && (<>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Como fotografar</p>
-                <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
-                  {extractPhotoDirection(idea.content)}
-                </pre>
-              </>)}
-            </div>
-          ) : (
-            <button type="button" onClick={startEdit}
-              className="w-full text-left rounded-2xl p-4 mb-3 transition-all active:scale-[0.99]"
-              style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-              title="Toque para editar o roteiro">
-              <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed" style={{ color: 'var(--text-primary)' }}>
-                {idea.content}
-              </pre>
-              <span className="flex items-center gap-1 mt-2 text-[11px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-                <PenLine size={11} /> Toque para editar
-              </span>
-            </button>
-          )}
-
-          {/* CTA de referência. Em foto o CTA já está no texto da tela (não repete
-              numa caixa separada). Em vídeo/story falado ele também já está dentro
-              da fala — a caixa serve só de lembrete. */}
-          {idea.cta && !isPhoto && (
-            <div className="rounded-2xl p-3 mb-4" style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.2)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: '#FF7A6B' }}>CTA (já incluído no roteiro)</p>
-              <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{idea.cta}</p>
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <button onClick={handleCopy} className="btn-primary flex-1 py-2.5 text-sm"
-              style={copied ? { background: 'var(--success)' } : {}}>
-              {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> {isPhoto ? 'Copiar texto' : 'Copiar roteiro'}</>}
-            </button>
-            {/* Legenda só faz sentido para Reels (publicação com campo de legenda);
-                story/sequência não têm legenda. */}
-            {idea.type === 'reel' && (
-              <button onClick={onCaption} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gerar legenda">
-                <FileText size={14} />
-              </button>
-            )}
-            {/* Sequência: cada story tem seu próprio "Gravar este" acima — aqui o
-                botão único só aparece para story/reels de VÍDEO (gravação única).
-                Conteúdo de foto não grava no teleprompter. */}
-            {!isMultiStory && !isPhoto && (
-              <button onClick={() => onRecord()} className="btn-secondary py-2.5 px-3.5 text-sm" title="Gravar">
-                <Camera size={14} />
-              </button>
-            )}
-            <button onClick={handleSave} className="btn-secondary py-2.5 px-3.5 text-sm"
-              style={saved ? { borderColor: 'rgba(83,214,161,0.4)', color: '#53D6A1' } : {}}>
-              <Bookmark size={14} style={saved ? { fill: '#53D6A1' } : {}} />
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Variations */}
-      <div>
-        <p className="text-xs font-bold uppercase tracking-widest mb-2.5" style={{ color: 'var(--text-muted)' }}>
-          Gerar variação
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {VARIATION_LABELS.map(v => (
-            <button
-              key={v.label}
-              onClick={() => onVariation(v.label.toLowerCase())}
-              disabled={busy}
-              className="chip chip-inactive text-xs disabled:opacity-40"
-            >
-              <RefreshCw size={10} className={busy ? 'animate-spin' : ''} /> {v.icon} {v.label}
-            </button>
-          ))}
-        </div>
       </div>
     </div>
   )
@@ -1220,7 +934,7 @@ export default function Criar() {
             result, então aí o card fica oculto e o spinner é o do botão principal.
             key={result.id} remonta o card a cada ideia (estado limpo de "salvo"). */}
         {result && (
-          <ResultCard
+          <ScriptCard
             key={result.id}
             idea={result}
             busy={loading}

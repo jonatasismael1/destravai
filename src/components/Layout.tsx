@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import { CalendarDays, Home, NotebookPen, Sparkles, UserCircle } from 'lucide-react'
+import SettingsSidebar from './SettingsSidebar'
 
 const navItems = [
   { to: '/', icon: Home, label: 'Hoje', tour: 'nav-home' },
@@ -66,6 +67,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           })}
         </div>
       </nav>
+      <SettingsSidebar />
     </div>
   )
 }

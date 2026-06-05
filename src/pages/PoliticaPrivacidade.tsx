@@ -3,9 +3,9 @@ import { ArrowLeft } from 'lucide-react'
 
 export default function PoliticaPrivacidade() {
   return (
-    <div className="min-h-[100svh] overflow-y-auto" style={{ background: '#0B0B12', color: 'var(--text-secondary)' }}>
+    <div className="min-h-[100svh] overflow-y-auto" style={{ background: 'var(--bg-base)', color: 'var(--text-secondary)' }}>
       <div className="max-w-2xl mx-auto px-6 py-10">
-        <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold mb-8" style={{ color: '#A78BFA' }}>
+        <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold mb-8" style={{ color: 'var(--brand)' }}>
           <ArrowLeft size={16} /> Voltar
         </Link>
 

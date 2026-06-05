@@ -5,20 +5,15 @@ import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
 import {
-  User, Bell, LogOut, ChevronRight, Shield,
-  Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award, X, Pencil, Mail,
+  User, ChevronRight, Sun, Moon, TrendingUp, KeyRound, LifeBuoy, Camera,
+  Compass, Award, X, Pencil, Mail, Loader2, CheckCircle, RefreshCw, AlertCircle,
 } from 'lucide-react'
 import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
-import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
-import { createTester } from '../services/subscriptionService'
 import { uploadAvatar, updateProfile } from '../services/profileService'
 import { countLibraryItems } from '../services/libraryService'
-import { enableNotifications, disableNotifications, notificationsEnabled, notificationsSupported } from '../services/notificationsService'
 import { supabase } from '../lib/supabase/client'
 
 const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
-const ADMIN_EMAIL = 'assessoriadbe@gmail.com'
 
 async function cropAvatarFile(file: File, position: { x: number; y: number }, zoom = 1): Promise<File> {
   const objectUrl = URL.createObjectURL(file)
@@ -112,33 +107,12 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 export default function Configuracoes() {
-  const { state, logout, setProfile } = useApp()
+  const { state, setProfile, setSidebarOpen } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
   const { isDark, toggleTheme } = useTheme()
   const { resetTours } = useOnboarding()
   useScreenTour('configuracoes')
-
-  const [notifDaily, setNotifDaily] = useState(notificationsEnabled())
-  const [notifTips, setNotifTips] = useState(false)
-
-  // Liga/desliga as notificações locais (lembrete + régua de constância).
-  const handleToggleNotif = async (on: boolean) => {
-    if (!notificationsSupported()) {
-      addToast('Seu navegador não suporta notificações.', 'error'); return
-    }
-    if (on) {
-      const granted = await enableNotifications()
-      setNotifDaily(granted)
-      addToast(granted ? 'Notificações ativadas!' : 'Permissão de notificação negada pelo navegador.', granted ? 'success' : 'error')
-    } else {
-      disableNotifications()
-      setNotifDaily(false)
-      addToast('Notificações desativadas.', 'info')
-    }
-  }
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [showResetDayConfirm, setShowResetDayConfirm] = useState(false)
 
   // Foto de perfil
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -151,8 +125,6 @@ export default function Configuracoes() {
   const handlePickAvatar = () => fileInputRef.current?.click()
 
   // Contador "Conteúdos": total REAL salvo na biblioteca (persistido no banco).
-  // Antes mostrava state.ideas.length, que conta só as ideias geradas na sessão
-  // atual e zera ao recarregar — por isso aparecia 0 depois de um reload.
   const [contentCount, setContentCount] = useState<number | null>(null)
   useEffect(() => {
     let active = true
@@ -182,20 +154,16 @@ export default function Configuracoes() {
 
     setSavingProfile(true)
     try {
-      // Nome → tabela de perfil. Atualização otimista no estado local.
       if (name !== (state.profile?.name ?? '')) {
         const updated = await updateProfile({ name })
         setProfile(updated)
       }
-      // E-mail → Auth do Supabase. A troca exige confirmação por link no NOVO
-      // e-mail; o Supabase recusa se já estiver em uso (sem duplicar). Só então
-      // o e-mail de acesso muda de fato.
       if (email && email !== currentEmail) {
         const { error } = await supabase.auth.updateUser({ email })
         if (error) throw error
         addToast('Enviamos um link para o novo e-mail. A troca vale após você confirmar por lá.', 'success')
       } else {
-        addToast('Perfil atualizado!', 'success')
+        addToast('Perfil updated!', 'success')
       }
       setShowProfileEdit(false)
     } catch (err) {
@@ -213,7 +181,7 @@ export default function Configuracoes() {
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    e.target.value = '' // permite reescolher o mesmo arquivo depois
+    e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) { addToast('Escolha um arquivo de imagem.', 'error'); return }
     if (file.size > 5 * 1024 * 1024) { addToast('Imagem muito grande (máx. 5 MB).', 'error'); return }
@@ -248,82 +216,9 @@ export default function Configuracoes() {
     }
   }
 
-  // Alterar senha (usuário logado: o Supabase não exige a senha atual).
-  const [showPasswordForm, setShowPasswordForm] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [savingPassword, setSavingPassword] = useState(false)
-
-  // Admin (assessoriadbe): cria testadores com acesso grátis.
-  const isAdmin = (state.supabaseUser?.email ?? '').toLowerCase() === ADMIN_EMAIL
-  const [testerName, setTesterName] = useState('')
-  const [testerEmail, setTesterEmail] = useState('')
-  const [testerPlan] = useState('destravai_completo')
-  const [creatingTester, setCreatingTester] = useState(false)
-
-  const handleCreateTester = async () => {
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testerEmail.trim())) {
-      addToast('Informe um e-mail válido.', 'error'); return
-    }
-    setCreatingTester(true)
-    try {
-      const res = await createTester(testerName.trim(), testerEmail.trim().toLowerCase(), testerPlan)
-      addToast(res.emailSent
-        ? 'Testador criado! E-mail de acesso enviado.'
-        : 'Testador criado! (Falha ao enviar e-mail — reenvie pelo "Esqueci a senha".)', 'success')
-      setTesterName(''); setTesterEmail('')
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Erro ao criar testador.', 'error')
-    } finally {
-      setCreatingTester(false)
-    }
-  }
-
-  const handleChangePassword = async () => {
-    if (newPassword.length < 6) { addToast('A senha deve ter ao menos 6 caracteres.', 'error'); return }
-    if (newPassword !== confirmPassword) { addToast('As senhas não conferem.', 'error'); return }
-    setSavingPassword(true)
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword })
-      if (error) throw error
-      addToast('Senha alterada com sucesso!', 'success')
-      setNewPassword(''); setConfirmPassword(''); setShowPasswordForm(false)
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Erro ao alterar a senha.', 'error')
-    } finally {
-      setSavingPassword(false)
-    }
-  }
-
   const profile = state.profile
   const supabaseUser = state.supabaseUser
-  const subscription = state.subscription
   const progress = state.progress
-  const planLabel = state.subscriptionLoading
-    ? 'Carregando plano'
-    : subscription?.hasSubscription
-      ? (subscription.planName ?? 'Plano ativo')
-      : 'Sem assinatura ativa'
-  const planDescription = subscription?.hasAccess
-    ? `Acesso liberado${subscription.price ? ` · R$ ${subscription.price}/mês` : ''}`
-    : 'Escolha um plano para liberar os recursos pagos'
-  const planBadge = subscription?.hasAccess ? 'Ativo' : 'Pendente'
-
-  const handleLogout = async () => {
-    await logout()
-    navigate('/login', { replace: true })
-  }
-
-  const handleSaveNotifs = () => {
-    addToast('Preferências salvas!', 'success')
-  }
-
-  const handleResetDay = async () => {
-    const key = toISODateKey()
-    await deleteDailyCheckin(key).catch(err => console.error('[Configuracoes reset day]', err))
-    setShowResetDayConfirm(false)
-    addToast('Missão do dia reiniciada!', 'success')
-  }
 
   return (
     <div className="p-5 space-y-6 pb-28">
@@ -336,10 +231,9 @@ export default function Configuracoes() {
 
       {/* Profile card */}
       <div className="relative rounded-2xl p-5 overflow-hidden app-card">
-        {/* Editar nome e e-mail de acesso */}
         <button
           onClick={openProfileEdit}
-          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-[0.95]"
           style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
           aria-label="Editar nome e e-mail"
           title="Editar nome e e-mail"
@@ -386,8 +280,6 @@ export default function Configuracoes() {
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Dias ativos', value: progress.currentStreak },
-          // Total salvo na biblioteca (persistido). Enquanto carrega, mostra o
-          // que houver da sessão como aproximação.
           { label: 'Conteúdos', value: contentCount ?? state.ideas.length },
           { label: 'Missões', value: progress.missionsCompleted },
         ].map(stat => (
@@ -398,8 +290,7 @@ export default function Configuracoes() {
         ))}
       </div>
 
-      {/* Perfil — logo abaixo da foto: é o que mais se acessa nas Configurações
-          (editar essência e ver progresso), então vem por ordem de prioridade. */}
+      {/* Perfil */}
       <div className="space-y-2">
         <SectionHeader title="Você" />
         <MenuItem
@@ -422,8 +313,18 @@ export default function Configuracoes() {
         />
       </div>
 
-      {/* Aparência — logo após "Medalhas" para deixar o tema claro/escuro
-          fácil de encontrar (configuração de alto uso). */}
+      {/* Conta Avançada */}
+      <div className="space-y-2">
+        <SectionHeader title="Conta" />
+        <MenuItem
+          icon={KeyRound}
+          label="Ajustes de Conta"
+          sublabel="Segurança, notificações, dados e assinatura"
+          onClick={() => setSidebarOpen(true)}
+        />
+      </div>
+
+      {/* Aparência */}
       <div className="space-y-2">
         <SectionHeader title="Aparência" />
         <div
@@ -453,71 +354,6 @@ export default function Configuracoes() {
         </div>
       </div>
 
-      {/* Admin — só para o administrador (assessoriadbe) */}
-      {isAdmin && (
-        <div className="space-y-2">
-          <SectionHeader title="Administração" />
-          <div className="rounded-2xl p-4 space-y-3"
-            style={{ background: 'rgba(83,214,161,0.06)', border: '1px solid rgba(83,214,161,0.2)' }}>
-            <div className="flex items-center gap-2">
-              <Shield size={15} style={{ color: '#53D6A1' }} />
-              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Liberar acesso de teste</p>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              Cria um usuário testador com acesso grátis. Ele recebe um e-mail para definir a senha.
-            </p>
-            <input className="input" placeholder="Nome (opcional)" value={testerName}
-              onChange={e => setTesterName(e.target.value)} />
-            <input className="input" type="email" placeholder="E-mail do testador" value={testerEmail}
-              onChange={e => setTesterEmail(e.target.value)} />
-            <div className="input text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>
-              Plano: Destravaí Completo
-            </div>
-            <button onClick={handleCreateTester} disabled={creatingTester}
-              className="btn-primary w-full py-2.5 text-sm disabled:opacity-50">
-              {creatingTester ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Criar acesso de teste'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Segurança */}
-      <div className="space-y-2">
-        <SectionHeader title="Segurança" />
-        {!showPasswordForm ? (
-          <MenuItem
-            icon={KeyRound}
-            label="Alterar senha"
-            sublabel="Defina uma nova senha de acesso"
-            onClick={() => setShowPasswordForm(true)}
-          />
-        ) : (
-          <div className="rounded-2xl p-4 space-y-3"
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
-            <div>
-              <label className="label">Nova senha</label>
-              <input type="password" className="input" placeholder="Mínimo 6 caracteres"
-                value={newPassword} onChange={e => setNewPassword(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Confirmar nova senha</label>
-              <input type="password" className="input" placeholder="Repita a senha"
-                value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setShowPasswordForm(false); setNewPassword(''); setConfirmPassword('') }}
-                disabled={savingPassword} className="btn-secondary flex-1 py-2.5 text-sm">
-                Cancelar
-              </button>
-              <button onClick={handleChangePassword} disabled={savingPassword}
-                className="btn-primary flex-1 py-2.5 text-sm disabled:opacity-50">
-                {savingPassword ? <Loader2 size={16} className="animate-spin mx-auto" /> : 'Salvar senha'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
       {/* Suporte */}
       <div className="space-y-2">
         <SectionHeader title="Suporte" />
@@ -529,7 +365,7 @@ export default function Configuracoes() {
         />
       </div>
 
-      {/* Ajuda / Tour guiado */}
+      {/* Ajuda */}
       <div className="space-y-2">
         <SectionHeader title="Ajuda" />
         <div data-tour="config-tour">
@@ -540,191 +376,6 @@ export default function Configuracoes() {
             onClick={() => { resetTours(); navigate('/') }}
           />
         </div>
-      </div>
-
-      {/* Notificações */}
-      <div className="space-y-2">
-        <SectionHeader title="Notificações" />
-        <div
-          className="rounded-2xl p-4 space-y-4"
-          style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}>
-              <Bell size={17} style={{ color: '#9B8CFF' }} />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Lembrete diário</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Lembrete da missão e marcos de constância</p>
-            </div>
-            <Toggle value={notifDaily} onChange={handleToggleNotif} />
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ background: 'rgba(109,93,246,0.12)', border: '1px solid rgba(109,93,246,0.2)' }}>
-              <Sparkles size={17} style={{ color: '#9B8CFF' }} />
-            </div>
-            <div className="flex-1">
-              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Dicas semanais</p>
-              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Estratégias de conteúdo</p>
-            </div>
-            <Toggle value={notifTips} onChange={setNotifTips} />
-          </div>
-
-          <div className="rounded-xl p-2.5 flex items-start gap-2"
-            style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.15)' }}>
-            <AlertCircle size={13} style={{ color: '#F7B955', flexShrink: 0, marginTop: 1 }} />
-            <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
-              As notificações precisam da sua permissão e funcionam melhor com o app instalado na tela inicial.
-            </p>
-          </div>
-
-          <button onClick={handleSaveNotifs} className="btn-secondary w-full py-2.5 text-sm">
-            Salvar preferências
-          </button>
-        </div>
-      </div>
-
-      {/* Privacidade */}
-      <div className="space-y-2">
-        <SectionHeader title="Privacidade" />
-        <MenuItem
-          icon={Shield}
-          label="Dados salvos na sua conta"
-          sublabel="Essência, progresso, calendário e Meu Espaço sincronizam entre dispositivos"
-          right={<CheckCircle size={16} style={{ color: '#53D6A1', flexShrink: 0 }} />}
-        />
-      </div>
-
-      {/* Reset do dia */}
-      <div className="space-y-2">
-        <SectionHeader title="Dados" />
-        {!showResetDayConfirm ? (
-          <MenuItem
-            icon={RefreshCw}
-            label="Reiniciar missão do dia"
-            sublabel="Limpa apenas as ideias de hoje — seu perfil fica intacto"
-            onClick={() => setShowResetDayConfirm(true)}
-          />
-        ) : (
-          <div
-            className="rounded-2xl p-4 space-y-3"
-            style={{ background: 'rgba(109,93,246,0.07)', border: '1px solid rgba(109,93,246,0.2)' }}
-          >
-            <div className="flex items-center gap-2">
-              <AlertCircle size={16} style={{ color: '#9B8CFF' }} />
-              <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>Reiniciar missão do dia?</p>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              As ideias geradas hoje serão apagadas e você poderá escolher um novo contexto. Seu perfil, diário e histórico <strong>não serão afetados</strong>.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowResetDayConfirm(false)}
-                className="btn-secondary flex-1 py-2.5 text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleResetDay}
-                className="btn-tonal flex-1 py-2.5 text-sm"
-              >
-                Sim, reiniciar
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Plano — fica no rodapé, perto de "Sair": acesso continua existindo, mas
-          sem destaque no topo (para não puxar a atenção para cancelar). */}
-      <div>
-        <SectionHeader title="Assinatura" />
-        <div
-          className="rounded-2xl p-4"
-          style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.2)' }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.25)' }}>
-                <Star size={17} style={{ color: '#F7B955' }} />
-              </div>
-              <div>
-                <p className="font-bold text-sm" style={{ color: 'var(--text-primary)' }}>{planLabel}</p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{planDescription}</p>
-              </div>
-            </div>
-            <span className="text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full"
-              style={{ background: 'rgba(247,185,85,0.15)', border: '1px solid rgba(247,185,85,0.3)', color: '#F7B955' }}>
-              {planBadge}
-            </span>
-          </div>
-
-          <div className="mt-3 flex items-start gap-2">
-            <CheckCircle size={13} style={{ color: '#53D6A1', flexShrink: 0, marginTop: 1 }} />
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              As gerações usam a Deby AI configurada no projeto. Chaves e integrações sensíveis ficam fora da interface do cliente.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-2">
-          <MenuItem
-            icon={CreditCard}
-            label="Gerenciar assinatura"
-            sublabel="Ver status e cancelar"
-            onClick={() => navigate('/minha-assinatura')}
-          />
-        </div>
-      </div>
-
-      {/* Logout */}
-      <div className="space-y-2">
-        <SectionHeader title="Conta" />
-        {!showLogoutConfirm ? (
-          <MenuItem
-            icon={LogOut}
-            label="Sair da conta"
-            sublabel="Você poderá entrar novamente; preferências locais deste aparelho serão limpas"
-            onClick={() => setShowLogoutConfirm(true)}
-            danger
-          />
-        ) : (
-          <div
-            className="rounded-2xl p-4 space-y-3"
-            style={{ background: 'rgba(255,122,107,0.08)', border: '1px solid rgba(255,122,107,0.25)' }}
-          >
-            <div className="flex items-center gap-2">
-              <AlertCircle size={16} style={{ color: '#FF7A6B' }} />
-              <p className="font-bold text-sm" style={{ color: '#FF7A6B' }}>Confirmar saída?</p>
-            </div>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Seus dados de conta continuam salvos com segurança. Esta ação encerra apenas a sessão neste aparelho — é só entrar de novo para continuar de onde parou.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="btn-secondary flex-1 py-2.5 text-sm"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex-1 py-2.5 rounded-2xl text-sm font-extrabold transition-all duration-200"
-                style={{
-                  background: 'rgba(239,68,68,0.12)',
-                  border: '1px solid rgba(239,68,68,0.3)',
-                  color: 'var(--danger)',
-                }}
-              >
-                Sim, sair
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <p className="text-center text-[10px] pb-4" style={{ color: 'var(--text-muted)' }}>

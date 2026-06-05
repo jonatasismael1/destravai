@@ -94,6 +94,7 @@ interface AppState {
   // Assinatura (controle de acesso pago via Asaas)
   subscription: SubscriptionStatus | null
   subscriptionLoading: boolean
+  sidebarOpen: boolean
 }
 
 interface AppContextType {
@@ -119,6 +120,7 @@ interface AppContextType {
   deleteJournalEntry: (id: string) => void
   addPersonalIdea: (idea: PersonalIdea) => void
   deletePersonalIdea: (id: string) => void
+  setSidebarOpen: (open: boolean) => void
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -170,6 +172,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     profileLoading: true,
     subscription: null,
     subscriptionLoading: true,
+    sidebarOpen: false,
   })
 
   // 1) Resolve a sessão. IMPORTANTE: o callback do onAuthStateChange deve ser
@@ -451,6 +454,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       profileLoading: false,
       subscription: null,
       subscriptionLoading: false,
+      sidebarOpen: false,
     })
   }
 
@@ -511,6 +515,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     void deleteStoredPersonalIdea(id).catch(err => console.error('[AppContext delete personal idea]', err))
   }
 
+  const setSidebarOpen = (open: boolean) => {
+    setState(s => ({ ...s, sidebarOpen: open }))
+  }
+
   return (
     <AppContext.Provider value={{
       state, setProfile, setLocalProfile, setEssence, addIdea, updateIdea,
@@ -519,6 +527,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       savePersonalContext, setTodayMood,
       addJournalEntry, deleteJournalEntry,
       addPersonalIdea, deletePersonalIdea,
+      setSidebarOpen,
     }}>
       {children}
     </AppContext.Provider>

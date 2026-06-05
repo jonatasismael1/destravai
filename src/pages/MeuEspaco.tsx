@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Plus, Trash2, Sparkles, Loader2, ChevronDown, ChevronUp, Settings2, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -281,16 +281,8 @@ export default function MeuEspaco() {
                   onChange={e => setMoodNote(e.target.value)}
                   placeholder="O que está passando pela sua cabeça? (opcional)"
                   rows={2}
-                  className="w-full rounded-2xl px-4 py-3 text-sm outline-none resize-none mb-3"
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1.5px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'inherit',
-                    lineHeight: '1.6',
-                  }}
-                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.4)'}
-                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.12)'}
+                  className="input resize-none w-full mb-3 text-sm"
+                  style={{ lineHeight: '1.6', fontFamily: 'inherit' }}
                 />
 
                 <button
@@ -366,16 +358,8 @@ export default function MeuEspaco() {
                   onChange={e => setJournalText(e.target.value)}
                   placeholder="O que está acontecendo? Pode ser qualquer coisa — uma conquista, uma dificuldade, um pensamento..."
                   rows={5}
-                  className="w-full rounded-2xl px-4 py-3 text-sm outline-none resize-none"
-                  style={{
-                    background: 'var(--bg-input)',
-                    border: '1.5px solid var(--border-color)',
-                    color: 'var(--text-primary)',
-                    fontFamily: 'inherit',
-                    lineHeight: '1.7',
-                  }}
-                  onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.4)'}
-                  onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.12)'}
+                  className="input resize-none w-full text-sm"
+                  style={{ lineHeight: '1.7', fontFamily: 'inherit' }}
                   autoFocus
                 />
 
@@ -492,15 +476,8 @@ export default function MeuEspaco() {
                 onChange={e => setIdeaText(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && saveIdea()}
                 placeholder="Nova ideia..."
-                className="flex-1 rounded-2xl px-4 py-2.5 text-sm outline-none transition-all"
-                style={{
-                  background: 'var(--bg-input)',
-                  border: '1.5px solid var(--border-color)',
-                  color: 'var(--text-primary)',
-                  fontFamily: 'inherit',
-                }}
-                onFocus={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.4)'}
-                onBlur={e => e.currentTarget.style.borderColor = 'rgba(109,93,246,0.12)'}
+                className="input flex-1 text-sm"
+                style={{ fontFamily: 'inherit' }}
               />
               <button
                 onClick={saveIdea}

@@ -58,10 +58,12 @@ export function HeaderActions({
   initials = 'DB',
   avatarUrl,
   showNotifications = true,
+  onProfileClick,
 }: {
   initials?: string
   avatarUrl?: string | null
   showNotifications?: boolean
+  onProfileClick?: () => void
 }) {
   return (
     <div className="flex items-center gap-2">
@@ -70,9 +72,15 @@ export function HeaderActions({
           <Bell size={18} />
         </button>
       )}
-      <div className="premium-avatar" aria-label="Perfil">
+      <button
+        type="button"
+        onClick={onProfileClick}
+        className="premium-avatar hover:opacity-90 active:scale-95 transition-all outline-none"
+        aria-label="Perfil e Ajustes"
+        title="Perfil e Ajustes"
+      >
         {avatarUrl ? <img src={avatarUrl} alt="" /> : initials}
-      </div>
+      </button>
     </div>
   )
 }

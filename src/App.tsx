@@ -39,10 +39,10 @@ const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || 'assessoriadbe@gmail.co
 
 function PageLoader() {
   return (
-    <div className="flex items-center justify-center" style={{ minHeight: '100svh', background: '#0D0B14' }}>
+    <div className="flex items-center justify-center" style={{ minHeight: '100svh', background: 'var(--bg-base)' }}>
       <span
         className="w-8 h-8 rounded-full animate-spin"
-        style={{ border: '2px solid rgba(109,93,246,0.3)', borderTopColor: '#9B8CFF' }}
+        style={{ border: '2px solid var(--border-subtle)', borderTopColor: 'var(--brand)' }}
       />
     </div>
   )

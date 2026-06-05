@@ -70,6 +70,7 @@ function extractSpeech(raw: string): string {
   const neutral: string[] = []
   let current: string[] | null = null   // bloco de fala em construção (p/ continuação)
   let hasSpeechLabel = false
+  let skipping = false                  // dentro de um bloco de instrução → descartar continuações
 
   const flush = () => {
     if (current && current.length) speechSegments.push(current.join('\n').trim())
@@ -78,26 +79,31 @@ function extractSpeech(raw: string): string {
 
   for (const rawLine of raw.split(/\r?\n/)) {
     const line = rawLine.trim()
-    if (!line) { flush(); continue }       // linha em branco encerra o bloco atual
+    if (!line) { flush(); skipping = false; continue }  // linha em branco encerra bloco e para de pular
     const colon = line.indexOf(':')
     const kind = colon > 0 && colon <= 40 ? labelKind(line.slice(0, colon)) : null
 
     if (kind === 'speech') {
       flush()
+      skipping = false
       hasSpeechLabel = true
       current = []
       const body = stripInlineDirections(line.slice(colon + 1).trim())
       if (body) current.push(body)
     } else if (kind === 'instruction') {
-      flush()                              // ignora a instrução e o que vier depois dela
+      flush()
+      skipping = true                    // descartar esta linha E as continuações sem rótulo
     } else if (DIRECTION_LINE.test(line)) {
-      flush()                              // linha sem rótulo, mas é direção → descarta
+      flush()
+      skipping = true                    // linha sem rótulo mas é direção → descartar
+    } else if (skipping) {
+      // continuação de um bloco de instrução → descarta (não vai para neutral nem para fala)
     } else if (current) {
       const clean = stripInlineDirections(line)
-      if (clean) current.push(clean)       // continuação de uma fala multi-linha
+      if (clean) current.push(clean)     // continuação de uma fala multi-linha
     } else {
       const clean = stripInlineDirections(line)
-      if (clean) neutral.push(clean)       // texto sem rótulo (fallback)
+      if (clean) neutral.push(clean)     // texto sem rótulo (fallback)
     }
   }
   flush()
@@ -946,8 +952,9 @@ export default function StudioModal({ idea, onClose }: Props) {
               <Pencil size={15} color="rgba(255,255,255,0.85)" />
             </button>
           </div>
-          {/* X do card (esconder) */}
-          <button onClick={() => setShowTeleprompter(false)} className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }} aria-label="Esconder teleprompter">
+          {/* X do card (esconder) — posicionado à ESQUERDA para não sobrepor o X
+              principal "Fechar estúdio" que fica no canto superior DIREITO (right-14). */}
+          <button onClick={() => setShowTeleprompter(false)} className="absolute top-3 left-3 w-8 h-8 rounded-full flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.3)' }} aria-label="Esconder teleprompter">
             <X size={16} color="rgba(255,255,255,0.9)" />
           </button>
         </div>

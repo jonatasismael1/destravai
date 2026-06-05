@@ -55,6 +55,14 @@ export default function MeuEspaco() {
   const location = useLocation()
   const initialTab = (location.state as { tab?: 'espaco' | 'progresso' | 'biblioteca' } | null)?.tab ?? 'espaco'
   const [tab, setTab] = useState<'espaco' | 'progresso' | 'biblioteca'>(initialTab)
+
+  useEffect(() => {
+    const nextTab = (location.state as { tab?: 'espaco' | 'progresso' | 'biblioteca' } | null)?.tab
+    if (nextTab) {
+      setTab(nextTab)
+    }
+  }, [location.state])
+
   const [selectedMood, setSelectedMood] = useState(
     todayMoodDate === today ? (todayMood ?? '') : ''
   )

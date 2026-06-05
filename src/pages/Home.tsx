@@ -121,7 +121,7 @@ function CaptionModal({ caption, hashtags, onClose }: { caption: string; hashtag
 export default function Home() {
   const {
     state, addIdea, updateIdea, updateMission, completeMission,
-    generateTodayContent, setTodayContent, resetTodayContent, setSidebarOpen,
+    generateTodayContent, setTodayContent, resetTodayContent,
   } = useApp()
   const { addToast } = useToast()
   const navigate = useNavigate()
@@ -355,7 +355,7 @@ export default function Home() {
           initials={headerInitials}
           avatarUrl={state.profile?.avatar_url}
           showNotifications={false}
-          onProfileClick={() => setSidebarOpen(true)}
+          onProfileClick={() => navigate('/essencia')}
         />
       </div>
 

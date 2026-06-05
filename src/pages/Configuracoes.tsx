@@ -303,7 +303,7 @@ export default function Configuracoes() {
           icon={TrendingUp}
           label="Progresso"
           sublabel="Consistência, níveis e equilíbrio de conteúdo"
-          onClick={() => navigate('/espaco')}
+          onClick={() => navigate('/espaco', { state: { tab: 'progresso' } })}
         />
         <MenuItem
           icon={Award}

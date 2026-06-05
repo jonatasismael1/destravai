@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
@@ -662,7 +663,7 @@ export default function Configuracoes() {
         Destravaí · Feito com ✦ para profissionais que querem aparecer
       </p>
 
-      {avatarPreviewUrl && (
+      {avatarPreviewUrl && createPortal(
         <div
           className="fixed inset-0 z-[160] flex flex-col justify-end"
           style={{ background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(8px)' }}
@@ -759,7 +760,8 @@ export default function Configuracoes() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

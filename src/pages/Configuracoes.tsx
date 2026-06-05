@@ -7,12 +7,13 @@ import { useTheme } from '../context/ThemeContext'
 import {
   User, Bell, LogOut, ChevronRight, Shield,
   Sparkles, Star, CheckCircle, AlertCircle, Sun, Moon, RefreshCw, TrendingUp,
-  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award, X,
+  KeyRound, CreditCard, LifeBuoy, Loader2, Camera, Compass, Award, X, Pencil, Mail,
 } from 'lucide-react'
 import { useOnboarding, useScreenTour } from '../context/OnboardingContext'
 import { deleteDailyCheckin, toISODateKey } from '../services/userJourneyService'
 import { createTester } from '../services/subscriptionService'
-import { uploadAvatar } from '../services/profileService'
+import { uploadAvatar, updateProfile } from '../services/profileService'
+import { countLibraryItems } from '../services/libraryService'
 import { enableNotifications, disableNotifications, notificationsEnabled, notificationsSupported } from '../services/notificationsService'
 import { supabase } from '../lib/supabase/client'
 
@@ -149,6 +150,61 @@ export default function Configuracoes() {
 
   const handlePickAvatar = () => fileInputRef.current?.click()
 
+  // Contador "Conteúdos": total REAL salvo na biblioteca (persistido no banco).
+  // Antes mostrava state.ideas.length, que conta só as ideias geradas na sessão
+  // atual e zera ao recarregar — por isso aparecia 0 depois de um reload.
+  const [contentCount, setContentCount] = useState<number | null>(null)
+  useEffect(() => {
+    let active = true
+    countLibraryItems().then(n => { if (active) setContentCount(n) }).catch(() => {})
+    return () => { active = false }
+  }, [])
+
+  // Edição de nome e e-mail de acesso (modal).
+  const [showProfileEdit, setShowProfileEdit] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+
+  const openProfileEdit = () => {
+    setEditName(state.profile?.name ?? '')
+    setEditEmail(state.supabaseUser?.email ?? state.profile?.email ?? '')
+    setShowProfileEdit(true)
+  }
+
+  const handleSaveProfile = async () => {
+    const name = editName.trim()
+    const email = editEmail.trim().toLowerCase()
+    const currentEmail = (state.supabaseUser?.email ?? state.profile?.email ?? '').toLowerCase()
+
+    if (!name) { addToast('Informe seu nome.', 'error'); return }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { addToast('Informe um e-mail válido.', 'error'); return }
+
+    setSavingProfile(true)
+    try {
+      // Nome → tabela de perfil. Atualização otimista no estado local.
+      if (name !== (state.profile?.name ?? '')) {
+        const updated = await updateProfile({ name })
+        setProfile(updated)
+      }
+      // E-mail → Auth do Supabase. A troca exige confirmação por link no NOVO
+      // e-mail; o Supabase recusa se já estiver em uso (sem duplicar). Só então
+      // o e-mail de acesso muda de fato.
+      if (email && email !== currentEmail) {
+        const { error } = await supabase.auth.updateUser({ email })
+        if (error) throw error
+        addToast('Enviamos um link para o novo e-mail. A troca vale após você confirmar por lá.', 'success')
+      } else {
+        addToast('Perfil atualizado!', 'success')
+      }
+      setShowProfileEdit(false)
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Erro ao salvar o perfil.', 'error')
+    } finally {
+      setSavingProfile(false)
+    }
+  }
+
   useEffect(() => {
     return () => {
       if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl)
@@ -280,6 +336,16 @@ export default function Configuracoes() {
 
       {/* Profile card */}
       <div className="relative rounded-2xl p-5 overflow-hidden app-card">
+        {/* Editar nome e e-mail de acesso */}
+        <button
+          onClick={openProfileEdit}
+          className="absolute top-3 right-3 z-10 w-8 h-8 rounded-full flex items-center justify-center transition-all active:scale-95"
+          style={{ background: 'var(--bg-surface)', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+          aria-label="Editar nome e e-mail"
+          title="Editar nome e e-mail"
+        >
+          <Pencil size={14} />
+        </button>
         <div className="flex items-center gap-4">
           <button
             onClick={handlePickAvatar}
@@ -320,7 +386,9 @@ export default function Configuracoes() {
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: 'Dias ativos', value: progress.currentStreak },
-          { label: 'Conteúdos', value: state.ideas.length },
+          // Total salvo na biblioteca (persistido). Enquanto carrega, mostra o
+          // que houver da sessão como aproximação.
+          { label: 'Conteúdos', value: contentCount ?? state.ideas.length },
           { label: 'Missões', value: progress.missionsCompleted },
         ].map(stat => (
           <div key={stat.label} className="premium-card p-3 text-center">
@@ -662,6 +730,88 @@ export default function Configuracoes() {
       <p className="text-center text-[10px] pb-4" style={{ color: 'var(--text-muted)' }}>
         Destravaí · Feito com ✦ para profissionais que querem aparecer
       </p>
+
+      {/* Modal: editar nome e e-mail de acesso (portal no body, como os demais) */}
+      {showProfileEdit && createPortal(
+        <div
+          className="fixed inset-0 z-[160] flex flex-col justify-end"
+          style={{ background: 'rgba(0,0,0,0.68)', backdropFilter: 'blur(8px)' }}
+          onClick={e => { if (e.target === e.currentTarget && !savingProfile) setShowProfileEdit(false) }}
+        >
+          <div
+            className="rounded-t-3xl max-w-md w-full mx-auto flex flex-col overflow-hidden"
+            style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', maxHeight: '92vh' }}
+          >
+            <div className="flex-1 min-h-0 p-5 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Editar perfil</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Atualize seu nome e o e-mail de acesso.</p>
+                </div>
+                <button
+                  onClick={() => setShowProfileEdit(false)}
+                  disabled={savingProfile}
+                  className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
+                  style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}
+                  aria-label="Fechar"
+                >
+                  <X size={17} />
+                </button>
+              </div>
+
+              <div>
+                <label className="label">Nome</label>
+                <div className="relative">
+                  <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                  <input
+                    className="input pl-9"
+                    value={editName}
+                    onChange={e => setEditName(e.target.value)}
+                    placeholder="Seu nome"
+                    maxLength={80}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">E-mail de acesso</label>
+                <div className="relative">
+                  <Mail size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }} />
+                  <input
+                    className="input pl-9"
+                    type="email"
+                    value={editEmail}
+                    onChange={e => setEditEmail(e.target.value)}
+                    placeholder="voce@email.com"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                  />
+                </div>
+                <div className="rounded-xl p-2.5 mt-2 flex items-start gap-2"
+                  style={{ background: 'rgba(247,185,85,0.07)', border: '1px solid rgba(247,185,85,0.15)' }}>
+                  <AlertCircle size={13} style={{ color: '#F7B955', flexShrink: 0, marginTop: 1 }} />
+                  <p className="text-[10px]" style={{ color: 'var(--text-secondary)' }}>
+                    Ao trocar o e-mail, enviaremos um link de confirmação para o novo endereço. A troca só vale depois que você confirmar — assim ninguém usa um e-mail inválido ou já cadastrado.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div
+              className="flex-shrink-0 grid grid-cols-2 gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
+            >
+              <button onClick={() => setShowProfileEdit(false)} disabled={savingProfile} className="btn-secondary py-3 text-sm disabled:opacity-40">
+                Cancelar
+              </button>
+              <button onClick={handleSaveProfile} disabled={savingProfile} className="btn-primary py-3 text-sm disabled:opacity-40">
+                {savingProfile ? <><Loader2 size={15} className="animate-spin" /> Salvando...</> : <><CheckCircle size={15} /> Salvar</>}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {avatarPreviewUrl && createPortal(
         <div

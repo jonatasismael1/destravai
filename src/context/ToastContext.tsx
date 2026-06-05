@@ -22,11 +22,15 @@ const TOAST_ICONS: Record<ToastType, string> = {
   error: '✕',
 }
 
-const TOAST_STYLES: Record<ToastType, { bg: string; border: string; color: string }> = {
-  success: { bg: 'rgba(83,214,161,0.12)', border: 'rgba(83,214,161,0.35)', color: '#53D6A1' },
-  info: { bg: 'rgba(109,93,246,0.12)', border: 'rgba(109,93,246,0.35)', color: '#9B8CFF' },
-  warning: { bg: 'rgba(247,185,85,0.12)', border: 'rgba(247,185,85,0.35)', color: '#F7B955' },
-  error: { bg: 'rgba(255,122,107,0.12)', border: 'rgba(255,122,107,0.35)', color: '#FF7A6B' },
+// O toast fica sobre um fundo SÓLIDO (var(--bg-elevated)) com um leve tom da cor
+// do tipo + borda colorida. Antes o fundo era um verde muito transparente: no
+// tema claro o card sumia e o texto branco ficava ilegível. Agora o texto usa a
+// cor de texto do tema (escuro no claro, claro no escuro) e o acento continua verde.
+const TOAST_STYLES: Record<ToastType, { tint: string; border: string; color: string }> = {
+  success: { tint: 'rgba(83,214,161,0.16)', border: 'rgba(83,214,161,0.55)', color: '#1Fae7a' },
+  info: { tint: 'rgba(109,93,246,0.16)', border: 'rgba(109,93,246,0.55)', color: '#6D5DF6' },
+  warning: { tint: 'rgba(247,185,85,0.18)', border: 'rgba(247,185,85,0.6)', color: '#C98A1E' },
+  error: { tint: 'rgba(255,122,107,0.16)', border: 'rgba(255,122,107,0.55)', color: '#E0483A' },
 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
@@ -52,17 +56,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               key={toast.id}
               className="animate-fade-up flex items-center gap-3 px-4 py-3 rounded-2xl"
               style={{
-                background: style.bg,
+                // Tom da cor sobre um fundo SÓLIDO do tema → card sempre legível.
+                background: `linear-gradient(${style.tint}, ${style.tint}), var(--bg-elevated)`,
                 border: `1px solid ${style.border}`,
-                backdropFilter: 'blur(20px)',
-                WebkitBackdropFilter: 'blur(20px)',
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                boxShadow: 'var(--shadow-card, 0 8px 32px rgba(0,0,0,0.4))',
               }}
             >
               <span className="text-sm font-black flex-shrink-0" style={{ color: style.color }}>
                 {TOAST_ICONS[toast.type]}
               </span>
-              <p className="text-sm font-semibold" style={{ color: '#F0EEF8' }}>{toast.message}</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{toast.message}</p>
             </div>
           )
         })}

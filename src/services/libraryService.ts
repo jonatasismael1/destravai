@@ -44,6 +44,21 @@ export async function getLibraryItems(
   return { items: data ?? [], total: count ?? 0 }
 }
 
+// Total de conteúdos salvos na biblioteca do usuário (persistido no banco).
+// Usado no contador "Conteúdos" da tela Você — o número real, que sobrevive a
+// recarregar a página (diferente das ideias geradas só na sessão atual).
+export async function countLibraryItems(): Promise<number> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return 0
+
+  const { count } = await supabase
+    .from('destravai_library_items')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+
+  return count ?? 0
+}
+
 export async function hasLibraryItems(): Promise<boolean> {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false

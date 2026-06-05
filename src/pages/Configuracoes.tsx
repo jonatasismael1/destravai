@@ -18,7 +18,7 @@ import { supabase } from '../lib/supabase/client'
 const SUPPORT_EMAIL = 'assessoriadbe@gmail.com'
 const ADMIN_EMAIL = 'assessoriadbe@gmail.com'
 
-async function cropAvatarFile(file: File, position: { x: number; y: number }): Promise<File> {
+async function cropAvatarFile(file: File, position: { x: number; y: number }, zoom = 1): Promise<File> {
   const objectUrl = URL.createObjectURL(file)
   try {
     const image = await new Promise<HTMLImageElement>((resolve, reject) => {
@@ -28,9 +28,11 @@ async function cropAvatarFile(file: File, position: { x: number; y: number }): P
       img.src = objectUrl
     })
 
-    const size = Math.min(image.naturalWidth, image.naturalHeight)
-    const sx = Math.max(0, (image.naturalWidth - size) * (position.x / 100))
-    const sy = Math.max(0, (image.naturalHeight - size) * (position.y / 100))
+    // Janela quadrada de recorte. Quanto maior o zoom, MENOR a janela (aproxima).
+    const base = Math.min(image.naturalWidth, image.naturalHeight)
+    const size = base / Math.max(1, zoom)
+    const sx = Math.max(0, Math.min(image.naturalWidth - size, (image.naturalWidth - size) * (position.x / 100)))
+    const sy = Math.max(0, Math.min(image.naturalHeight - size, (image.naturalHeight - size) * (position.y / 100)))
     const canvas = document.createElement('canvas')
     canvas.width = 900
     canvas.height = 900
@@ -142,6 +144,7 @@ export default function Configuracoes() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState('')
   const [avatarPosition, setAvatarPosition] = useState({ x: 50, y: 50 })
+  const [avatarZoom, setAvatarZoom] = useState(1)
 
   const handlePickAvatar = () => fileInputRef.current?.click()
 
@@ -161,6 +164,7 @@ export default function Configuracoes() {
     setAvatarFile(file)
     setAvatarPreviewUrl(URL.createObjectURL(file))
     setAvatarPosition({ x: 50, y: 50 })
+    setAvatarZoom(1)
   }
 
   const closeAvatarPreview = () => {
@@ -168,13 +172,14 @@ export default function Configuracoes() {
     setAvatarFile(null)
     setAvatarPreviewUrl('')
     setAvatarPosition({ x: 50, y: 50 })
+    setAvatarZoom(1)
   }
 
   const handleConfirmAvatar = async () => {
     if (!avatarFile) return
     setUploadingAvatar(true)
     try {
-      const cropped = await cropAvatarFile(avatarFile, avatarPosition)
+      const cropped = await cropAvatarFile(avatarFile, avatarPosition, avatarZoom)
       const url = await uploadAvatar(cropped)
       if (state.profile) setProfile({ ...state.profile, avatar_url: url })
       addToast('Foto atualizada!', 'success')
@@ -664,65 +669,88 @@ export default function Configuracoes() {
           onClick={e => { if (e.target === e.currentTarget && !uploadingAvatar) closeAvatarPreview() }}
         >
           <div
-            className="rounded-t-3xl p-5 pb-8 space-y-5 max-w-md w-full mx-auto"
-            style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
+            className="rounded-t-3xl max-w-md w-full mx-auto flex flex-col overflow-hidden"
+            style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)', maxHeight: '92vh' }}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Ajustar foto</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Escolha o melhor enquadramento antes de salvar.</p>
+            {/* Área rolável: garante que tudo seja acessível mesmo em telas baixas. */}
+            <div className="p-5 space-y-4 overflow-y-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-extrabold text-base" style={{ color: 'var(--text-primary)' }}>Ajustar foto</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>Aproxime e enquadre antes de salvar.</p>
+                </div>
+                <button
+                  onClick={closeAvatarPreview}
+                  disabled={uploadingAvatar}
+                  className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
+                  style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}
+                  aria-label="Fechar"
+                >
+                  <X size={17} />
+                </button>
               </div>
-              <button
-                onClick={closeAvatarPreview}
-                disabled={uploadingAvatar}
-                className="w-9 h-9 rounded-full flex items-center justify-center disabled:opacity-40"
-                style={{ background: 'var(--bg-surface)', color: 'var(--text-muted)' }}
-                aria-label="Fechar"
-              >
-                <X size={17} />
-              </button>
-            </div>
 
-            <div className="flex justify-center">
-              <div
-                className="w-48 h-48 rounded-[34px] overflow-hidden"
-                style={{ background: 'var(--bg-input)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-card)' }}
-              >
-                <img
-                  src={avatarPreviewUrl}
-                  alt="Prévia da foto de perfil"
-                  className="w-full h-full object-cover"
-                  style={{ objectPosition: `${avatarPosition.x}% ${avatarPosition.y}%` }}
-                />
+              <div className="flex justify-center">
+                <div
+                  className="w-40 h-40 rounded-[34px] overflow-hidden"
+                  style={{ background: 'var(--bg-input)', border: '1px solid var(--border-strong)', boxShadow: 'var(--shadow-card)' }}
+                >
+                  <img
+                    src={avatarPreviewUrl}
+                    alt="Prévia da foto de perfil"
+                    className="w-full h-full object-cover"
+                    style={{
+                      objectPosition: `${avatarPosition.x}% ${avatarPosition.y}%`,
+                      transform: `scale(${avatarZoom})`,
+                      transformOrigin: `${avatarPosition.x}% ${avatarPosition.y}%`,
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3.5">
+                <label className="block">
+                  <span className="label mb-2">Aproximar / afastar</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.01"
+                    value={avatarZoom}
+                    onChange={e => setAvatarZoom(Number(e.target.value))}
+                    className="w-full accent-[var(--brand)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="label mb-2">Mover para os lados</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={avatarPosition.x}
+                    onChange={e => setAvatarPosition(pos => ({ ...pos, x: Number(e.target.value) }))}
+                    className="w-full accent-[var(--brand)]"
+                  />
+                </label>
+                <label className="block">
+                  <span className="label mb-2">Mover para cima/baixo</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={avatarPosition.y}
+                    onChange={e => setAvatarPosition(pos => ({ ...pos, y: Number(e.target.value) }))}
+                    className="w-full accent-[var(--brand)]"
+                  />
+                </label>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="block">
-                <span className="label mb-2">Mover para os lados</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={avatarPosition.x}
-                  onChange={e => setAvatarPosition(pos => ({ ...pos, x: Number(e.target.value) }))}
-                  className="w-full accent-[var(--brand)]"
-                />
-              </label>
-              <label className="block">
-                <span className="label mb-2">Mover para cima/baixo</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={avatarPosition.y}
-                  onChange={e => setAvatarPosition(pos => ({ ...pos, y: Number(e.target.value) }))}
-                  className="w-full accent-[var(--brand)]"
-                />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
+            {/* Footer fixo: os botões ficam SEMPRE visíveis, sem depender de rolagem. */}
+            <div
+              className="grid grid-cols-2 gap-2 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              style={{ background: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
+            >
               <button onClick={closeAvatarPreview} disabled={uploadingAvatar} className="btn-secondary py-3 text-sm disabled:opacity-40">
                 Cancelar
               </button>

@@ -100,6 +100,30 @@ function extractSpeech(raw: string): string {
   return neutral.join('\n').trim() || raw.trim()
 }
 
+// Normaliza texto p/ comparar (sem acento/pontuação/caixa) e detectar se o CTA
+// já está dito dentro da fala — assim não duplicamos ao acrescentá-lo.
+function normalizeForMatch(s: string): string {
+  // Remove acentos (faixa Unicode de marcas combinantes U+0300–U+036F) e pontuação,
+  // deixando só letras/números/espaço — para comparar fala e CTA com tolerância.
+  return s
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+// Texto final do teleprompter: as FALAS + o CTA ao final. O CTA é algo que a
+// pessoa FALA (a chamada para ação dita), então precisa aparecer no teleprompter.
+// Só é acrescentado quando ainda não está presente na fala (evita repetir).
+function buildTeleprompterScript(content: string, cta?: string): string {
+  const speech = extractSpeech(content)
+  const call = (cta ?? '').trim()
+  if (!call) return speech
+  if (normalizeForMatch(speech).includes(normalizeForMatch(call))) return speech
+  return `${speech}\n\n${call}`.trim()
+}
+
 function formatTimer(s: number) {
   return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
 }
@@ -258,8 +282,8 @@ export default function StudioModal({ idea, onClose }: Props) {
   // neste aparelho, mostramos um aviso (o arquivo continua gravado e salvável).
   const [previewError, setPreviewError] = useState(false)
 
-  // Teleprompter — recebe SOMENTE as falas (sem ação/visual/câmera/dica).
-  const [script, setScript] = useState(() => extractSpeech(idea.content))
+  // Teleprompter — recebe as FALAS (sem ação/visual/câmera/dica) + o CTA falado.
+  const [script, setScript] = useState(() => buildTeleprompterScript(idea.content, idea.cta))
   const [showTeleprompter, setShowTeleprompter] = useState(true)
   const [showEditor, setShowEditor] = useState(false)
   const [showSettings, setShowSettings] = useState(false)

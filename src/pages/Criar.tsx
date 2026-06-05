@@ -339,6 +339,9 @@ function ResultCard({ idea, onVariation, onSave, onCopy, onRecord, onCaption, bu
                   type: 'story',
                   theme: `Story ${i + 1} — ${idea.theme}`,
                   content: body,
+                  // O CTA pertence só ao ÚLTIMO story (é onde a fala fecha com a
+                  // chamada). Sem isso, o teleprompter acrescentaria o CTA em todos.
+                  cta: i === stories.length - 1 ? idea.cta : '',
                 }
                 // Texto da tela limpo deste story (só o que vai escrito na imagem).
                 const screenText = extractScreenText(story)

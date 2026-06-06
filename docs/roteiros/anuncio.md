@@ -1,107 +1,122 @@
 # Vídeos de Anúncio — Copies (Tráfego Pago)
 
-Formato: 15s–30s, direto, gancho nos primeiros 3 segundos.
-Tom: sem exagero, focado em dor específica, CTA claro.
-Plataformas: Instagram Ads, Facebook Ads, TikTok Ads.
+Fonte de verdade: [[00-mensagem-base]]. Alinhado com a LP (`lpdestravai.dbe.digital`).
+
+Formato: 15s–30s, gancho nos 3 primeiros segundos, foco em stories.
+Tom: conversa do dia a dia, como se você estivesse contando pra um amigo. Sem fórmula, sem locução.
+
+**Regra de preço:** anúncio **frio não fala preço**. O trabalho dele é parar o scroll, gerar
+identificação e ganhar o clique. Quem vende preço é a landing page. Preço só aparece no
+anúncio de **remarketing** (Anúncio 6), pra quem já visitou. CTA do frio = "toca no link / vê como funciona".
 
 ---
 
-## Anúncio 1 — "Bloqueio criativo" (15s)
+## Anúncio 1 — "Abre e fecha" (frio · 15s)
 
-**[0–3s — gancho visual + texto]**
-[Texto na tela: "Você trava toda vez que vai criar conteúdo?"]
+**[0–3s — texto na tela]**
+[Texto: "Abriu os stories hoje e fechou sem postar nada?"]
 
-**[3–10s — dor]**
-Isso não é falta de talento. É falta de sistema.
-Você sabe o que fazer. Só não tem o processo certo.
+**[3–10s — você falando, casual]**
+Acontece toda semana, né? E não é que falta assunto. É que na hora de gravar bate aquele branco e você não sabe nem por onde começar.
 
-**[10–15s — solução + CTA]**
-O Destravaí gera seu roteiro em segundos.
-[Texto: "Testa grátis — link abaixo"]
+**[10–15s — CTA]**
+Tem um jeito de nunca mais abrir os stories sem saber o que dizer. Toca no link que eu te mostro.
 
 ---
 
-## Anúncio 2 — "Constância" (15s)
+## Anúncio 2 — "Sem produção" (frio · 15s)
 
-**[0–3s — gancho]**
-[Texto na tela: "Você postou esta semana?"]
+**[0–3s — texto na tela]**
+[Texto: "Você não precisa de produção nenhuma pra postar story."]
 
-**[3–10s — agitação]**
-O algoritmo premia quem aparece todo dia. Não quem posta quando tem inspiração.
+**[3–10s — falando]**
+Sério. O que cansa não é a câmera — é tentar decorar o que falar e gravar dez vezes até sair alguma coisa.
 
-**[10–15s — solução + CTA]**
-Roteiro diário gerado por IA. Pessoal. Pronto pra gravar.
-[Texto: "Comece agora"]
-
----
-
-## Anúncio 3 — "2 minutos" (20s)
-
-**[0–3s — gancho]**
-[Texto: "E se você criasse um story em 2 minutos?"]
-
-**[3–12s — demonstração rápida]**
-Você abre o app, faz o check-in rápido — o que você tem hoje — e já recebe o roteiro.
-Tema, estrutura, CTA. Tudo pronto.
-Só você e a câmera.
-
-**[12–20s — CTA]**
-Destravaí. Seu roteiro, todo dia, sem travar.
-[Texto: "Acesse agora — link no perfil"]
+**[10–15s — CTA]**
+Imagina ler o roteiro na própria tela e gravar de primeira. É isso que esse app faz. Link aqui embaixo.
 
 ---
 
-## Anúncio 4 — "Antes e depois" (30s)
+## Anúncio 3 — "O sumiço" (frio · 20s)
+
+**[0–3s — texto na tela]**
+[Texto: "Posta um dia, some uma semana, volta, some de novo…"]
+
+**[3–13s — falando]**
+E olha, não é preguiça. É que toda vez você começa do zero: pensa no tema, tenta escrever, trava, e deixa pra amanhã. Aí amanhã é a mesma coisa.
+
+**[13–20s — CTA]**
+E se a ideia do dia já chegasse pronta, com o roteiro do seu jeito? Toca no link e vê como funciona.
+
+---
+
+## Anúncio 4 — "Antes e depois" (frio · 30s)
 
 **[0–5s — antes]**
-[Texto na tela: "Antes do Destravaí"]
-Você para em frente à câmera. Nada vem. Você fecha o app. Mais um dia sem postar.
+[Texto: "Antes"]
+Você senta pra gravar, fica encarando a câmera, não vem nada, e fecha o app. Mais um dia sem aparecer.
 
-**[5–20s — depois]**
-[Texto na tela: "Com o Destravaí"]
-Você faz o check-in. O app entrega o roteiro. Você grava com o teleprompter. Está no feed em menos de 10 minutos.
+**[5–22s — depois]**
+[Texto: "Depois"]
+Agora imagina abrir o app, ele já te dar a ideia do dia e o roteiro pronto, e você gravar lendo na própria tela. Tá postado em minutos, sem travar no meio.
 
-**[20–30s — CTA]**
-Não é magia. É sistema.
-[Texto: "Teste agora — primeiro acesso em 2 min"]
+**[22–30s — CTA]**
+A diferença não tá em ser bom de câmera. Tá em ter um caminho pronto. Vê como funciona no link.
 
 ---
 
-## Anúncio 5 — "Profissionais" (20s) — segmento específico
+## Anúncio 5 — "Pra quem vive de aparecer" (frio · 20s) — segmento
 
-**[0–5s — gancho]**
-Médica, advogada, terapeuta, consultora. Você tem muito a dizer.
-Mas não tem tempo pra ficar pensando em roteiro de story.
+**[0–5s — falando, direto pra câmera]**
+Pra você que é médica, dentista, nutri, psicóloga, advogada: você tem MUITA coisa boa pra falar. Só que sentar e montar story todo dia, ninguém tem tempo.
 
-**[5–15s — solução]**
-O Destravaí entende sua área. Gera conteúdos com a linguagem certa pra sua especialidade.
-Sem parecer robótico. Sem fugir do seu jeito.
+**[5–15s]**
+Esse app entende a sua área e te entrega os stories já no seu tom, prontos pra gravar. Nada de texto genérico com cara de robô.
 
 **[15–20s — CTA]**
-Link abaixo. Começa hoje.
+Link aqui embaixo pra ver funcionando.
+
+---
+
+## Anúncio 6 — Remarketing / oferta (quente · 15s) — só pra quem já visitou
+
+**[0–4s — texto na tela]**
+[Texto: "Você viu o Destravaí e ainda não testou?"]
+
+**[4–11s — falando]**
+Ele tá no valor de lançamento: o primeiro mês sai por R$29,90, e ainda tem garantia de 7 dias. Se não curtir, é só pedir o dinheiro de volta.
+
+**[11–15s — CTA]**
+Bora destravar seus stories de uma vez — link aqui.
 
 ---
 
 ## Diretrizes para anúncios
 
 ### Primeiros 3 segundos — obrigatório ter:
-- Texto grande na tela (leitura sem som)
-- Uma pergunta ou afirmação que toca numa dor real
-- Sem logo, sem apresentação, sem "Oi, sou fulano"
+- Texto grande na tela (a maioria assiste sem som).
+- Uma cena ou frase do dia a dia que a pessoa se reconhece (abrir e fechar os stories, regravar dez vezes, sumir).
+- Sem logo, sem "oi, sou fulano", sem se apresentar antes do gancho.
 
-### Estrutura base:
-1. Gancho (dor ou curiosidade)
-2. Agitação (consequência de não resolver)
-3. Solução (o produto como resposta direta)
-4. CTA claro (sem rodeios)
+### Estrutura (frio):
+1. Gancho — a cena que a pessoa vive.
+2. Identificação — "acontece com todo mundo", tira o peso sem soar fórmula.
+3. Curiosidade — existe um jeito mais simples.
+4. CTA — clicar pra ver. **Sem preço.**
+
+### Linguagem — faça soar gente:
+- Fale como você falaria pra um amigo: "né?", "olha", "sério", "aí você…".
+- Evite frases-fórmula ditas secas, tipo "não é falta de talento, é falta de sistema".
+  Se for usar o reframe, diga do jeito natural: "você manda bem no que faz — agora postar sobre isso todo dia é outra história".
+- Uma ideia por anúncio. Um CTA por anúncio.
 
 ### O que evitar:
-- Promessas exageradas ("Cresça 10x em 30 dias")
-- Linguagem de guru ou hype
-- Apresentações longas antes do gancho
-- Mais de 2 CTAs diferentes no mesmo vídeo
+- Preço em anúncio frio (deixa pra LP e pro remarketing).
+- "Teste grátis" — **não existe**. Quando falar de oferta (só no quente), use "1º mês por R$29,90" e "garantia de 7 dias".
+- Promessas exageradas ("cresça 10x") e linguagem de guru.
+- Prometer postar sozinho no Instagram (o app entrega o vídeo pronto; quem posta é o usuário).
 
-### Thumbnails (caso aplicável):
-- Rosto com expressão de frustração ou alívio (divide testes)
-- Texto curto: "Finalmente sei o que postar" ou "Parei de travar no Instagram"
-- Fundo limpo, fonte grande, sem poluição visual
+### Thumbnails / variações de teste:
+- Rosto travado vs. aliviado (divide testes).
+- Texto curto: "Parei de travar nos stories" / "Nunca mais sem saber o que postar".
+- Fundo limpo, fonte grande, sem poluição.

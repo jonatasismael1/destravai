@@ -1,75 +1,80 @@
 # Vídeo Explicativo — Copies
 
-Formato: 90s–3min, didático, mostra a ferramenta.
-Tom: claro, prático, sem termos técnicos.
+Fonte de verdade: [[00-mensagem-base]]. Alinhado com a LP (`lpdestravai.dbe.digital`).
+
+Formato: 90s–3min, didático, mostra a ferramenta na tela.
+Tom: claro, conversa, prático, sem termos técnicos.
 
 ---
 
 ## Roteiro 1 — "Como funciona o Destravaí"
 
 **[0–15s — contexto]**
-Se você usa redes sociais pra trabalho mas trava toda vez que precisa criar conteúdo, esse vídeo é pra você.
+Se você trava toda vez que vai postar stories — abre, não sabe o que falar e fecha — esse vídeo é pra você. Deixa eu te mostrar como isso deixa de acontecer.
 
 **[15–40s — o que é]**
-O Destravaí é um app que gera roteiros personalizados de stories, reels e sequências usando IA — mas sem parecer robótico.
-Você configura uma vez o que você faz, quem é seu público e como você fala. Daí pra frente, o app usa isso pra criar conteúdos que soam como você.
+O Destravaí cria ideias, roteiros e sequências de stories usando IA — mas sem cara de robô.
+Você configura uma vez a sua essência: o que faz, quem é seu público e como você fala. Daí pra frente, o app usa isso pra gerar conteúdo que soa como você, não como qualquer um.
 
-**[40–80s — como usar]**
+**[40–85s — como usar, mostrando a tela]**
 Na prática é assim:
-1. Você abre o app e faz o check-in do dia. Quanto tempo tem? O que quer fazer?
-2. O app gera o roteiro na hora — tema, estrutura, CTA.
-3. Clica em "Gravar" e o teleprompter aparece na tela enquanto você grava. Sem travar.
-4. Salva na biblioteca ou posta direto.
+1. Você abre a tela "Hoje" e faz o check-in: quanto tempo tem, o que quer — vender, educar.
+2. O app te dá a missão do dia: a ideia, já com roteiro e CTA.
+3. Em "Criar" você escolhe o formato — story único, sequência ou reels curto.
+4. Toca em gravar e o teleprompter aparece: você lê na tela enquanto grava, sem decorar nada.
+5. Salva na biblioteca e posta com a legenda e as hashtags prontas.
 
-**[80–100s — diferencial]**
-O app ainda acompanha sua constância. Você vê quantos dias seguidos produziu conteúdo — e é isso que faz a diferença no algoritmo e na sua presença.
+**[85–105s — diferencial]**
+E não para por aí: o app acompanha a sua constância e organiza a semana no calendário. Aparecer com frequência é o que te mantém na cabeça do seu público — e o que vende no longo prazo.
 
-**[100–110s — CTA]**
-Link na bio ou no botão abaixo. Primeiro acesso em menos de 2 minutos.
+**[105–115s — CTA]**
+Link na bio ou no botão abaixo. Primeiro mês por R$29,90, com garantia de 7 dias. Sem fidelidade.
 
 ---
 
 ## Roteiro 2 — "O teleprompter integrado"
 
 **[0–10s]**
-Você já travou na metade de um story e teve que regravar cinco vezes?
+Você já travou no meio de um story e teve que regravar cinco vezes? O problema não é você.
 
 **[10–30s]**
-No Destravaí, cada roteiro gerado tem um teleprompter integrado. Você abre, a câmera ativa, e o texto passa enquanto você fala — direto na tela, no ritmo certo.
+No Destravaí, cada roteiro tem um teleprompter integrado. Você abre, a câmera ativa, e o texto passa na tela enquanto você fala — no seu ritmo, do seu jeito.
 
 **[30–60s]**
-Não precisa memorizar nada. Não precisa improvisar. Você só lê e grava. O resultado parece natural porque é o seu jeito de falar, com as suas palavras.
+Não precisa decorar. Não precisa improvisar. Você só lê e grava. Fica natural porque são as suas palavras, no seu tom — não um script genérico.
 
-**[60–75s]**
-Funciona no celular, em qualquer câmera, na vertical ou horizontal.
+**[60–80s]**
+É o que tira aquela objeção de "não sei gravar / não tenho produção". Você não precisa de superprodução pra postar. Precisa do roteiro na tela.
 
-**[75–90s]**
-Testa agora — link na bio.
+**[80–90s]**
+Testa agora — link na bio. Primeiro mês por R$29,90.
 
 ---
 
-## Roteiro 3 — "A biblioteca de conteúdos"
+## Roteiro 3 — "Da ideia ao post, sem trocar de aba"
 
 **[0–10s]**
-E se você tivesse um banco de ideias prontas pra cada vez que travasse?
+Sabe o "sistema" que a maioria usa pra postar? IA numa aba, bloco de notas em outra, um app de gravar e uma planilha de constância. E aí desiste no meio.
 
 **[10–35s]**
-O Destravaí gera e salva automaticamente uma biblioteca de conteúdos baseada no que você faz. Stories, sequências, reels — por categoria, por objetivo, por formato.
+O Destravaí junta tudo num fluxo só: a sua essência, a ideia do dia, o roteiro pronto, a sequência estratégica, a biblioteca e o teleprompter. Tudo no mesmo app, no celular.
 
 **[35–60s]**
-Quando você não tem ideia do que postar, você não fica olhando pra tela em branco. Você abre a biblioteca, escolhe, personaliza e grava.
+Quando você não tem ideia do que postar, você não encara a tela em branco. Abre o app, recebe a missão do dia, ajusta no seu tom e grava. Menos abas abertas, menos tempo pensando, mais conteúdo saindo.
 
 **[60–80s]**
-Tudo organizado, acessível, pronto pra usar. No celular, onde você estiver.
+E o que funcionou fica salvo na biblioteca, pronto pra reaproveitar.
 
 **[80–90s]**
-Acessa pelo link na bio.
+Comece por R$29,90 no primeiro mês — link na bio.
 
 ---
 
 ## Notas de produção
 
-- Grave em tela dividida: você de um lado, a interface do app do outro
-- Mostre o flow real: check-in → roteiro gerado → teleprompter → gravação
-- Use narração ao vivo sobre a demonstração (não narração dublada)
-- Legendas em todas as versões (60%+ dos usuários assistem sem som)
+- Grave em tela dividida: você de um lado, a interface real do app do outro.
+- Mostre o fluxo de verdade: check-in (tela Hoje) → roteiro → Criar (formato) → teleprompter → vídeo pronto.
+- Use narração ao vivo sobre a demonstração (não dublada).
+- Legendas em todas as versões (60%+ assistem sem som).
+- Nomes reais das abas: Hoje, Criar, Espaço, Agenda, Você.
+- Oferta correta: 1º mês R$29,90, depois R$49,90/mês, garantia de 7 dias. Um plano só. Sem "grátis". Ver [[00-mensagem-base]].

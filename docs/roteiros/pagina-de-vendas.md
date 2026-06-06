@@ -1,101 +1,121 @@
-# Vídeo de Página de Vendas — Copies
+# Vídeo de Página de Vendas (VSL) — Copies
 
-Formato: 3 a 8 minutos, estruturado, com pausas.
-Tom: claro, direto, sem hype, orientado ao problema real.
+Fonte de verdade: [[00-mensagem-base]]. Alinhado com a LP (`lpdestravai.dbe.digital`).
+
+Formato: 3 a 7 minutos, estruturado, com pausas.
+Tom: claro, conversa, sem hype, orientado ao problema real de stories.
 
 ---
 
 ## Roteiro Principal — Versão Completa (5–7 min)
 
 ### [ABERTURA — 0–30s]
+Você está aqui porque quer aparecer e vender pelos stories. Mas tem um problema que quase
+ninguém admite: você abre os stories e não sabe o que postar.
 
-Você está aqui porque quer crescer nas redes. Mas tem um problema que ninguém fala abertamente:
-não é a qualidade do seu conteúdo que te impede. É a consistência.
-
-Você sabe o que fazer. Só não consegue fazer todo dia.
+E não é que você não tenha o que dizer — você manda muito bem no que faz. O nó é outro: na
+hora de gravar, decidir o que postar hoje sem soar repetitivo, forçado ou sem direção.
 
 ---
 
 ### [PROBLEMA — 30s–2min]
+Pensa na última semana. Quantos dias você postou stories de verdade?
 
-Pensa na última semana.
-Quantos dias você postou?
+Agora pensa: quantas vezes você teve uma ideia boa mas não virou conteúdo porque você travou
+na hora de decidir como falar?
 
-Agora pensa: quantas vezes você teve uma ideia boa mas não transformou em conteúdo porque travou na hora de escrever ou gravar?
+Esse ciclo é conhecido: você abre a câmera, a cabeça esvazia, você fecha o app e deixa pra
+depois. Depois nunca chega. Aí você só posta quando bate inspiração — e some o resto do tempo.
 
-Esse ciclo tem nome: bloqueio criativo.
-E ele não é fraqueza. É falta de sistema.
-
-Quando você não tem um processo claro — o que dizer, como dizer, quando dizer — a criatividade não flui. Você fica esperando inspiração que nunca chega no momento certo.
+E o problema nunca foi falta de ideia. É falta de direção. Você tem mil ideias soltas e nenhuma
+sequência com começo, meio e fim.
 
 ---
 
 ### [AGITAÇÃO — 2–3min]
+Enquanto você some, o seu público esquece. Quem aparece com constância é quem fica na cabeça
+do cliente — é quem é lembrado na hora de comprar.
 
-E enquanto você está travado, o algoritmo está te punindo.
-Perfis que postam consistentemente aparecem mais. Conectam mais. Vendem mais.
-
-Você não precisa ser perfeito. Precisa ser constante.
-
-A diferença entre quem cresce e quem fica estagnado raramente é talento.
-É frequência.
+E não adianta tentar resolver com um monte de ferramenta solta: uma IA pra pedir ideia, o bloco
+de notas pra ajustar o texto, um app separado pra gravar, uma planilha pra tentar manter ritmo.
+É justamente essa bagunça que faz muita gente desistir antes de postar.
 
 ---
 
 ### [SOLUÇÃO — 3–5min]
+O Destravaí foi feito pra resolver exatamente isso. Ele junta tudo num fluxo só.
 
-O Destravaí foi criado pra resolver exatamente isso.
+Primeiro, ele aprende a sua essência: o seu nicho, o seu tom de voz, os seus temas e a sua
+rotina. Com isso, todo dia ele te entrega a missão do dia — uma ideia pronta, com roteiro e CTA,
+no seu jeito de falar. Não é gerador aleatório; é conteúdo com a sua cara.
 
-Quando você abre o app, ele já te pergunta: o que você tem hoje?
-Dois minutos? Dez minutos? Quer vender? Quer educar?
+Você escolhe o formato — story único, sequência ou reels — e ele monta stories com começo, meio
+e intenção: pra gerar conexão, responder dúvida, quebrar objeção e mover o seu público.
 
-E em segundos, ele entrega o roteiro completo — baseado no que você faz, no seu tom de voz, na sua audiência.
+E na hora de gravar, o teleprompter está dentro do app. Você lê na própria tela enquanto grava,
+sem decorar, sem improvisar, sem regravar dez vezes. Você não precisa de superprodução pra postar.
 
-Não é um gerador aleatório. É um roteiro personalizado com estrutura, CTA e linguagem que soam como você.
-
-E tem mais: o app tem teleprompter integrado. Você lê enquanto grava, sem travar, sem improvisar, sem regravar dez vezes.
+No fim, sai a legenda e as hashtags prontas. Menos abas abertas, menos tempo pensando, mais
+conteúdo saindo.
 
 ---
 
-### [PROVA SOCIAL / RESULTADO — 5–6min]
+### [PROVA / RESULTADO — 5–6min]
+[Usar depoimento real ou autorizado. Exemplos de transformação que estão na LP:]
 
-[espaço para depoimento ou resultado real]
+- Marina, esteticista, passou a ter 4x mais constância nos stories.
+- Camila, psicóloga, economiza umas 2 horas por semana que gastava só pensando no que postar.
+- Juliana, da loja de semijoias, triplicou os stories com intenção de venda.
+- Lucas, dentista, leva 70% menos tempo pra criar os stories dele.
 
-A [Nome] começou a usar e nos primeiros 7 dias já tinha postado mais do que no mês inteiro anterior.
+Repara: ninguém virou outra pessoa. Eles só passaram a ter direção e um fluxo pra seguir.
 
-Não porque ela virou outra pessoa. Porque ela passou a ter sistema.
+---
+
+### [PRA QUEM É — 6min]
+O Destravaí é pra quem trava na hora de postar e quer vender melhor sem parecer forçado:
+médicos, psicólogos, nutricionistas, advogados, consultores, arquitetos, personais, terapeutas,
+pequenos negócios e autônomos. Qualquer área que precisa aparecer pra crescer.
+
+Não é pra quem quer copiar e colar conteúdo sem adaptar, nem pra quem não pretende aparecer.
 
 ---
 
 ### [OFERTA + CTA — 6–7min]
+É um plano só, o Destravaí Completo: ideias e roteiros com IA, sequências de stories,
+teleprompter pra gravar, legendas e CTAs prontos, biblioteca, calendário e constância.
 
-O Destravaí tem três planos — do básico ao completo.
+E está no valor de lançamento: o primeiro mês sai por R$29,90 — depois R$49,90 por mês,
+enquanto a assinatura estiver ativa. Sem fidelidade, você cancela quando quiser.
 
-Todos com roteiros ilimitados por IA, teleprompter, biblioteca de conteúdos e acompanhamento de constância.
+Você ainda tem garantia de 7 dias: se não gostar, devolvemos o seu dinheiro. O pagamento é
+seguro, no Pix ou no cartão.
 
-Você pode começar agora. O primeiro acesso é simples, sem complicação.
+Se os stories são a vitrine do seu negócio, pare de improvisar essa parte.
 
-Clique no botão abaixo, escolha o plano certo pra você e comece a postar hoje — com clareza, com consistência, sem bloqueio.
-
-[BOTÃO: Quero começar agora]
+[BOTÃO: Quero destravar meus stories — por R$29,90]
 
 ---
 
 ## Versão Curta — Página de Vendas (2–3 min)
 
 **[ABERTURA]**
-Você não para de postar por falta de conteúdo. Para porque trava na hora de criar.
+Você não deixa de postar por falta de assunto. Você trava na hora de decidir o que falar.
 
 **[PROBLEMA]**
-Todo dia é a mesma coisa: abre o Instagram, não sabe o que falar, fecha e deixa pra depois. Depois nunca chega.
+Todo dia é a mesma coisa: abre os stories, não sabe o que dizer, fecha e deixa pra depois. E aí
+some — e o seu público esquece de quem some.
 
 **[SOLUÇÃO]**
-O Destravaí resolve em segundos. Você faz o check-in rápido e recebe o roteiro do dia, personalizado com o que você faz e o jeito que você fala.
+O Destravaí resolve isso. Ele aprende a sua essência e te entrega, todo dia, a ideia do dia com
+roteiro pronto, no seu tom. Você escolhe o formato e ele monta a sequência.
 
 **[DIFERENCIAL]**
-Não é só texto. Tem teleprompter pra você gravar sem travar. Tem biblioteca de ideias. E tem um painel que mostra sua constância — seu maior ativo de longo prazo.
+E não é só texto: tem teleprompter pra você gravar lendo, sem travar. Tem biblioteca de ideias.
+E tem o acompanhamento de constância, que é o que te mantém na cabeça do cliente. Tudo num app,
+no celular — menos abas, mais conteúdo saindo.
 
-**[CTA]**
-Acesse agora. Primeiro roteiro em menos de 2 minutos. Sem complicação.
+**[OFERTA + CTA]**
+Comece por R$29,90 no primeiro mês — depois R$49,90/mês, sem fidelidade, com garantia de 7 dias.
 
-[BOTÃO: Acessar o Destravaí]
+[BOTÃO: Quero destravar meus stories]

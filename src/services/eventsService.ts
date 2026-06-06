@@ -10,6 +10,8 @@ export type ExecutionEventType =
   | 'teleprompter_open'
   | 'recording_start'
   | 'recording_save'
+  | 'post_now_clicked'
+  | 'shared_attempted'
   | 'posted'
   | 'will_post_later'
   | 'only_recorded'

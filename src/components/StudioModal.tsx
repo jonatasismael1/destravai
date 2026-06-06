@@ -2,12 +2,13 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import {
   X, SlidersHorizontal, Pencil, Scan, Timer, Type,
-  Zap, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check,
+  Zap, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check, Loader2,
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { trackEvent } from '../services/eventsService'
 import { fixMp4Duration } from '../lib/fixMp4Duration'
 import { useScreenTour } from '../context/OnboardingContext'
+import { useToast } from '../context/ToastContext'
 
 interface Props {
   idea: ContentIdea
@@ -281,6 +282,57 @@ function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, reque
   return Math.min(caps.zoom.max, Math.max(caps.zoom.min, target))
 }
 
+// Resultado do compartilhamento — discriminado para o chamador decidir o que
+// mostrar (sucesso, usuário cancelou, ou sem suporte → fallback de download).
+export type ShareVideoResult =
+  | { success: true; method: 'web-share' }
+  | { success: false; reason: 'web-share-files-not-supported' | 'aborted' | 'error'; error?: unknown }
+
+// Compartilha um arquivo de vídeo usando a Web Share API nativa do aparelho.
+// Função ISOLADA e reutilizável de propósito: quando o app virar Capacitor/app
+// nativo, basta trocar a implementação aqui sem mexer no resto da UI.
+//
+// Importante: navigator.share existir NÃO garante que dá para enviar ARQUIVOS.
+// Por isso validamos com navigator.canShare({ files }) antes de tentar. Não
+// prometemos publicação automática no Instagram — só abrimos o compartilhamento
+// do celular, e quem conclui a publicação é o usuário dentro do app escolhido.
+export async function shareVideoFile(
+  videoBlob: Blob,
+  filename = 'destravai-video.webm',
+  meta?: { title?: string; text?: string },
+): Promise<ShareVideoResult> {
+  // A Web Share API exige um File (não aceita Blob cru).
+  const videoFile = new File([videoBlob], filename, {
+    type: videoBlob.type || 'video/webm',
+  })
+
+  const canShareFiles =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files: [videoFile] })
+
+  if (!canShareFiles) {
+    return { success: false, reason: 'web-share-files-not-supported' }
+  }
+
+  try {
+    await navigator.share({
+      title: meta?.title ?? 'Vídeo criado no Destravaí',
+      text: meta?.text ?? 'Vídeo pronto para postar.',
+      files: [videoFile],
+    })
+    return { success: true, method: 'web-share' }
+  } catch (err) {
+    // Usuário simplesmente fechou o compartilhamento: NÃO é erro de verdade,
+    // então não mostramos nada assustador — apenas voltamos ao estado anterior.
+    if ((err as Error)?.name === 'AbortError') {
+      return { success: false, reason: 'aborted' }
+    }
+    return { success: false, reason: 'error', error: err }
+  }
+}
+
 const SAFE_TOP = 'max(env(safe-area-inset-top), 16px)'
 const SAFE_BOTTOM = 'max(env(safe-area-inset-bottom), 18px)'
 const BRAND_REC = '#FF006E'
@@ -288,6 +340,7 @@ const BRAND_REC = '#FF006E'
 export default function StudioModal({ idea, onClose }: Props) {
   // Dica do teleprompter (passo central) na primeira gravação.
   useScreenTour('teleprompter')
+  const { addToast } = useToast()
 
   const [phase, setPhase] = useState<Phase>('setup')
   const [hasCamera, setHasCamera] = useState(true)
@@ -538,6 +591,13 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   // "Modo postei": prompt pós-gravação para registrar execução real.
   const [postPrompt, setPostPrompt] = useState(false)
+  // Folha de escolha pós-"Salvar": Postar agora / Postar depois / Cancelar.
+  const [showSaveChoice, setShowSaveChoice] = useState(false)
+  // Loading enquanto o vídeo é salvo/compartilhado (feedback p/ não ficar perdido).
+  const [saving, setSaving] = useState(false)
+  // Quando o compartilhamento de arquivos não é suportado, mostramos o fallback
+  // de download dentro da própria folha de escolha.
+  const [shareFallback, setShareFallback] = useState(false)
   // Nome do vídeo (editável antes de salvar). Default = tema da ideia.
   const [videoName, setVideoName] = useState(idea.theme)
 
@@ -745,35 +805,98 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   const canShare = typeof navigator !== 'undefined' && !!navigator.share
 
-  const downloadVideo = async () => {
-    const blob = blobRef.current
-    if (!blob) return
-    // Registra a gravação salva (formato + codec + duração) e abre o "modo postei".
-    void trackEvent('recording_save', idea.id, {
-      mimeType: blob.type, codec: isHEVC(blob.type) ? 'hevc' : (blob.type.includes('mp4') ? 'h264' : 'webm'),
-      durationSec: timer, name: videoName,
-    })
+  // Nome de arquivo seguro derivado do nome do vídeo (ou tema da ideia).
+  const getVideoFilename = (blob: Blob) => {
     const ext = blob.type.includes('mp4') ? 'mp4' : 'webm'
     const safeName = (videoName || idea.theme)
       .trim()
       .replace(/[\\/:*?"<>|]+/g, '')   // remove caracteres inválidos em nome de arquivo
       .replace(/\s+/g, '-')
       .toLowerCase()
-    const filename = `${safeName || 'destravai-video'}.${ext}`
-    if (canShare) {
-      try {
-        const file = new File([blob], filename, { type: blob.type })
-        if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: idea.theme })
-          setPostPrompt(true)
-          return
-        }
-      } catch (err) { if ((err as Error).name === 'AbortError') return }
-    }
+    return `${safeName || 'destravai-video'}.${ext}`
+  }
+
+  // Telemetria do salvamento (formato + codec + duração). Reaproveitada pelos
+  // fluxos "postar agora" e "postar depois" — ambos salvam de fato o vídeo.
+  const trackRecordingSave = (blob: Blob) => {
+    void trackEvent('recording_save', idea.id, {
+      mimeType: blob.type, codec: isHEVC(blob.type) ? 'hevc' : (blob.type.includes('mp4') ? 'h264' : 'webm'),
+      durationSec: timer, name: videoName,
+    })
+  }
+
+  // Download direto no dispositivo (fluxo "postar depois" e fallback do share).
+  const triggerPlainDownload = (blob: Blob, filename: string) => {
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob); a.download = filename
     document.body.appendChild(a); a.click(); document.body.removeChild(a)
+  }
+
+  // Clique em "Salvar" no preview: NÃO salva direto — abre a folha de escolha.
+  const handleSaveClick = () => {
+    if (!blobRef.current) return
+    setShareFallback(false)
+    setShowSaveChoice(true)
+  }
+
+  // POSTAR AGORA: salva o vídeo e abre o compartilhamento nativo do aparelho,
+  // para o usuário escolher Instagram, WhatsApp, galeria, etc. (não publicamos
+  // automaticamente — só entregamos o vídeo pronto e abrimos o caminho).
+  const handlePostNow = async () => {
+    const blob = blobRef.current
+    if (!blob || saving) return
+    setSaving(true)
+    const filename = getVideoFilename(blob)
+    trackRecordingSave(blob)
+    void trackEvent('post_now_clicked', idea.id)
+    const result = await shareVideoFile(blob, filename, { title: idea.theme })
+    setSaving(false)
+
+    if (result.success) {
+      // Vídeo salvo + compartilhamento aberto → registra a tentativa e pergunta
+      // a constância (postei / vou postar depois / só gravei).
+      void trackEvent('shared_attempted', idea.id, { method: result.method })
+      setShowSaveChoice(false)
+      setPostPrompt(true)
+      return
+    }
+    // Usuário só fechou o share → não assustar; permanece na folha de escolha.
+    if (result.reason === 'aborted') return
+    // Sem suporte a compartilhar arquivos (ou erro) → oferece o download.
+    setShareFallback(true)
+  }
+
+  // POSTAR DEPOIS: salva no dispositivo SEM abrir o compartilhamento e marca o
+  // vídeo como ainda não publicado (pendente), para o usuário postar quando quiser.
+  const handlePostLater = () => {
+    const blob = blobRef.current
+    if (!blob || saving) return
+    const filename = getVideoFilename(blob)
+    trackRecordingSave(blob)
+    triggerPlainDownload(blob, filename)
+    void trackEvent('will_post_later', idea.id)
+    setShowSaveChoice(false)
+    addToast('Vídeo salvo. Você pode postar quando quiser.', 'success')
+    handleClose()
+  }
+
+  // Fallback quando o compartilhamento de arquivos não é suportado: baixa o vídeo
+  // para o usuário postar manualmente nos Stories.
+  const handleFallbackDownload = () => {
+    const blob = blobRef.current
+    if (!blob) return
+    trackRecordingSave(blob)
+    triggerPlainDownload(blob, getVideoFilename(blob))
+    setShowSaveChoice(false)
+    setShareFallback(false)
     setPostPrompt(true)
+  }
+
+  // Cancelar: fecha a folha e volta ao preview, sem perder o vídeo gravado.
+  const handleCancelSave = () => {
+    if (saving) return
+    setShareFallback(false)
+    setShowSaveChoice(false)
   }
 
   const markPosted = (type: 'posted' | 'will_post_later' | 'only_recorded') => {
@@ -827,15 +950,75 @@ export default function StudioModal({ idea, onClose }: Props) {
               style={{ background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(255,255,255,0.12)' }}>
               <RotateCcw size={15} /> Regravar
             </button>
-            <button onClick={downloadVideo} className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
+            <button onClick={handleSaveClick} className="flex-1 py-3.5 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 active:scale-[0.98]"
               style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', color: '#fff', boxShadow: '0 4px 20px rgba(109,93,246,0.4)' }}>
-              {canShare ? <><Share2 size={15} /> Salvar na galeria</> : <><Download size={15} /> Salvar no dispositivo</>}
+              {canShare ? <><Share2 size={15} /> Salvar</> : <><Download size={15} /> Salvar</>}
             </button>
           </div>
           <button onClick={handleClose} className="w-full py-2 text-xs text-center" style={{ color: 'rgba(255,255,255,0.35)' }}>
             Fechar sem salvar
           </button>
         </div>
+
+        {/* Folha de escolha pós-"Salvar": Postar agora / Postar depois / Cancelar */}
+        {showSaveChoice && (
+          <div className="absolute inset-0 z-20 flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}
+            onClick={e => { if (e.target === e.currentTarget) handleCancelSave() }}>
+            <div className="rounded-t-3xl p-5 space-y-3" style={{ background: '#16151c', borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: SAFE_BOTTOM }}>
+              {shareFallback ? (
+                // Fallback amigável: o aparelho não permite compartilhar o arquivo.
+                <>
+                  <p className="font-extrabold text-base text-white">Compartilhamento indisponível</p>
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Seu celular ou navegador não permite compartilhar esse vídeo diretamente. Baixe o vídeo e poste manualmente nos Stories.
+                  </p>
+                  <button onClick={handleFallbackDownload} className="w-full py-3.5 rounded-2xl text-sm font-bold text-white flex items-center justify-center gap-2 active:scale-[0.98]"
+                    style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)' }}>
+                    <Download size={16} /> Baixar vídeo
+                  </button>
+                  <button onClick={handleCancelSave} className="w-full py-2 text-xs text-center" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Voltar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="font-extrabold text-base text-white">O que você quer fazer com esse vídeo?</p>
+                  <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                    Você pode postar agora ou salvar para usar depois.
+                  </p>
+
+                  {/* Postar agora — abre as opções de compartilhamento do celular */}
+                  <button onClick={handlePostNow} disabled={saving}
+                    className="w-full py-3 rounded-2xl text-white flex flex-col items-center justify-center active:scale-[0.98] disabled:opacity-80"
+                    style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)' }}>
+                    {saving ? (
+                      <span className="flex items-center gap-2 font-bold text-sm py-0.5">
+                        <Loader2 size={16} className="animate-spin" /> Salvando vídeo…
+                      </span>
+                    ) : (
+                      <>
+                        <span className="font-bold text-sm">Postar agora</span>
+                        <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.85)' }}>Abrir opções de compartilhamento</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Postar depois — salva no dispositivo, sem abrir compartilhamento */}
+                  <button onClick={handlePostLater} disabled={saving}
+                    className="w-full py-3 rounded-2xl flex flex-col items-center justify-center active:scale-[0.98] disabled:opacity-60"
+                    style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>
+                    <span className="font-bold text-sm">Postar depois</span>
+                    <span className="text-[11px]" style={{ color: 'rgba(255,255,255,0.5)' }}>Salvar para postar depois</span>
+                  </button>
+
+                  <button onClick={handleCancelSave} disabled={saving} className="w-full py-2 text-xs text-center disabled:opacity-60" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                    Cancelar
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Modo "postei": registra a execução real depois de salvar */}
         {postPrompt && (

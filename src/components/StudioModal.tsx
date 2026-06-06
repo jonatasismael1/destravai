@@ -301,10 +301,14 @@ export async function shareVideoFile(
   filename = 'destravai-video.webm',
   meta?: { title?: string; text?: string },
 ): Promise<ShareVideoResult> {
+  // IMPORTANTE: o Chrome no Android (ex.: Galaxy S25) REJEITA no canShare/share
+  // tipos MIME com o parâmetro de codecs (ex.: video/mp4;codecs="avc1.640028,...").
+  // Por isso usamos só o tipo BASE (video/mp4 ou video/webm) no File — o conteúdo
+  // do arquivo continua o mesmo; só limpamos o rótulo do tipo para o share aceitar.
+  const baseType = (videoBlob.type || 'video/webm').replace(/;.*$/, '').trim() || 'video/webm'
+
   // A Web Share API exige um File (não aceita Blob cru).
-  const videoFile = new File([videoBlob], filename, {
-    type: videoBlob.type || 'video/webm',
-  })
+  const videoFile = new File([videoBlob], filename, { type: baseType })
 
   const canShareFiles =
     typeof navigator !== 'undefined' &&
@@ -360,9 +364,11 @@ export default function StudioModal({ idea, onClose }: Props) {
   const [fontSize, setFontSize] = useState(22)
   const [scrollSpeed, setScrollSpeed] = useState(1.0)   // px por tick (config do TEXTO)
   const [cardOpacity, setCardOpacity] = useState(0.9)
-  // Redução de ruído do navegador. Ligada por padrão (seguro em qualquer ambiente);
-  // o usuário pode desligar nos ajustes para uma voz mais natural/encorpada.
-  const [reduceNoise, setReduceNoise] = useState(true)
+  // Redução de ruído do navegador. DESLIGADA por padrão: esses filtros são
+  // pensados para CHAMADA e deixam a voz mais "fina"/processada. Sem eles a voz
+  // sai mais natural e encorpada. O usuário liga nos ajustes só se precisar
+  // (ambiente barulhento).
+  const [reduceNoise, setReduceNoise] = useState(false)
   const [recordingCodec, setRecordingCodec] = useState<RecordingCodec>('compatible')
   // Microfones disponíveis e o selecionado (ex.: microfone USB externo).
   const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
@@ -589,8 +595,6 @@ export default function StudioModal({ idea, onClose }: Props) {
     }
   }, [facing, hasCamera, phase, zoom])
 
-  // "Modo postei": prompt pós-gravação para registrar execução real.
-  const [postPrompt, setPostPrompt] = useState(false)
   // Folha de escolha pós-"Salvar": Postar agora / Postar depois / Cancelar.
   const [showSaveChoice, setShowSaveChoice] = useState(false)
   // Loading enquanto o vídeo é salvo/compartilhado (feedback p/ não ficar perdido).
@@ -853,11 +857,14 @@ export default function StudioModal({ idea, onClose }: Props) {
     setSaving(false)
 
     if (result.success) {
-      // Vídeo salvo + compartilhamento aberto → registra a tentativa e pergunta
-      // a constância (postei / vou postar depois / só gravei).
+      // Vídeo salvo + compartilhamento aberto. Registra a tentativa E conta como
+      // CONTEÚDO POSTADO ('posted') — é isso que alimenta missões/conquistas e a
+      // constância (achievementsService conta event_type === 'posted').
       void trackEvent('shared_attempted', idea.id, { method: result.method })
+      void trackEvent('posted', idea.id)
       setShowSaveChoice(false)
-      setPostPrompt(true)
+      handleClose()
+      addToast('Vídeo pronto e registrado como postado! 🎉', 'success')
       return
     }
     // Usuário só fechou o share → não assustar; permanece na folha de escolha.
@@ -881,15 +888,18 @@ export default function StudioModal({ idea, onClose }: Props) {
   }
 
   // Fallback quando o compartilhamento de arquivos não é suportado: baixa o vídeo
-  // para o usuário postar manualmente nos Stories.
+  // para o usuário postar manualmente nos Stories. Como o clique foi em "Postar
+  // agora", também conta como conteúdo postado nas missões.
   const handleFallbackDownload = () => {
     const blob = blobRef.current
     if (!blob) return
     trackRecordingSave(blob)
     triggerPlainDownload(blob, getVideoFilename(blob))
+    void trackEvent('posted', idea.id)
     setShowSaveChoice(false)
     setShareFallback(false)
-    setPostPrompt(true)
+    handleClose()
+    addToast('Vídeo baixado e registrado como postado! 🎉', 'success')
   }
 
   // Cancelar: fecha a folha e volta ao preview, sem perder o vídeo gravado.
@@ -897,12 +907,6 @@ export default function StudioModal({ idea, onClose }: Props) {
     if (saving) return
     setShareFallback(false)
     setShowSaveChoice(false)
-  }
-
-  const markPosted = (type: 'posted' | 'will_post_later' | 'only_recorded') => {
-    void trackEvent(type, idea.id)
-    setPostPrompt(false)
-    handleClose()
   }
 
   // ── PREVIEW ───────────────────────────────────────────────
@@ -1016,32 +1020,6 @@ export default function StudioModal({ idea, onClose }: Props) {
                   </button>
                 </>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* Modo "postei": registra a execução real depois de salvar */}
-        {postPrompt && (
-          <div className="absolute inset-0 z-10 flex flex-col justify-end" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
-            <div className="rounded-t-3xl p-5 space-y-3" style={{ background: '#16151c', borderTop: '1px solid rgba(255,255,255,0.1)', paddingBottom: SAFE_BOTTOM }}>
-              <div className="flex items-center gap-2">
-                <Check size={18} style={{ color: '#53D6A1' }} />
-                <p className="font-extrabold text-base text-white">Vídeo salvo! E agora?</p>
-              </div>
-              <p className="text-sm" style={{ color: 'rgba(255,255,255,0.6)' }}>
-                Conta pra gente o que você fez — isso ajuda a acompanhar sua constância.
-              </p>
-              <button onClick={() => markPosted('posted')} className="w-full py-3.5 rounded-2xl text-sm font-bold text-white active:scale-[0.98]"
-                style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)' }}>
-                Postei agora ✅
-              </button>
-              <button onClick={() => markPosted('will_post_later')} className="w-full py-3.5 rounded-2xl text-sm font-bold active:scale-[0.98]"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>
-                Vou postar depois
-              </button>
-              <button onClick={() => markPosted('only_recorded')} className="w-full py-2 text-xs text-center" style={{ color: 'rgba(255,255,255,0.45)' }}>
-                Só gravei por enquanto
-              </button>
             </div>
           </div>
         )}

@@ -4,7 +4,7 @@
 // Substitui a Edge Function do Supabase para não depender do projeto certo
 // estar configurado no MCP nem de secret separado.
 
-import { json, preflight, getUser, supabaseAdmin, serverLog, userHasActiveAccess, isAdminUser } from './_shared.mjs'
+import { json, preflight, getUser, supabaseAdmin, serverLog, getAccessInfo, isAdminUser } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 // Gating de assinatura para a IA. Pode ser desligado por env (interruptor de
@@ -55,6 +55,10 @@ const MONTHLY_LIMIT = 1000
 // Janela por minuto: 15 gerações/min por usuário — impede bursts automatizados
 const PER_MINUTE_LIMIT = 15
 const PER_MINUTE_MS = 60 * 1000
+// Cortesia (testador) tem tetos menores: conta grátis não deve consumir IA no
+// mesmo ritmo de um pagante (proteção de custo).
+const COURTESY_MONTHLY_LIMIT = 200
+const COURTESY_PER_MINUTE_LIMIT = 5
 
 // Modelo do OpenRouter? (tem provedor no nome, no formato "provedor/modelo")
 function isOpenRouterModel(model) {
@@ -125,7 +129,7 @@ async function callOpenRouter(models, prompt, cfg, wantsJson, timeoutMs) {
     }
     const data = await res.json()
     const text = data?.choices?.[0]?.message?.content ?? ''
-    return { ok: true, text, model: data?.model || models[0] }
+    return { ok: true, text, model: data?.model || models[0], tokens: data?.usage?.total_tokens ?? null }
   } catch (e) {
     return { ok: false, status: 0, msg: e?.name === 'AbortError' ? 'timeout' : (e?.message || 'falha de rede') }
   } finally {
@@ -153,7 +157,7 @@ async function callGemini(model, prompt, generationConfig, key, timeoutMs) {
     }
     const data = await res.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
-    return { ok: true, text }
+    return { ok: true, text, tokens: data?.usageMetadata?.totalTokenCount ?? null }
   } catch (e) {
     return { ok: false, status: 0, msg: e?.name === 'AbortError' ? 'timeout' : (e?.message || 'falha de rede') }
   } finally {
@@ -169,12 +173,6 @@ export const handler = async (event) => {
     const user = await getUser(event)
     if (!user) return json(401, { error: 'Sessão expirada. Faça login novamente.' })
 
-    // Rate limit por usuário: 15 gerações/minuto (anti-burst)
-    const rlMinute = await checkRateLimit(`gemini:user:${user.id}`, PER_MINUTE_LIMIT, PER_MINUTE_MS)
-    if (!rlMinute.allowed) {
-      return rateLimitExceeded(rlMinute.resetAt, 'Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.')
-    }
-
     const body = JSON.parse(event.body || '{}')
     const prompt = String(body.prompt || '').trim()
     if (!prompt) return json(400, { error: 'Parâmetro prompt obrigatório' })
@@ -186,11 +184,15 @@ export const handler = async (event) => {
     // o usuário comum é BLOQUEADO — não liberamos IA paga por erro nosso. Exceção:
     // admin segue (fail-open só para ele, para o dono nunca se trancar fora) e a
     // falha vira um alerta no log para investigação.
+    // `isCourtesy` (acesso só de cortesia/testador) define tetos menores adiante.
+    let isCourtesy = false
     if (ENFORCE_AI_ACCESS) {
       let allowed = false
       let checkFailed = false
       try {
-        allowed = await userHasActiveAccess(admin, user)
+        const info = await getAccessInfo(admin, user)
+        allowed = info.allowed
+        isCourtesy = info.courtesy
       } catch (err) {
         checkFailed = true
         allowed = isAdminUser(user) // só o admin passa quando a checagem quebra
@@ -210,7 +212,15 @@ export const handler = async (event) => {
       }
     }
 
+    // Rate limit por usuário (anti-burst). Cortesia: 5/min; demais: 15/min.
+    const perMinuteLimit = isCourtesy ? COURTESY_PER_MINUTE_LIMIT : PER_MINUTE_LIMIT
+    const rlMinute = await checkRateLimit(`gemini:user:${user.id}`, perMinuteLimit, PER_MINUTE_MS)
+    if (!rlMinute.allowed) {
+      return rateLimitExceeded(rlMinute.resetAt, 'Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.')
+    }
+
     // Limite mensal por usuário (gerações bem-sucedidas no mês corrente).
+    const monthlyLimit = isCourtesy ? COURTESY_MONTHLY_LIMIT : MONTHLY_LIMIT
     const now = new Date()
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
     const { count } = await admin
@@ -220,8 +230,8 @@ export const handler = async (event) => {
       .eq('status', 'success')
       .gte('created_at', monthStart)
 
-    if ((count ?? 0) >= MONTHLY_LIMIT) {
-      return json(429, { error: `Você atingiu o limite de ${MONTHLY_LIMIT} gerações neste mês. O limite renova no início do próximo mês.` })
+    if ((count ?? 0) >= monthlyLimit) {
+      return json(429, { error: `Você atingiu o limite de ${monthlyLimit} gerações neste mês. O limite renova no início do próximo mês.` })
     }
 
     const promptType = body.promptType || 'generic_ai'
@@ -234,7 +244,15 @@ export const handler = async (event) => {
     const wantsJson = /JSON/i.test(prompt)
 
     // Valida a chave do provedor escolhido.
-    const geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.VITE_GEMINI_API_KEY
+    // Fallback legado VITE_GEMINI_API_KEY: mantido para não derrubar o Gemini se a
+    // chave estiver cadastrada só com o nome antigo no painel, mas o certo é
+    // cadastrar GOOGLE_GENERATIVE_AI_API_KEY e apagar a VITE_ (prefixo VITE_ é
+    // convenção de variável de FRONTEND — não deve carregar segredo).
+    let geminiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+    if (!geminiKey && process.env.VITE_GEMINI_API_KEY) {
+      geminiKey = process.env.VITE_GEMINI_API_KEY
+      console.warn('[destravai-gemini] usando VITE_GEMINI_API_KEY (legado); cadastre GOOGLE_GENERATIVE_AI_API_KEY no painel do Netlify e remova a VITE_')
+    }
     if (attempts.some((attempt) => attempt.provider === 'openrouter') && !OPENROUTER_KEY) return json(500, { error: 'Chave OpenRouter (OPENROUTER_API_KEY) nao configurada no servidor' })
     if (attempts.some((attempt) => attempt.provider === 'gemini') && !geminiKey) return json(500, { error: 'Chave Gemini (GOOGLE_GENERATIVE_AI_API_KEY) nao configurada no servidor' })
 
@@ -267,6 +285,7 @@ export const handler = async (event) => {
       if (r.ok && r.text) {
         await admin.from('destravai_ai_generations').insert({
           user_id: user.id, prompt_type: promptType, model: lastModel, status: 'success',
+          tokens_used: r.tokens ?? null,
         }).then(() => {}, () => {})
         return json(200, { text: r.text })
       }

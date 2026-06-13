@@ -11,10 +11,10 @@ export const COMPLETE_PLAN_ID = 'destravai_completo'
 export const COMPLETE_PLAN = {
   id: COMPLETE_PLAN_ID,
   name: 'Destravai Completo',
-  firstMonthPrice: 29.9,
+  firstMonthPrice: 1.0,
   recurringPrice: 49.9,
-  price: 29.9,
-  tagline: 'R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
+  price: 1.0,
+  tagline: 'R$1 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
   features: [
     'Ideias e roteiros com a Deby AI',
     'Teleprompter para gravar',
@@ -55,20 +55,33 @@ export function subscriptionRowGrantsAccess(sub) {
   return false
 }
 
-// Verifica se o usuário tem acesso liberado: admin ou QUALQUER assinatura recente
-// que conceda acesso. Usado para bloquear a IA de quem não tem acesso.
+// Verifica o acesso do usuário e devolve também o TIPO de acesso:
+// { allowed, courtesy }. `courtesy=true` quando o acesso vem SOMENTE de
+// assinatura(s) de cortesia (testador) — usado para aplicar limites de IA
+// mais apertados sem mexer na decisão de quem entra ou não.
 // IMPORTANTE: olha as últimas linhas (não só a mais recente). Se um pagante ATIVO
 // reabre o checkout, nasce uma linha 'pending' mais nova — ler só a última
 // trancaria o pagante fora da IA. Basta UMA linha conceder acesso.
-export async function userHasActiveAccess(admin, user) {
-  if (isAdminUser(user)) return true
+export async function getAccessInfo(admin, user) {
+  if (isAdminUser(user)) return { allowed: true, courtesy: false }
   const { data: subs } = await admin
     .from('subscriptions')
     .select('status, payment_status, payment_method, access_granted, current_period_end')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(10)
-  return (subs ?? []).some(subscriptionRowGrantsAccess)
+  const granting = (subs ?? []).filter(subscriptionRowGrantsAccess)
+  if (granting.length === 0) return { allowed: false, courtesy: false }
+  return {
+    allowed: true,
+    courtesy: granting.every((s) => s.payment_method === 'COURTESY'),
+  }
+}
+
+// Compat: mantém a assinatura booleana usada em outros pontos.
+export async function userHasActiveAccess(admin, user) {
+  const { allowed } = await getAccessInfo(admin, user)
+  return allowed
 }
 
 // CORS: o checkout é público (vem da landing), mas só liberamos a origem do app.

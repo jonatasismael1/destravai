@@ -20,6 +20,14 @@ const AI_PROVIDER_PRIMARY = normalizeProvider(Deno.env.get('AI_PROVIDER_PRIMARY'
 const AI_MODEL_FALLBACK = Deno.env.get('AI_MODEL_FALLBACK') || ''
 const AI_PROVIDER_FALLBACK = normalizeProvider(Deno.env.get('AI_PROVIDER_FALLBACK')) || (AI_MODEL_FALLBACK ? providerForModel(AI_MODEL_FALLBACK) : null)
 const MONTHLY_LIMIT = 1000 // geracoes bem-sucedidas por usuario por mes
+const COURTESY_MONTHLY_LIMIT = 200 // teto menor para acesso de cortesia (testador)
+// Janela por minuto: 15 geracoes/min por usuario — impede bursts automatizados
+const PER_MINUTE_LIMIT = 15
+const COURTESY_PER_MINUTE_LIMIT = 5 // cortesia tem teto menor tambem por minuto
+const PER_MINUTE_MS = 60 * 1000
+// Timeout por tentativa de provedor: a Edge nao tem o teto de ~10s da Netlify
+// Free, entao 30s e' seguro e generoso sem deixar a requisicao pendurada.
+const AI_TIMEOUT_MS = 30000
 
 const isOpenRouterModel = (m: string) => typeof m === 'string' && m.includes('/')
 
@@ -107,6 +115,9 @@ Deno.serve(async (req: Request) => {
     // admin segue (fail-open só para ele) e a falha vira um alerta no log.
     // Desligavel por env: AI_ENFORCE_SUBSCRIPTION=false.
     const enforceAccess = (Deno.env.get('AI_ENFORCE_SUBSCRIPTION') ?? 'true') !== 'false'
+    // Acesso vem so de cortesia (testador)? Usa limites menores; nao muda quem
+    // entra ou nao — apenas marca a origem do acesso a partir da MESMA consulta.
+    let isCourtesy = false
     if (enforceAccess) {
       const adminEmail = (Deno.env.get('ADMIN_EMAIL') || 'assessoriadbe@gmail.com').toLowerCase()
       const isAdmin = (user.email ?? '').toLowerCase() === adminEmail
@@ -125,7 +136,7 @@ Deno.serve(async (req: Request) => {
             .maybeSingle()
           if (subErr) throw subErr
           if (sub) {
-            if (sub.payment_method === 'COURTESY' && sub.access_granted) allowed = true
+            if (sub.payment_method === 'COURTESY' && sub.access_granted) { allowed = true; isCourtesy = true }
             else if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') allowed = true
             else if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) allowed = true
           }
@@ -154,7 +165,30 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // Rate limit por minuto (anti-burst): mesmo contador da Netlify, via RPC
+    // destravai_rate_limit_increment com o client service role (EXECUTE e'
+    // revogado de anon/authenticated). FAIL-OPEN: se o contador falhar, NAO
+    // bloqueia — nao derrubamos a IA por instabilidade do contador.
+    const perMinuteLimit = isCourtesy ? COURTESY_PER_MINUTE_LIMIT : PER_MINUTE_LIMIT
+    try {
+      const nowMs = Date.now()
+      const windowStart = Math.floor(nowMs / PER_MINUTE_MS) * PER_MINUTE_MS
+      const { data: rlCount, error: rlError } = await supabase.rpc('destravai_rate_limit_increment', {
+        p_key: `gemini:user:${user.id}`,
+        p_window_start: new Date(windowStart).toISOString(),
+        p_window_end: new Date(windowStart + PER_MINUTE_MS).toISOString(),
+      })
+      if (rlError) {
+        console.warn('[edge:gemini] rate limit RPC falhou (fail-open):', rlError.message)
+      } else if ((rlCount ?? 1) > perMinuteLimit) {
+        return errorResponse('Muitas gerações em pouco tempo. Aguarde 1 minuto e tente novamente.', 429)
+      }
+    } catch (err) {
+      console.warn('[edge:gemini] rate limit indisponivel (fail-open):', err instanceof Error ? err.message : String(err))
+    }
+
     // Limite mensal: conta geracoes bem-sucedidas no mes corrente
+    const monthlyLimit = isCourtesy ? COURTESY_MONTHLY_LIMIT : MONTHLY_LIMIT
     const now = new Date()
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString()
     const { count, error: countError } = await supabase
@@ -164,9 +198,9 @@ Deno.serve(async (req: Request) => {
       .eq('status', 'success')
       .gte('created_at', monthStart)
 
-    if (!countError && (count ?? 0) >= MONTHLY_LIMIT) {
+    if (!countError && (count ?? 0) >= monthlyLimit) {
       return errorResponse(
-        `Voce atingiu o limite de ${MONTHLY_LIMIT} geracoes neste mes. O limite renova no inicio do proximo mes.`,
+        `Voce atingiu o limite de ${monthlyLimit} geracoes neste mes. O limite renova no inicio do proximo mes.`,
         429,
       )
     }
@@ -188,32 +222,50 @@ Deno.serve(async (req: Request) => {
     let lastStatus = 502
 
     for (const attempt of attempts) {
+      // Timeout por tentativa: aborta a chamada travada e segue para o proximo
+      // modelo da cadeia (mesmo comportamento da Netlify Function).
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
       let res: Response
-      if (attempt.provider === 'openrouter') {
-        res = await fetch(`${OPENROUTER_URL}/chat/completions`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${OPENROUTER_KEY}`,
-            'HTTP-Referer': APP_REFERER,
-            'X-Title': 'Destravai',
-          },
-          body: JSON.stringify({
-            models: openRouterModelsFor(attempt.model),
-            messages: [{ role: 'user', content: prompt }],
-            temperature,
-            max_tokens: maxOutputTokens,
-            ...(wantsJson ? { response_format: { type: 'json_object' } } : {}),
-          }),
-        })
-      } else {
-        const generationConfig: Record<string, unknown> = { temperature, maxOutputTokens }
-        if (wantsJson) generationConfig.responseMimeType = 'application/json'
-        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent?key=${geminiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
-        })
+      try {
+        if (attempt.provider === 'openrouter') {
+          res = await fetch(`${OPENROUTER_URL}/chat/completions`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${OPENROUTER_KEY}`,
+              'HTTP-Referer': APP_REFERER,
+              'X-Title': 'Destravai',
+            },
+            body: JSON.stringify({
+              models: openRouterModelsFor(attempt.model),
+              messages: [{ role: 'user', content: prompt }],
+              temperature,
+              max_tokens: maxOutputTokens,
+              ...(wantsJson ? { response_format: { type: 'json_object' } } : {}),
+            }),
+            signal: controller.signal,
+          })
+        } else {
+          const generationConfig: Record<string, unknown> = { temperature, maxOutputTokens }
+          if (wantsJson) generationConfig.responseMimeType = 'application/json'
+          res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${attempt.model}:generateContent?key=${geminiKey}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig }),
+            signal: controller.signal,
+          })
+        }
+      } catch (e) {
+        // Abort vira 'timeout'; falha de rede tambem e' falha so desta tentativa.
+        lastStatus = 504
+        lastMsg = e instanceof Error && e.name === 'AbortError'
+          ? 'timeout'
+          : (e instanceof Error ? e.message : 'falha de rede')
+        usedModel = attempt.model
+        continue
+      } finally {
+        clearTimeout(timer)
       }
 
       if (!res.ok) {
@@ -228,6 +280,8 @@ Deno.serve(async (req: Request) => {
         model?: string
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>
         choices?: Array<{ message?: { content?: string } }>
+        usage?: { total_tokens?: number }
+        usageMetadata?: { totalTokenCount?: number }
       }
       usedModel = attempt.provider === 'openrouter' && data?.model ? data.model : attempt.model
       const text = attempt.provider === 'openrouter'
@@ -239,10 +293,16 @@ Deno.serve(async (req: Request) => {
         continue
       }
 
+      // Tokens consumidos: cada provedor informa num campo proprio; se o
+      // provedor nao mandar, fica null (nao inventamos valor).
+      const tokensUsed = attempt.provider === 'openrouter'
+        ? (data?.usage?.total_tokens ?? null)
+        : (data?.usageMetadata?.totalTokenCount ?? null)
+
     // Log de sucesso — tolerante: nunca pode quebrar a resposta da IA.
       try {
         await supabase.from('destravai_ai_generations').insert({
-          user_id: user.id, prompt_type: promptType, model: usedModel, status: 'success',
+          user_id: user.id, prompt_type: promptType, model: usedModel, status: 'success', tokens_used: tokensUsed,
         })
       } catch { /* ignora: a geracao ja deu certo */ }
 

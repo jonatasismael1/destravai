@@ -10,7 +10,7 @@ export default function PoliticaPrivacidade() {
         </Link>
 
         <h1 className="text-3xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Política de Privacidade</h1>
-        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 29/05/2026</p>
+        <p className="text-xs mb-8" style={{ color: 'var(--text-muted)' }}>Última atualização: 13/06/2026</p>
 
         <div className="space-y-6 text-sm leading-relaxed">
           <section>
@@ -25,7 +25,7 @@ export default function PoliticaPrivacidade() {
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>3. Compartilhamento</h2>
-            <p>Compartilhamos dados apenas com provedores essenciais à operação: <strong>Supabase</strong> (banco de dados e autenticação), <strong>Asaas</strong> (pagamentos) e provedores de IA — <strong>OpenRouter</strong> e <strong>Google Gemini</strong> — para a geração de conteúdo. Não vendemos seus dados.</p>
+            <p>Compartilhamos dados apenas com provedores essenciais à operação: <strong>Supabase</strong> (banco de dados e autenticação), <strong>Asaas</strong> (operador de pagamentos, que processa as cobranças e os dados do cartão de crédito) e provedores de IA — <strong>OpenRouter</strong> e <strong>Google Gemini</strong> — para a geração de conteúdo. Não vendemos seus dados.</p>
           </section>
 
           <section>

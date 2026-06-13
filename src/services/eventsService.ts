@@ -27,12 +27,26 @@ export async function trackEvent(
   try {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    await supabase.from('destravai_execution_events').insert({
-      user_id: user.id,
-      event_type: eventType,
-      ref_id: refId ?? null,
-      metadata: metadata ?? null,
+
+    // Caminho principal: RPC validada no servidor (allowlist de tipos + teto
+    // diário anti-fraude no ranking). Ver migration 202606120015.
+    const { error } = await supabase.rpc('destravai_track_event', {
+      p_event_type: eventType,
+      p_ref_id: refId ?? null,
+      p_metadata: metadata ?? null,
     })
+    if (!error) return
+
+    // Fallback: enquanto a migration da RPC não foi aplicada no banco
+    // (função inexistente), usa o insert direto antigo.
+    if (error.code === 'PGRST202' || /destravai_track_event/.test(error.message || '')) {
+      await supabase.from('destravai_execution_events').insert({
+        user_id: user.id,
+        event_type: eventType,
+        ref_id: refId ?? null,
+        metadata: metadata ?? null,
+      })
+    }
   } catch {
     // silencioso: telemetria não pode atrapalhar o uso
   }

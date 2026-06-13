@@ -1,18 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import {
-  Check, ShieldCheck, ArrowRight, Loader2, QrCode, CreditCard,
-  Copy, CheckCircle2, RefreshCw, Mail, Sparkles, Heart, Lock, Clock, Info,
+  Check, ShieldCheck, ArrowRight, Loader2, CreditCard,
+  RefreshCw, Mail, Sparkles, Heart, Lock, Info,
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
 import { supabase } from '../lib/supabase/client'
-import {
-  createPublicCheckout, getCheckoutStatus,
-  type CheckoutResult,
-} from '../services/subscriptionService'
+import { createPublicCheckout } from '../services/subscriptionService'
 
-type Step = 'form' | 'pix' | 'success'
-type Method = 'PIX' | 'CREDIT_CARD'
 type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
 
 // Benefícios exibidos na coluna esquerda — copy do guia de redesign (seção 27).
@@ -31,6 +25,13 @@ function formatBRL(value: number) {
   return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// Data da 1ª renovação: hoje + 30 dias (alinha o checkout à cláusula X.5 dos Termos).
+function renewalDateLabel() {
+  const d = new Date()
+  d.setDate(d.getDate() + 30)
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
 function maskDocument(raw: string) {
   const d = raw.replace(/\D/g, '').slice(0, 14)
   if (d.length <= 11) {
@@ -46,20 +47,15 @@ function maskPhone(raw: string) {
 }
 
 export default function Checkout() {
-  const navigate = useNavigate()
-  const [method, setMethod] = useState<Method>('PIX')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [doc, setDoc] = useState('')
-  const [step, setStep] = useState<Step>('form')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
-  const [result, setResult] = useState<CheckoutResult | null>(null)
-  const [copied, setCopied] = useState(false)
-  const [now, setNow] = useState(() => Date.now())
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const renewal = renewalDateLabel()
 
   // Pré-preenche nome/e-mail quando o usuário já está logado (ex.: voltou para
   // assinar). Não sobrescreve o que ele já digitou.
@@ -73,30 +69,6 @@ export default function Checkout() {
     }).catch(() => { /* visitante anônimo: segue com os campos vazios */ })
     return () => { active = false }
   }, [])
-
-  // Polling do status do Pix (lógica de pagamento — inalterada).
-  useEffect(() => {
-    if (step !== 'pix' || !result?.paymentId) return
-    const tick = async () => {
-      try {
-        const status = await getCheckoutStatus(result.paymentId)
-        if (status.paid) {
-          if (pollRef.current) clearInterval(pollRef.current)
-          setStep('success')
-        }
-      } catch { /* ignora erro pontual de rede no polling */ }
-    }
-    pollRef.current = setInterval(tick, 4000)
-    tick()
-    return () => { if (pollRef.current) clearInterval(pollRef.current) }
-  }, [step, result?.paymentId])
-
-  // Relógio de 1s só enquanto o Pix está na tela (alimenta o contador de expiração).
-  useEffect(() => {
-    if (step !== 'pix') return
-    const id = setInterval(() => setNow(Date.now()), 1000)
-    return () => clearInterval(id)
-  }, [step])
 
   // Validação por campo. WhatsApp é opcional, mas se preenchido precisa ser válido.
   const validate = (): FieldErrors => {
@@ -124,132 +96,22 @@ export default function Checkout() {
     setLoading(true)
     try {
       const res = await createPublicCheckout({
-        billingType: method,
+        billingType: 'CREDIT_CARD',
         name: name.trim(),
         email: email.trim().toLowerCase(),
         phone: phone.replace(/\D/g, ''),
         cpfCnpj: doc.replace(/\D/g, ''),
       })
-      setResult(res)
-      if (res.method === 'card' && res.checkoutUrl) {
+      if (res.checkoutUrl) {
         window.location.href = res.checkoutUrl
         return
       }
-      setStep('pix')
+      setError('Não foi possível abrir o pagamento. Tente novamente.')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao iniciar o pagamento.')
     } finally {
       setLoading(false)
     }
-  }
-
-  const copyPix = async () => {
-    if (!result?.pix?.copyPaste) return
-    try {
-      await navigator.clipboard.writeText(result.pix.copyPaste)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard pode falhar em http; usuario copia manualmente */ }
-  }
-
-  // ─── Sucesso ──────────────────────────────────────────────────────
-  if (step === 'success') {
-    return (
-      <Shell narrow>
-        <div className="checkout-card text-center px-7 py-9">
-          <div className="w-16 h-16 rounded-3xl flex items-center justify-center mb-6 mx-auto"
-            style={{ background: 'linear-gradient(135deg, #53D6A1, #3BB88A)', boxShadow: '0 16px 38px rgba(83,214,161,0.35)' }}>
-            <CheckCircle2 size={30} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold mb-2 tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            Pagamento confirmado!
-          </h1>
-          <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
-            Seu acesso ao Destravaí foi liberado.
-          </p>
-          <p className="text-sm mb-8" style={{ color: 'var(--text-secondary)' }}>
-            Enviamos um e-mail para <strong style={{ color: 'var(--text-primary)' }}>{email}</strong> com
-            o link para você criar sua senha e entrar.
-          </p>
-          <button onClick={() => navigate('/login')} className="btn-primary w-full py-4 text-base">
-            Acessar Destravaí <ArrowRight size={18} />
-          </button>
-        </div>
-      </Shell>
-    )
-  }
-
-  // ─── Pix (aguardando pagamento) ───────────────────────────────────
-  if (step === 'pix' && result?.pix) {
-    const expMs = result.pix.expiration ? new Date(result.pix.expiration).getTime() : null
-    const remaining = expMs ? Math.max(0, Math.floor((expMs - now) / 1000)) : null
-    const expired = remaining === 0
-    const mmss = remaining != null
-      ? `${String(Math.floor(remaining / 60)).padStart(2, '0')}:${String(remaining % 60).padStart(2, '0')}`
-      : null
-
-    return (
-      <Shell narrow>
-        <div className="checkout-card text-center px-7 py-8">
-          <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
-            style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.25)', color: '#6D5DF6' }}>
-            <QrCode size={13} /> Pague com Pix
-          </div>
-          <h1 className="text-xl font-extrabold mb-1 tracking-tight" style={{ color: 'var(--text-primary)' }}>
-            {COMPLETE_PLAN.name} — {formatBRL(COMPLETE_PLAN.firstMonthPrice)}
-          </h1>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
-            Este é o primeiro mês. Depois, a assinatura continua por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês.
-          </p>
-
-          {/* Contador de expiração do QR (usa a expiração real do Asaas). */}
-          {mmss && (
-            <div className="inline-flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full mb-4"
-              style={expired
-                ? { background: 'rgba(255,122,107,0.10)', border: '1px solid rgba(255,122,107,0.3)', color: '#E25C4D' }
-                : { background: 'rgba(247,185,85,0.12)', border: '1px solid rgba(247,185,85,0.3)', color: '#C98A1E' }}>
-              <Clock size={13} />
-              {expired ? 'QR Code expirado — gere um novo' : `Expira em ${mmss}`}
-            </div>
-          )}
-
-          {result.pix.qrCodeImage && (
-            <div className="inline-block p-3 rounded-2xl bg-white mb-4"
-              style={{ boxShadow: '0 18px 60px rgba(109,93,246,0.12)', opacity: expired ? 0.4 : 1 }}>
-              <img src={`data:image/png;base64,${result.pix.qrCodeImage}`} alt="QR Code Pix"
-                className="w-52 h-52" />
-            </div>
-          )}
-
-          {result.pix.copyPaste && (
-            <button onClick={copyPix}
-              className="w-full flex items-center justify-between gap-2 rounded-2xl px-4 py-3 mb-3 text-left"
-              style={{ background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-              <span className="text-xs font-mono truncate" style={{ color: 'var(--text-secondary)' }}>
-                {result.pix.copyPaste}
-              </span>
-              <span className="flex items-center gap-1 text-xs font-bold flex-shrink-0" style={{ color: '#6D5DF6' }}>
-                {copied ? <><Check size={14} /> Copiado</> : <><Copy size={14} /> Copiar</>}
-              </span>
-            </button>
-          )}
-
-          {/* Ajuda: como pagar pelo app do banco. */}
-          <p className="text-xs leading-relaxed mb-4 text-left" style={{ color: 'var(--text-muted)' }}>
-            Abra o app do seu banco, escolha <strong style={{ color: 'var(--text-secondary)' }}>Pix › Pix Copia e Cola</strong>,
-            cole o código e confirme. A liberação é automática.
-          </p>
-
-          <div className="rounded-2xl p-3 flex items-center justify-center gap-2"
-            style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)' }}>
-            <Loader2 size={15} className="animate-spin" style={{ color: '#6D5DF6' }} />
-            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              Aguardando confirmação do pagamento...
-            </span>
-          </div>
-        </div>
-      </Shell>
-    )
   }
 
   // ─── Formulário (duas colunas no desktop) ─────────────────────────
@@ -264,7 +126,7 @@ export default function Checkout() {
           Finalize seu acesso ao <span className="gradient-text">Destravaí</span>
         </h1>
         <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>
-          Primeiro mês por {formatBRL(COMPLETE_PLAN.firstMonthPrice)}. Depois {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês. Sem fidelidade.
+          Hoje: {formatBRL(COMPLETE_PLAN.firstMonthPrice)} · A partir de {renewal}: {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês · Cancele quando quiser.
         </p>
       </header>
 
@@ -378,21 +240,26 @@ export default function Checkout() {
             </Field>
           </div>
 
-          {/* Forma de pagamento */}
+          {/* Forma de pagamento: cartão de crédito (recorrência automática) */}
           <label className="label">Forma de pagamento</label>
-          <div className="flex gap-2 mb-4">
-            <MethodTab active={method === 'PIX'} onClick={() => setMethod('PIX')} icon={QrCode} label="Pix" sub="Aprovação imediata" />
-            <MethodTab active={method === 'CREDIT_CARD'} onClick={() => setMethod('CREDIT_CARD')} icon={CreditCard} label="Cartão" sub="Crédito" />
+          <div className="flex items-center gap-2.5 rounded-2xl px-3 py-3 mb-4"
+            style={{ background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.5)' }}>
+            <CreditCard size={18} style={{ color: '#6D5DF6' }} />
+            <div className="text-left flex-1">
+              <p className="text-sm font-bold" style={{ color: '#6D5DF6' }}>Cartão de crédito</p>
+              <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Renovação automática mensal</p>
+            </div>
+            <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: '#6D5DF6' }}>
+              <Check size={12} className="text-white" strokeWidth={3} />
+            </span>
           </div>
 
           {/* Aviso de redirecionamento do cartão (ambiente seguro do Asaas). */}
-          {method === 'CREDIT_CARD' && (
-            <div className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2 text-xs"
-              style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)', color: 'var(--text-secondary)' }}>
-              <Info size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#6D5DF6' }} />
-              Você será direcionado ao ambiente seguro do Asaas para informar os dados do cartão.
-            </div>
-          )}
+          <div className="rounded-xl px-4 py-3 mb-4 flex items-start gap-2 text-xs"
+            style={{ background: 'rgba(109,93,246,0.06)', border: '1px solid rgba(109,93,246,0.18)', color: 'var(--text-secondary)' }}>
+            <Info size={15} className="flex-shrink-0 mt-0.5" style={{ color: '#6D5DF6' }} />
+            Você será direcionado ao ambiente seguro do Asaas para informar os dados do cartão.
+          </div>
 
           {error && (
             <div className="rounded-xl px-4 py-3 text-sm font-semibold mb-4"
@@ -410,6 +277,10 @@ export default function Checkout() {
 
           {/* Microcopy abaixo do botão */}
           <div className="mt-4 space-y-2">
+            <div className="text-center text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
+              Hoje você paga {formatBRL(COMPLETE_PLAN.firstMonthPrice)}. A partir de {renewal}, a assinatura
+              renova automaticamente por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês, sem novo aviso, até você cancelar.
+            </div>
             <div className="flex items-center justify-center gap-2 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
               <Mail size={13} style={{ color: '#6D5DF6' }} className="flex-shrink-0" />
               Acesso liberado no e-mail informado após a confirmação do pagamento.
@@ -472,30 +343,5 @@ function TrustItem({ icon: Icon, title, sub }: { icon: React.ElementType; title:
       <p className="text-xs font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>{title}</p>
       <p className="text-[10px] leading-tight" style={{ color: 'var(--text-muted)' }}>{sub}</p>
     </div>
-  )
-}
-
-function MethodTab({ active, onClick, icon: Icon, label, sub }: {
-  active: boolean; onClick: () => void; icon: React.ElementType; label: string; sub: string
-}) {
-  return (
-    <button onClick={onClick}
-      className="flex-1 flex items-center gap-2.5 rounded-2xl px-3 py-3 transition-all duration-200 relative"
-      style={active ? {
-        background: 'rgba(109,93,246,0.10)', border: '1px solid rgba(109,93,246,0.5)',
-        boxShadow: '0 0 0 3px rgba(109,93,246,0.10)',
-      } : { background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-      <Icon size={18} style={{ color: active ? '#6D5DF6' : 'var(--text-muted)' }} />
-      <div className="text-left flex-1">
-        <p className="text-sm font-bold" style={{ color: active ? '#6D5DF6' : 'var(--text-primary)' }}>{label}</p>
-        <p className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{sub}</p>
-      </div>
-      {active && (
-        <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
-          style={{ background: '#6D5DF6' }}>
-          <Check size={12} className="text-white" strokeWidth={3} />
-        </span>
-      )}
-    </button>
   )
 }

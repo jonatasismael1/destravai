@@ -29,6 +29,20 @@ export default function TourOverlay({ steps, index, onNext, onPrev, onSkip }: Pr
   const [targetRect, setTargetRect] = useState<Rect | null>(null)
   const [cardSize, setCardSize] = useState({ w: 340, h: 180 })
   const [vp, setVp] = useState({ w: window.innerWidth, h: window.innerHeight })
+  // Controla a animação de entrada: monta invisível e transiciona para visível.
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(id)
+  }, [])
+
+  // Reinicia a animação a cada passo.
+  useEffect(() => {
+    setVisible(false)
+    const id = requestAnimationFrame(() => setVisible(true))
+    return () => cancelAnimationFrame(id)
+  }, [index])
 
   // Localiza o elemento-alvo (data-tour). Tenta por ~1s, pois a tela pode estar
   // terminando de montar/animar quando o tour dispara.
@@ -116,8 +130,7 @@ export default function TourOverlay({ steps, index, onNext, onPrev, onSkip }: Pr
 
   return createPortal(
     <div className="fixed inset-0" style={{ zIndex: 400 }}>
-      {/* Dim + spotlight. Quando há alvo, o escurecimento vem do box-shadow gigante
-          ao redor do recorte; senão, um dim cheio. */}
+      {/* Dim + spotlight. */}
       {spotlight ? (
         <div
           style={{
@@ -135,10 +148,10 @@ export default function TourOverlay({ steps, index, onNext, onPrev, onSkip }: Pr
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.62)' }} />
       )}
 
-      {/* Bloqueia cliques no app por trás (não fecha ao clicar fora — evita sair sem querer). */}
+      {/* Bloqueia cliques no app por trás. */}
       <div style={{ position: 'fixed', inset: 0 }} />
 
-      {/* Cartão */}
+      {/* Cartão com animação de entrada */}
       <div
         ref={cardRef}
         className="absolute"
@@ -149,15 +162,33 @@ export default function TourOverlay({ steps, index, onNext, onPrev, onSkip }: Pr
           borderRadius: 18,
           boxShadow: 'var(--shadow-card)',
           padding: 18,
-          transition: 'top 0.25s cubic-bezier(0.22,1,0.36,1), left 0.25s cubic-bezier(0.22,1,0.36,1)',
+          transition: [
+            'top 0.25s cubic-bezier(0.22,1,0.36,1)',
+            'left 0.25s cubic-bezier(0.22,1,0.36,1)',
+            'opacity 0.2s ease',
+            'transform 0.2s cubic-bezier(0.22,1,0.36,1)',
+          ].join(', '),
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0px)' : 'translateY(10px)',
         }}
       >
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-            style={{ background: 'var(--brand-soft)', color: 'var(--brand)' }}>
-            {index + 1} de {total}
-          </span>
-          <button onClick={onSkip} aria-label="Pular tour"
+        {/* Cabeçalho: dots de progresso + botão fechar */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: total }).map((_, i) => (
+              <div
+                key={i}
+                style={{
+                  width: i === index ? 18 : 6,
+                  height: 6,
+                  borderRadius: 9999,
+                  background: i === index ? 'var(--brand)' : 'var(--border-strong)',
+                  transition: 'width 0.3s cubic-bezier(0.22,1,0.36,1), background 0.3s ease',
+                }}
+              />
+            ))}
+          </div>
+          <button onClick={onSkip} aria-label="Fechar tour"
             className="w-7 h-7 rounded-lg flex items-center justify-center"
             style={{ color: 'var(--text-muted)' }}>
             <X size={16} />
@@ -171,12 +202,7 @@ export default function TourOverlay({ steps, index, onNext, onPrev, onSkip }: Pr
           {step.body}
         </p>
 
-        <div className="flex items-center gap-2">
-          <button onClick={onSkip}
-            className="text-xs font-semibold px-2 py-2 mr-auto"
-            style={{ color: 'var(--text-muted)' }}>
-            Pular tour
-          </button>
+        <div className="flex items-center justify-end gap-2">
           {!isFirst && (
             <button onClick={onPrev} className="btn-secondary text-sm px-3 py-2">
               <ChevronLeft size={15} /> Voltar

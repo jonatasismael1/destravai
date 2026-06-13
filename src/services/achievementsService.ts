@@ -107,13 +107,29 @@ export async function checkAndUnlockAchievements(progress: Progress): Promise<Un
     const newKeys = unlockedKeys.filter(k => !existingKeys.has(k))
     if (newKeys.length === 0) return []
 
-    const rows = newKeys.map(key => ({ user_id: user.id, achievement_key: key }))
-    // upsert com ignoreDuplicates evita corrida (constraint unique garante 1x).
-    const { error } = await supabase
-      .from('destravai_achievements')
-      .upsert(rows, { onConflict: 'user_id,achievement_key', ignoreDuplicates: true })
+    // Caminho principal: RPC validada pelo catálogo no servidor (migration
+    // 202606120015). A constraint unique continua garantindo 1x por conquista.
+    let rpcMissing = false
+    for (const key of newKeys) {
+      const { error } = await supabase.rpc('destravai_unlock_achievement', { p_key: key })
+      if (error) {
+        if (error.code === 'PGRST202' || /destravai_unlock_achievement/.test(error.message || '')) {
+          rpcMissing = true
+          break
+        }
+        return []
+      }
+    }
 
-    if (error) return []
+    // Fallback: enquanto a migration da RPC não foi aplicada no banco,
+    // usa o upsert direto antigo (ignoreDuplicates evita corrida).
+    if (rpcMissing) {
+      const rows = newKeys.map(key => ({ user_id: user.id, achievement_key: key }))
+      const { error } = await supabase
+        .from('destravai_achievements')
+        .upsert(rows, { onConflict: 'user_id,achievement_key', ignoreDuplicates: true })
+      if (error) return []
+    }
 
     return newKeys
       .map(key => {

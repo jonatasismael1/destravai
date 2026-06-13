@@ -13,11 +13,22 @@
 // atacante externo não alcança esta função. O token abaixo é defesa em profundidade
 // para disparo manual (dev/CLI) e caso esse comportamento do Netlify mude.
 
+import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin, serverLog, grantAccess, json } from './_shared.mjs'
 
 export const config = { schedule: '@hourly' }
 
 const PAID_EVENTS = ['PAYMENT_CONFIRMED', 'PAYMENT_RECEIVED', 'PAYMENT_RECEIVED_IN_CASH']
+
+// Comparação em tempo constante (mesmo padrão do asaas-webhook): evita timing
+// attack na validação do token de disparo manual.
+function safeEqual(a, b) {
+  if (!a || !b) return false
+  const bufA = Buffer.from(String(a))
+  const bufB = Buffer.from(String(b))
+  if (bufA.length !== bufB.length) return false
+  return timingSafeEqual(bufA, bufB)
+}
 
 // Garante que só o agendador da Netlify (ou um disparo manual autenticado) execute
 // a rotina — sem isso, qualquer um podia chamar a URL pública e martelar o banco.
@@ -31,7 +42,7 @@ function isAuthorized(event) {
   const expected = process.env.MONITOR_TOKEN
   if (!expected) return false // sem token configurado, bloqueia disparo manual externo
   const token = event?.queryStringParameters?.token || event?.headers?.['x-monitor-token']
-  return token === expected
+  return safeEqual(token, expected)
 }
 
 export const handler = async (event) => {

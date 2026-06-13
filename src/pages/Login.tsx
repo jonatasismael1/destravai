@@ -248,7 +248,7 @@ export default function Login() {
 
         {/* ── Rodapé de confiança ──────────────────────────── */}
         <p className="text-center text-xs mt-6" style={{ color: 'var(--text-muted)' }}>
-          R$1 no primeiro mês · Depois R$49,90/mês · Cancele quando quiser
+          R$9,90 no primeiro mês · Depois R$49,90/mês · Cancele quando quiser
         </p>
 
         {/* Links legais */}

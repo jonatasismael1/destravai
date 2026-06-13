@@ -2,7 +2,7 @@
 // Checkout publico do Destravai para oferta unica (somente cartao de credito):
 //   1. Cria/reaproveita a conta no Supabase Auth pelo e-mail.
 //   2. Cria/reaproveita o customer no Asaas.
-//   3. Cria uma cobranca inicial avulsa de R$1 (oferta de lancamento).
+//   3. Cria uma cobranca inicial avulsa de R$9,90 (oferta de lancamento).
 //   4. O webhook, ao confirmar essa cobranca, cria a assinatura mensal de R$49,90.
 //
 // Esse fluxo evita depender de preco variavel em uma unica assinatura/link do Asaas.

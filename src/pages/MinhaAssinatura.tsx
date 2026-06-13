@@ -75,7 +75,7 @@ export default function MinhaAssinatura() {
             <div className="rounded-3xl p-5 space-y-3" style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}>
               <Row label="Plano" value={sub.planName ?? 'Destravai Completo'} />
               <Row label="Status" value={st?.label ?? sub.status ?? '-'} valueColor={st?.color} />
-              <Row label="Primeiro mes" value={money(sub.firstMonthPrice, 'R$ 1,00')} />
+              <Row label="Primeiro mes" value={money(sub.firstMonthPrice, 'R$ 9,90')} />
               <Row label="Valor recorrente" value={`${money(sub.recurringPrice ?? sub.price, 'R$ 49,90')}/mes`} />
               <Row label="Inicio" value={fmt(sub.startedAt)} />
             </div>

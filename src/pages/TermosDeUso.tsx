@@ -21,21 +21,21 @@ export default function TermosDeUso() {
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>2. Assinatura, preços e forma de pagamento</h2>
             <p className="mb-3">O Destravaí é oferecido em modelo de <strong>assinatura recorrente mensal</strong>. Ao contratar, você adquire acesso completo às funcionalidades do plano vigente.</p>
-            <p className="mb-3"><strong>Oferta de lançamento:</strong> o <strong>primeiro mês</strong> custa <strong>R$1,00 (um real)</strong>, cobrado no ato da contratação. <strong>A partir do 2º mês</strong>, a assinatura é renovada automaticamente pelo valor de <strong>R$49,90 (quarenta e nove reais e noventa centavos) por mês</strong>.</p>
+            <p className="mb-3"><strong>Oferta de lançamento:</strong> o <strong>primeiro mês</strong> custa <strong>R$9,90 (nove reais e noventa centavos)</strong>, cobrado no ato da contratação. <strong>A partir do 2º mês</strong>, a assinatura é renovada automaticamente pelo valor de <strong>R$49,90 (quarenta e nove reais e noventa centavos) por mês</strong>.</p>
             <p className="mb-3">O pagamento é aceito <strong>exclusivamente por cartão de crédito</strong>. Não há cobrança por Pix ou boleto, uma vez que a recorrência automática depende de cartão.</p>
             <p>As cobranças são processadas pela <strong>Asaas</strong> (Asaas Gestão Financeira Instituição de Pagamento S.A.). Os dados do cartão são tratados pelo Asaas conforme os padrões de segurança aplicáveis (PCI-DSS); o Destravaí <strong>não armazena o número completo do cartão</strong> em seus servidores.</p>
           </section>
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>3. Autorização de cobrança recorrente</h2>
-            <p className="mb-3">Ao concluir a contratação, você <strong>autoriza expressamente</strong> o Destravaí e o Asaas a realizarem, no cartão de crédito informado: (i) uma cobrança de <strong>R$1,00 na data da contratação</strong>; e (ii) cobranças mensais de <strong>R$49,90, de forma automática e sucessiva</strong>, a partir de <strong>30 (trinta) dias</strong> após a contratação, enquanto a assinatura permanecer ativa.</p>
+            <p className="mb-3">Ao concluir a contratação, você <strong>autoriza expressamente</strong> o Destravaí e o Asaas a realizarem, no cartão de crédito informado: (i) uma cobrança de <strong>R$9,90 na data da contratação</strong>; e (ii) cobranças mensais de <strong>R$49,90, de forma automática e sucessiva</strong>, a partir de <strong>30 (trinta) dias</strong> após a contratação, enquanto a assinatura permanecer ativa.</p>
             <p className="mb-3">Você reconhece que a <strong>renovação é automática</strong> e ocorre <strong>independentemente de novo aviso, notificação ou confirmação individual</strong> a cada ciclo. Esta cláusula, somada à informação exibida na tela de checkout, constitui a comunicação prévia da recorrência.</p>
             <p>Não há fidelidade nem multa por cancelamento. Você pode encerrar a assinatura a qualquer momento, conforme a cláusula de cancelamento.</p>
           </section>
 
           <section>
             <h2 className="font-bold text-base mb-2" style={{ color: 'var(--text-primary)' }}>4. Garantia de 7 dias</h2>
-            <p>Você tem <strong>garantia incondicional de 7 (sete) dias</strong>, contados a partir da contratação. Se cancelar dentro desse prazo e solicitar reembolso, o Destravaí <strong>devolve o valor pago</strong> (inclusive o R$1,00 do primeiro mês). Cancelamentos após o prazo de garantia interrompem as cobranças futuras, mas não geram reembolso de valores já cobrados no ciclo corrente.</p>
+            <p>Você tem <strong>garantia incondicional de 7 (sete) dias</strong>, contados a partir da contratação. Se cancelar dentro desse prazo e solicitar reembolso, o Destravaí <strong>devolve o valor pago</strong> (inclusive o R$9,90 do primeiro mês). Cancelamentos após o prazo de garantia interrompem as cobranças futuras, mas não geram reembolso de valores já cobrados no ciclo corrente.</p>
           </section>
 
           <section>

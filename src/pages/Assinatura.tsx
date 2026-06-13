@@ -16,7 +16,7 @@ export default function Assinatura() {
             Assine o Destravai Completo
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            Comece por R$1 no primeiro mes. Depois, continue por R$49,90/mes.
+            Comece por R$9,90 no primeiro mes. Depois, continue por R$49,90/mes.
             Sem fidelidade. Cancele quando quiser.
           </p>
         </div>
@@ -35,7 +35,7 @@ export default function Assinatura() {
               {COMPLETE_PLAN.name}
             </p>
             <p className="font-extrabold text-3xl" style={{ color: 'var(--text-primary)' }}>
-              R$1 <span className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>no primeiro mes</span>
+              R$9,90 <span className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>no primeiro mes</span>
             </p>
             <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
               Depois R$49,90/mes. Sem fidelidade.
@@ -51,7 +51,7 @@ export default function Assinatura() {
         </div>
 
         <button onClick={() => navigate('/checkout')} className="btn-primary w-full py-4 text-base">
-          Comecar por R$1 <ArrowRight size={18} />
+          Comecar por R$9,90 <ArrowRight size={18} />
         </button>
 
         <div className="flex items-center justify-center gap-2 mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>

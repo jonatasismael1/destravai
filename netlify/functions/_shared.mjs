@@ -11,10 +11,10 @@ export const COMPLETE_PLAN_ID = 'destravai_completo'
 export const COMPLETE_PLAN = {
   id: COMPLETE_PLAN_ID,
   name: 'Destravai Completo',
-  firstMonthPrice: 1.0,
+  firstMonthPrice: 9.9,
   recurringPrice: 49.9,
-  price: 1.0,
-  tagline: 'R$1 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
+  price: 9.9,
+  tagline: 'R$9,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
   features: [
     'Ideias e roteiros com a Deby AI',
     'Teleprompter para gravar',

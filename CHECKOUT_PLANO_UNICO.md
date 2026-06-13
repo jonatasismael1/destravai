@@ -3,12 +3,12 @@
 ## Oferta ativa
 
 - Plano interno: `destravai_completo`
-- Primeiro mes: R$1,00 (oferta de lancamento)
+- Primeiro mes: R$9,90 (oferta de lancamento — minimo do Asaas e R$5)
 - Recorrencia: R$49,90 por mes a partir do segundo ciclo (renovacao automatica, sem aviso previo)
 - Pagamento exclusivamente por cartao de credito (a recorrencia automatica depende do cartao tokenizado)
 - Sem fidelidade
 - Cancelamento self-service quando quiser
-- Garantia incondicional de 7 dias (reembolso integral, inclusive o R$1)
+- Garantia incondicional de 7 dias (reembolso integral, inclusive o R$9,90)
 
 ## Fluxo Asaas
 
@@ -18,7 +18,7 @@ Como o preco do primeiro ciclo e diferente da mensalidade recorrente, o fluxo se
 
 1. Criar ou reutilizar o usuario no Supabase Auth pelo e-mail informado.
 2. Criar ou reutilizar o customer no Asaas.
-3. Criar uma cobranca inicial avulsa de R$1,00 no cartao de credito.
+3. Criar uma cobranca inicial avulsa de R$9,90 no cartao de credito.
 4. Registrar a assinatura local em `subscriptions` com `plan_id = 'destravai_completo'`, `status = 'pending'` e `payment_status = 'pending'`.
 5. Quando o webhook receber pagamento aprovado, liberar o acesso e criar a assinatura mensal recorrente de R$49,90 no Asaas com vencimento para o mes seguinte.
 

@@ -3,9 +3,9 @@ import { useApp } from '../context/AppContext'
 import { updateProfile } from '../services/profileService'
 import { saveBrandEssence } from '../services/essenceService'
 import type { ProfessionalProfile, ContentPillar, ServiceTopic, ExposureLevel } from '../types'
-import { ChevronLeft, ChevronRight, Check, Eye, Mic, MicOff, Film, Monitor } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Check, Eye, Mic, MicOff, Film, Monitor, Sparkles, Rocket } from 'lucide-react'
 
-const TOTAL_STEPS = 8
+const TOTAL_STEPS = 10
 
 const GOALS = [
   'Atrair mais clientes',
@@ -51,16 +51,17 @@ const SERVICE_SUGGESTIONS = [
   'Pacote de serviços', 'Avaliação inicial', 'Acompanhamento', 'Produto digital',
 ]
 
-// Por que este step importa para a Deby
 const STEP_CONTEXT = [
+  '',
   'Isso personaliza cada roteiro com o seu nome, área e estilo de comunicação.',
+  'Cidade e público ajudam a Deby a calibrar referências e linguagem.',
   'Seu objetivo guia o tipo e o tom de cada conteúdo gerado.',
   'A Deby adapta o formato de story pro seu nível de conforto — sem forçar.',
   'Seu tom de voz faz cada roteiro soar como você, não como um robô.',
   'Os pilares definem os temas que a Deby vai priorizar nas sugestões.',
   'Com seus serviços, a Deby cria CTAs naturais que convertem sem parecer venda.',
   'A Deby vai respeitar esses limites em todos os roteiros gerados.',
-  'Bordão e palavras preferidas fazem a diferença entre parecer você ou qualquer um.',
+  '',
 ]
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
@@ -113,7 +114,6 @@ function MultiChip({ options, selected, onToggle }: {
   )
 }
 
-// Dica contextual para motivar preenchimento
 function ContextTip({ text }: { text: string }) {
   return (
     <div className="flex items-start gap-2.5 rounded-2xl px-4 py-3 mb-5"
@@ -159,12 +159,14 @@ export default function Onboarding() {
 
   const canAdvance = () => {
     switch (step) {
-      case 0: return !!(professionalName && specialty)
-      case 1: return !!currentGoal
-      case 2: return !!exposureLevel
-      case 3: return voiceTone.length > 0
-      case 4: return selectedPillars.length > 0
-      case 5: return selectedServices.length > 0
+      case 0: return true
+      case 1: return !!(professionalName && specialty)
+      case 2: return true
+      case 3: return !!currentGoal
+      case 4: return !!exposureLevel
+      case 5: return voiceTone.length > 0
+      case 6: return selectedPillars.length > 0
+      case 7: return selectedServices.length > 0
       default: return true
     }
   }
@@ -208,8 +210,6 @@ export default function Onboarding() {
         differentials: '',
         frequent_questions: [],
         common_objections: [],
-        // Campos extras guardados no raw_answers_json para reconstruir o perfil
-        // em qualquer dispositivo (não têm coluna própria na tabela de essência)
         professional_name: professionalName,
         city,
         instagram,
@@ -236,7 +236,9 @@ export default function Onboarding() {
   }
 
   const STEP_TITLES = [
+    'Bem-vindo(a) ao Destravaí',
     'Quem é você?',
+    'Onde e para quem?',
     'Qual é seu foco agora?',
     'Como você prefere aparecer?',
     'Como quer ser percebido(a)?',
@@ -247,7 +249,9 @@ export default function Onboarding() {
   ]
 
   const STEP_SUBTITLES = [
-    'Sua área e nome moldam cada roteiro gerado.',
+    'Em ~2 minutos a Deby vai conhecer você e criar com a sua voz.',
+    'Seu nome e área moldam cada roteiro gerado.',
+    'Contexto local e público ajudam a calibrar o tom das ideias.',
     'A Deby prioriza o tipo de conteúdo mais certo pro seu momento.',
     'Sem pressão. Você pode evoluir isso quando quiser.',
     'Escolha os atributos que definem como você se comunica.',
@@ -258,8 +262,45 @@ export default function Onboarding() {
   ]
 
   const steps = [
-    // Step 0
+    // Step 0 — Boas-vindas
     <div key={0} className="space-y-4">
+      <div className="rounded-2xl p-5"
+        style={{ background: 'rgba(109,93,246,0.07)', border: '1px solid rgba(109,93,246,0.18)' }}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #6D5DF6, #9B8CFF)', boxShadow: '0 8px 20px rgba(109,93,246,0.35)' }}>
+            <Sparkles size={22} className="text-white" />
+          </div>
+          <div>
+            <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>Deby AI</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Sua assistente de conteúdo</p>
+          </div>
+        </div>
+        <p className="text-sm leading-relaxed italic" style={{ color: 'var(--text-secondary)' }}>
+          "Vou aprender o seu jeito de falar, seus temas e seus objetivos — e transformar isso em roteiros que parecem seus, não de uma IA."
+        </p>
+      </div>
+
+      <div className="space-y-3">
+        {[
+          'Roteiros no seu tom de voz',
+          'CTAs que vendem sem parecer venda',
+          'Ideias prontas para gravar hoje',
+        ].map(item => (
+          <div key={item} className="flex items-center gap-3 text-sm font-semibold"
+            style={{ color: 'var(--text-secondary)' }}>
+            <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ background: 'rgba(83,214,161,0.15)', border: '1px solid rgba(83,214,161,0.4)' }}>
+              <Check size={12} style={{ color: '#53D6A1' }} strokeWidth={3} />
+            </span>
+            {item}
+          </div>
+        ))}
+      </div>
+    </div>,
+
+    // Step 1 — Identidade parte 1
+    <div key={1} className="space-y-4">
       <div>
         <label className="label">Nome profissional</label>
         <input
@@ -286,45 +327,40 @@ export default function Onboarding() {
       </div>
       <div>
         <label className="label">Área de atuação <span style={{ color: '#FF7A6B' }}>*</span></label>
-        <input className="input" value={specialty} onChange={e => setSpecialty(e.target.value)} placeholder="Ex: Nutricionista, Coach, Fotógrafa, Advogada..." />
+        <input className="input" value={specialty} onChange={e => setSpecialty(e.target.value)}
+          placeholder="Ex: Nutricionista, Coach, Fotógrafa, Advogada..." />
         <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>
           Obrigatório — define o vocabulário e o nicho dos roteiros.
         </p>
       </div>
+    </div>,
+
+    // Step 2 — Identidade parte 2
+    <div key={2} className="space-y-4">
       <div>
         <label className="label">Público principal</label>
-        <input className="input" value={targetAudience} onChange={e => setTargetAudience(e.target.value)} placeholder="Ex: Mulheres 25-40, empreendedores iniciantes..." />
+        <input className="input" value={targetAudience} onChange={e => setTargetAudience(e.target.value)}
+          placeholder="Ex: Mulheres 25-40, empreendedores iniciantes..." />
       </div>
       <div>
         <label className="label">Cidade</label>
-        <input
-          className="input"
-          value={city}
-          onChange={e => setCity(e.target.value)}
-          placeholder="Ex: São Paulo, SP"
-          autoComplete="address-level2"
-        />
+        <input className="input" value={city} onChange={e => setCity(e.target.value)}
+          placeholder="Ex: São Paulo, SP" autoComplete="address-level2" />
       </div>
       <div>
         <label className="label">Instagram</label>
-        <input
-          className="input"
-          value={instagram}
-          onChange={e => setInstagram(e.target.value)}
-          placeholder="@seuperfil"
-          autoCapitalize="none"
-          autoCorrect="off"
-          autoComplete="username"
-        />
+        <input className="input" value={instagram} onChange={e => setInstagram(e.target.value)}
+          placeholder="@seuperfil" autoCapitalize="none" autoCorrect="off" autoComplete="username" />
       </div>
+      <p className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+        Todos opcionais — mas quanto mais contexto, melhor a Deby calibra.
+      </p>
     </div>,
 
-    // Step 1
-    <div key={1} className="space-y-2">
+    // Step 3 — Objetivo
+    <div key={3} className="space-y-2">
       {GOALS.map(g => (
-        <button
-          key={g}
-          onClick={() => setCurrentGoal(g)}
+        <button key={g} onClick={() => setCurrentGoal(g)}
           className="w-full text-left px-4 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-200"
           style={currentGoal === g ? {
             background: 'rgba(109,93,246,0.15)',
@@ -334,8 +370,7 @@ export default function Onboarding() {
             background: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
             color: 'var(--text-secondary)',
-          }}
-        >
+          }}>
           <span className="flex items-center gap-2">
             {currentGoal === g && <Check size={14} style={{ color: '#9B8CFF' }} />}
             {g}
@@ -344,12 +379,10 @@ export default function Onboarding() {
       ))}
     </div>,
 
-    // Step 2 — ícones vetoriais no lugar de emojis
-    <div key={2} className="space-y-2">
+    // Step 4 — Exposição
+    <div key={4} className="space-y-2">
       {EXPOSURE_OPTIONS.map(({ value, label, desc, Icon }) => (
-        <button
-          key={value}
-          onClick={() => setExposureLevel(value)}
+        <button key={value} onClick={() => setExposureLevel(value)}
           className="w-full text-left px-4 py-3.5 rounded-2xl transition-all duration-200 flex items-center gap-3"
           style={exposureLevel === value ? {
             background: 'var(--brand-soft)',
@@ -357,18 +390,16 @@ export default function Onboarding() {
           } : {
             background: 'var(--bg-elevated)',
             border: '1px solid var(--border-subtle)',
-          }}
-        >
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          }}>
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
             style={exposureLevel === value
               ? { background: 'var(--brand-soft)', border: '1px solid var(--brand-border)' }
-              : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}
-          >
+              : { background: 'var(--bg-surface)', border: '1px solid var(--border-subtle)' }}>
             <Icon size={18} style={{ color: exposureLevel === value ? '#9B8CFF' : 'var(--text-muted)' }} />
           </div>
           <div>
-            <span className="block font-bold text-sm" style={{ color: exposureLevel === value ? '#9B8CFF' : 'var(--text-primary)' }}>
+            <span className="block font-bold text-sm"
+              style={{ color: exposureLevel === value ? '#9B8CFF' : 'var(--text-primary)' }}>
               {label}
             </span>
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{desc}</span>
@@ -377,8 +408,8 @@ export default function Onboarding() {
       ))}
     </div>,
 
-    // Step 3
-    <div key={3} className="space-y-4">
+    // Step 5 — Tom de voz
+    <div key={5} className="space-y-4">
       <MultiChip options={TONE_OPTIONS} selected={voiceTone} onToggle={handleToneToggle} />
       {voiceTone.length > 0 && (
         <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
@@ -387,8 +418,8 @@ export default function Onboarding() {
       )}
     </div>,
 
-    // Step 4
-    <div key={4} className="space-y-4">
+    // Step 6 — Pilares
+    <div key={6} className="space-y-4">
       <MultiChip options={DEFAULT_PILLARS} selected={selectedPillars} onToggle={handlePillarToggle} />
       <div>
         <label className="label">Pilar personalizado</label>
@@ -402,8 +433,8 @@ export default function Onboarding() {
       )}
     </div>,
 
-    // Step 5
-    <div key={5} className="space-y-4">
+    // Step 7 — Serviços
+    <div key={7} className="space-y-4">
       <MultiChip options={SERVICE_SUGGESTIONS} selected={selectedServices} onToggle={handleServiceToggle} />
       <div>
         <label className="label">Adicionar serviço ou produto</label>
@@ -412,52 +443,66 @@ export default function Onboarding() {
       </div>
     </div>,
 
-    // Step 6
-    <div key={6} className="space-y-4">
+    // Step 8 — Limites
+    <div key={8} className="space-y-4">
       <div>
         <label className="label">Temas que não quer abordar</label>
-        <input className="input" value={avoidTopics} onChange={e => setAvoidTopics(e.target.value)} placeholder="Ex: Política, religião (separados por vírgula)" />
-        <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>Opcional — mas importante para a Deby nunca errar o tom.</p>
+        <input className="input" value={avoidTopics} onChange={e => setAvoidTopics(e.target.value)}
+          placeholder="Ex: Política, religião (separados por vírgula)" />
+        <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>
+          Opcional — mas importante para a Deby nunca errar o tom.
+        </p>
       </div>
       <div>
         <label className="label">Palavras que evita</label>
-        <input className="input" value={avoidedWords} onChange={e => setAvoidedWords(e.target.value)} placeholder="Ex: guru, próspero, incrível (separadas por vírgula)" />
+        <input className="input" value={avoidedWords} onChange={e => setAvoidedWords(e.target.value)}
+          placeholder="Ex: guru, próspero, incrível (separadas por vírgula)" />
       </div>
       <div>
         <label className="label">Modelo de atendimento</label>
-        <input className="input" value={serviceType} onChange={e => setServiceType(e.target.value)} placeholder="Ex: Presencial, online, híbrido" />
+        <input className="input" value={serviceType} onChange={e => setServiceType(e.target.value)}
+          placeholder="Ex: Presencial, online, híbrido" />
       </div>
     </div>,
 
-    // Step 7 — final
-    <div key={7} className="space-y-4">
+    // Step 9 — Bordão + conclusão comemorativa
+    <div key={9} className="space-y-4">
       <div>
         <label className="label">Bordão principal <span style={{ color: 'var(--text-muted)' }}>(opcional)</span></label>
-        <input className="input" value={catchphrase} onChange={e => setCatchphrase(e.target.value)} placeholder='Ex: "Descomplica!", "Bora pra cima!", "Simples assim."' />
+        <input className="input" value={catchphrase} onChange={e => setCatchphrase(e.target.value)}
+          placeholder='Ex: "Descomplica!", "Bora pra cima!", "Simples assim."' />
         <p className="text-xs mt-1.5 font-medium" style={{ color: 'var(--text-muted)' }}>
           A Deby vai usar isso no final dos roteiros quando fizer sentido.
         </p>
       </div>
 
-      {/* Resumo do que foi configurado */}
-      <div className="rounded-2xl p-4 space-y-2"
-        style={{ background: 'rgba(109,93,246,0.07)', border: '1px solid rgba(109,93,246,0.18)' }}>
-        <p className="text-xs font-extrabold uppercase tracking-widest mb-3" style={{ color: '#9B8CFF' }}>
-          Seu perfil está pronto
-        </p>
+      {/* Tela comemorativa */}
+      <div className="rounded-2xl p-5 space-y-3"
+        style={{ background: 'linear-gradient(135deg, rgba(109,93,246,0.10), rgba(83,214,161,0.07))', border: '1px solid rgba(109,93,246,0.20)' }}>
+        <div className="flex items-center gap-3 mb-1">
+          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'linear-gradient(135deg, #6D5DF6, #53D6A1)', boxShadow: '0 8px 20px rgba(109,93,246,0.25)' }}>
+            <Rocket size={18} className="text-white" />
+          </div>
+          <p className="text-sm font-extrabold" style={{ color: 'var(--text-primary)' }}>
+            Perfil pronto. Deby no ar.
+          </p>
+        </div>
+
         {[
           specialty && `Área: ${specialty}`,
           currentGoal && `Foco: ${currentGoal}`,
           voiceTone.length && `Tom: ${voiceTone.slice(0, 2).join(', ')}${voiceTone.length > 2 ? ` +${voiceTone.length - 2}` : ''}`,
           selectedPillars.length && `${selectedPillars.length} pilar${selectedPillars.length > 1 ? 'es' : ''} de conteúdo`,
-          selectedServices.length && `${selectedServices.length} serviço${selectedServices.length > 1 ? 's' : ''}`,
+          selectedServices.length && `${selectedServices.length} serviço${selectedServices.length > 1 ? 's' : ''} cadastrado${selectedServices.length > 1 ? 's' : ''}`,
         ].filter(Boolean).map((item, i) => (
           <div key={i} className="flex items-center gap-2">
             <Check size={12} style={{ color: '#9B8CFF' }} />
             <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{item}</p>
           </div>
         ))}
-        <p className="text-sm font-bold mt-3 pt-3" style={{ color: 'var(--text-primary)', borderTop: '1px solid rgba(109,93,246,0.15)' }}>
+
+        <p className="text-sm font-bold pt-2" style={{ color: 'var(--text-primary)', borderTop: '1px solid rgba(109,93,246,0.15)' }}>
           Cada ideia vai parecer sua — não de um app genérico.
         </p>
       </div>
@@ -470,30 +515,27 @@ export default function Onboarding() {
         {/* Header */}
         <div className="flex items-center justify-between mb-5 pt-2">
           <div className="flex items-center gap-2.5">
-            <img
-              src="/destravai-icone.png"
-              alt="Destravaí"
-              className="w-8 h-8 rounded-xl object-cover"
-            />
+            <img src="/destravai-icone.png" alt="Destravaí" className="w-8 h-8 rounded-xl object-cover" />
             <span className="font-extrabold tracking-tight" style={{ color: 'var(--text-primary)' }}>Destravaí</span>
           </div>
           <div className="flex items-center gap-2">
-            {/* Expectativa de tempo logo no início, para reduzir o atrito de começar */}
             {step === 0 && (
               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                 style={{ background: 'rgba(83,214,161,0.12)', border: '1px solid rgba(83,214,161,0.25)', color: '#53D6A1' }}>
                 ~2 min
               </span>
             )}
-            <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
-              {step + 1} / {TOTAL_STEPS}
-            </span>
+            {step > 0 && (
+              <span className="text-xs font-bold tabular-nums" style={{ color: 'var(--text-muted)' }}>
+                {step} / {TOTAL_STEPS - 1}
+              </span>
+            )}
           </div>
         </div>
 
         <StepIndicator current={step} total={TOTAL_STEPS} />
 
-        {/* Título e subtítulo do step */}
+        {/* Título e subtítulo */}
         <div className="mb-4 animate-fade-up">
           <h2 className="text-2xl font-extrabold tracking-tight mb-1" style={{ color: 'var(--text-primary)' }}>
             {STEP_TITLES[step]}
@@ -503,8 +545,8 @@ export default function Onboarding() {
           </p>
         </div>
 
-        {/* Dica contextual de por que isso importa */}
-        <ContextTip text={STEP_CONTEXT[step]} />
+        {/* Dica contextual — não exibe na boas-vindas nem na conclusão */}
+        {STEP_CONTEXT[step] && <ContextTip text={STEP_CONTEXT[step]} />}
 
         <div className="animate-fade-up">{steps[step]}</div>
       </div>
@@ -523,13 +565,13 @@ export default function Onboarding() {
             disabled={!canAdvance()}
             className="btn-primary flex-1 disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            Continuar <ChevronRight size={18} />
+            {step === 0 ? <>Vamos lá <ChevronRight size={18} /></> : <>Continuar <ChevronRight size={18} /></>}
           </button>
         ) : (
           <button onClick={handleFinish} disabled={finishing} className="btn-primary flex-1">
             {finishing
               ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              : <><Check size={18} /> Começar agora</>
+              : <><Rocket size={18} /> Destravar agora</>
             }
           </button>
         )}

@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Check, ShieldCheck, ArrowRight, Loader2, CreditCard,
-  RefreshCw, Mail, Sparkles, Heart, Lock, Info,
+  RefreshCw, Mail, Sparkles, Heart, Lock, Info, Clock,
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
 import { supabase } from '../lib/supabase/client'
@@ -11,6 +11,21 @@ type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
 
 // Benefícios exibidos na coluna esquerda — copy do guia de redesign (seção 27).
 // Mantidos aqui para o tom comercial, sem alterar a fonte da verdade do preço.
+const TIMER_KEY = 'destravai_checkout_deadline'
+const TIMER_MINUTES = 10
+
+// Retorna o timestamp de expiração, criando-o na sessionStorage se não existir.
+function getOrCreateDeadline(): number {
+  const stored = sessionStorage.getItem(TIMER_KEY)
+  if (stored) {
+    const ts = Number(stored)
+    if (!isNaN(ts) && ts > Date.now()) return ts
+  }
+  const ts = Date.now() + TIMER_MINUTES * 60 * 1000
+  sessionStorage.setItem(TIMER_KEY, String(ts))
+  return ts
+}
+
 const CHECKOUT_BENEFITS = [
   'Ideias e roteiros com a Deby AI',
   'Missão do dia para postar sem travar',
@@ -54,6 +69,18 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
+  const [secondsLeft, setSecondsLeft] = useState(() =>
+    Math.max(0, Math.floor((getOrCreateDeadline() - Date.now()) / 1000))
+  )
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.floor((getOrCreateDeadline() - Date.now()) / 1000))
+      setSecondsLeft(remaining)
+    }, 1000)
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
+  }, [])
 
   const renewal = renewalDateLabel()
 
@@ -129,6 +156,9 @@ export default function Checkout() {
           Hoje: {formatBRL(COMPLETE_PLAN.firstMonthPrice)} · A partir de {renewal}: {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês · Cancele quando quiser.
         </p>
       </header>
+
+      {/* ── Banner de urgência com contagem regressiva ──────────── */}
+      <CountdownBanner seconds={secondsLeft} />
 
       <div className="grid lg:grid-cols-2 gap-6 items-start">
         {/* ── Coluna esquerda: oferta + confiança ──────────────────── */}
@@ -302,6 +332,31 @@ export default function Checkout() {
         </div>
       </div>
     </Shell>
+  )
+}
+
+function CountdownBanner({ seconds }: { seconds: number }) {
+  const mm = String(Math.floor(seconds / 60)).padStart(2, '0')
+  const ss = String(seconds % 60).padStart(2, '0')
+  const expired = seconds === 0
+
+  return (
+    <div className="rounded-2xl px-4 py-3 mb-6 flex items-center justify-center gap-3"
+      style={expired
+        ? { background: 'rgba(255,122,107,0.10)', border: '1px solid rgba(255,122,107,0.30)' }
+        : { background: 'rgba(247,185,85,0.10)', border: '1px solid rgba(247,185,85,0.35)' }}>
+      <Clock size={16} style={{ color: expired ? '#E25C4D' : '#C98A1E', flexShrink: 0 }} />
+      {expired ? (
+        <span className="text-sm font-bold" style={{ color: '#E25C4D' }}>
+          Oferta expirada — recarregue a página para uma nova sessão
+        </span>
+      ) : (
+        <span className="text-sm font-semibold" style={{ color: '#C98A1E' }}>
+          Oferta de lançamento expira em{' '}
+          <span className="font-extrabold tabular-nums">{mm}:{ss}</span>
+        </span>
+      )}
+    </div>
   )
 }
 

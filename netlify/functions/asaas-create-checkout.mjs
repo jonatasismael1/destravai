@@ -1,12 +1,14 @@
 // POST /.netlify/functions/asaas-create-checkout
-// Checkout publico do Destravai para oferta unica:
+// Checkout publico do Destravai para oferta unica (somente cartao de credito):
 //   1. Cria/reaproveita a conta no Supabase Auth pelo e-mail.
 //   2. Cria/reaproveita o customer no Asaas.
-//   3. Cria uma cobranca inicial avulsa de R$29,90.
+//   3. Cria uma cobranca inicial avulsa de R$1 (oferta de lancamento).
 //   4. O webhook, ao confirmar essa cobranca, cria a assinatura mensal de R$49,90.
 //
 // Esse fluxo evita depender de preco variavel em uma unica assinatura/link do Asaas.
 // O acesso so e liberado pelo webhook quando o primeiro pagamento e confirmado.
+// O pagamento e exclusivamente por cartao de credito, pois a recorrencia automatica
+// depende do cartao (ver Termos de Uso, clausula de assinatura e cobranca).
 
 import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
@@ -39,7 +41,9 @@ export const handler = async (event) => {
     }
 
     const body = JSON.parse(event.body || '{}')
-    const billingType = body.billingType === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX'
+    // Oferta de lancamento: pagamento exclusivamente por cartao de credito, pois a
+    // recorrencia mensal automatica depende do cartao. Pix/boleto nao sao aceitos.
+    const billingType = 'CREDIT_CARD'
     const name = String(body.name || '').trim()
     const email = String(body.email || '').trim().toLowerCase()
     const phone = String(body.phone || '').replace(/\D/g, '')
@@ -92,7 +96,7 @@ export const handler = async (event) => {
         billingType,
         value: COMPLETE_PLAN.firstMonthPrice,
         dueDate: today,
-        description: `${COMPLETE_PLAN.name} - primeiro mes promocional`,
+        description: `${COMPLETE_PLAN.name} - 1o mes (oferta de lancamento)`,
         externalReference: userId,
         callback: {
           successUrl: `${appUrl}/pagamento/sucesso`,
@@ -105,24 +109,11 @@ export const handler = async (event) => {
       return json(502, { error: 'Nao foi possivel gerar a cobranca. Tente novamente.' })
     }
 
-    let pix = null
-    let checkoutUrl = null
-
-    if (billingType === 'PIX') {
-      const qr = await asaas(`/payments/${firstPayment.id}/pixQrCode`)
-      pix = {
-        qrCodeImage: qr?.encodedImage || null,
-        copyPaste: qr?.payload || null,
-        expiration: qr?.expirationDate || null,
-      }
-      if (!pix.copyPaste) {
-        return json(502, { error: 'Nao foi possivel gerar o Pix. Tente novamente.' })
-      }
-    } else {
-      checkoutUrl = firstPayment.invoiceUrl || firstPayment.bankSlipUrl || null
-      if (!checkoutUrl) {
-        return json(502, { error: 'Nao foi possivel gerar o pagamento por cartao. Tente novamente.' })
-      }
+    // Cartao: o cliente paga no ambiente seguro do Asaas (invoiceUrl) e o cartao
+    // fica tokenizado para a recorrencia mensal criada pelo webhook.
+    const checkoutUrl = firstPayment.invoiceUrl || firstPayment.bankSlipUrl || null
+    if (!checkoutUrl) {
+      return json(502, { error: 'Nao foi possivel gerar o pagamento por cartao. Tente novamente.' })
     }
 
     const subRecord = {
@@ -143,9 +134,9 @@ export const handler = async (event) => {
       customer_email: email,
       customer_phone: phone || null,
       customer_document: cpfCnpj,
-      pix_qr_code: pix?.qrCodeImage ?? null,
-      pix_copy_paste: pix?.copyPaste ?? null,
-      pix_expiration: pix?.expiration ?? null,
+      pix_qr_code: null,
+      pix_copy_paste: null,
+      pix_expiration: null,
     }
 
     const { data: pendingRow } = await admin
@@ -166,13 +157,12 @@ export const handler = async (event) => {
     }
 
     return json(200, {
-      method: billingType === 'PIX' ? 'pix' : 'card',
+      method: 'card',
       subscriptionId: null,
       paymentId: firstPayment.id,
       firstMonthPrice: COMPLETE_PLAN.firstMonthPrice,
       recurringPrice: COMPLETE_PLAN.recurringPrice,
-      ...(pix ? { pix } : {}),
-      ...(checkoutUrl ? { checkoutUrl } : {}),
+      checkoutUrl,
     })
   } catch (err) {
     console.error('[asaas-create-checkout]', err?.message, err?.body || '')

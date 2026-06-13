@@ -195,7 +195,8 @@ async function createRecurringSubscription(subRow) {
     method: 'POST',
     body: JSON.stringify({
       customer: subRow.asaas_customer_id,
-      billingType: subRow.payment_method === 'CREDIT_CARD' ? 'CREDIT_CARD' : 'PIX',
+      // Recorrencia automatica via cartao tokenizado no 1o pagamento (oferta R$1).
+      billingType: 'CREDIT_CARD',
       value: COMPLETE_PLAN.recurringPrice,
       nextDueDate: nextMonthDate(),
       cycle: 'MONTHLY',

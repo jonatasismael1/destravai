@@ -32,10 +32,10 @@ docs/                Documentação (ver docs/README.md e docs/ai-context.md)
 ```
 
 ## Regras comerciais
-- Plano único **Destravaí Completo**: R$29,90 no 1º mês, depois R$49,90/mês.
-- Sem fidelidade; cancele quando quiser. **Garantia de 7 dias** (estorno).
+- Plano único **Destravaí Completo**: R$1 no 1º mês, depois R$49,90/mês (renovação automática, sem aviso prévio).
+- Sem fidelidade; cancele quando quiser. **Garantia de 7 dias** (estorno, inclusive o R$1).
 - Após 7 dias, o cancelamento mantém acesso até o fim do período já pago.
-- Sem boleto (Pix e cartão). Limite de 1000 gerações de IA/mês por usuário.
+- **Somente cartão de crédito** (a recorrência automática depende do cartão). Limite de 1000 gerações de IA/mês por usuário.
 - Admin (acesso liberado sempre): `assessoriadbe@gmail.com`.
 
 ## Deploy

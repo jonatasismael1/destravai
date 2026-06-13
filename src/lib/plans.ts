@@ -14,9 +14,9 @@ export interface Plan {
 export const COMPLETE_PLAN: Plan = {
   id: 'destravai_completo',
   name: 'Destravai Completo',
-  firstMonthPrice: 29.9,
+  firstMonthPrice: 1.0,
   recurringPrice: 49.9,
-  tagline: 'R$29,90 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
+  tagline: 'R$1 no primeiro mes e R$49,90/mes depois. Sem fidelidade.',
   features: [
     'Ideias e roteiros com a Deby AI',
     'Teleprompter para gravar',

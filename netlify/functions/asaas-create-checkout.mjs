@@ -169,6 +169,10 @@ export const handler = async (event) => {
     await serverLog('asaas-create-checkout', maskPII(err?.message || 'Erro'), 'error', null, {
       asaasBody: err?.body ? maskPII(JSON.stringify(err.body)).slice(0, 500) : null,
     })
-    return json(500, { error: err?.message || 'Erro ao iniciar o pagamento' })
+    // Erro de domínio não configurado no Asaas: não expõe detalhe técnico ao usuário.
+    const msg = /dom[íi]nio/i.test(err?.message || '')
+      ? 'Pagamento temporariamente indisponível. Tente novamente em instantes.'
+      : err?.message || 'Erro ao iniciar o pagamento'
+    return json(500, { error: msg })
   }
 }

@@ -279,7 +279,7 @@ export default function Checkout() {
           <div className="mt-4 space-y-2">
             <div className="text-center text-xs leading-relaxed" style={{ color: 'var(--text-muted)' }}>
               Hoje você paga {formatBRL(COMPLETE_PLAN.firstMonthPrice)}. A partir de {renewal}, a assinatura
-              renova automaticamente por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês, sem novo aviso, até você cancelar.
+              renova automaticamente por {formatBRL(COMPLETE_PLAN.recurringPrice)}/mês até você cancelar.
             </div>
             <div className="flex items-center justify-center gap-2 text-xs text-center" style={{ color: 'var(--text-muted)' }}>
               <Mail size={13} style={{ color: '#6D5DF6' }} className="flex-shrink-0" />

@@ -343,15 +343,15 @@ function CountdownBanner({ seconds }: { seconds: number }) {
   return (
     <div className="rounded-2xl px-4 py-3 mb-6 flex items-center justify-center gap-3"
       style={expired
-        ? { background: 'rgba(255,122,107,0.10)', border: '1px solid rgba(255,122,107,0.30)' }
-        : { background: 'rgba(247,185,85,0.10)', border: '1px solid rgba(247,185,85,0.35)' }}>
-      <Clock size={16} style={{ color: expired ? '#E25C4D' : '#C98A1E', flexShrink: 0 }} />
+        ? { background: '#B91C1C', border: '1px solid #991B1B' }
+        : { background: '#DC2626', border: '1px solid #B91C1C' }}>
+      <Clock size={16} style={{ color: '#fff', flexShrink: 0 }} />
       {expired ? (
-        <span className="text-sm font-bold" style={{ color: '#E25C4D' }}>
+        <span className="text-sm font-bold text-white">
           Oferta expirada — recarregue a página para uma nova sessão
         </span>
       ) : (
-        <span className="text-sm font-semibold" style={{ color: '#C98A1E' }}>
+        <span className="text-sm font-semibold text-white">
           Oferta de lançamento expira em{' '}
           <span className="font-extrabold tabular-nums">{mm}:{ss}</span>
         </span>

@@ -4,6 +4,43 @@
 // chegam ao frontend.
 
 import { createClient } from '@supabase/supabase-js'
+import { createHmac, timingSafeEqual } from 'node:crypto'
+
+// ── Token de definicao de senha pos-compra ───────────────────────────────────
+// Token assinado (HMAC, stateless — nao precisa de banco) que vai na URL de
+// retorno do pagamento. Prova que a pessoa ACABOU de comprar, permitindo que ela
+// defina a senha direto na tela de sucesso, sem depender do e-mail. Curta duracao.
+// Chave de assinatura: a service role key (secreta, so existe no servidor).
+const SETUP_TOKEN_TTL_MS = 24 * 60 * 60 * 1000 // 24h
+function setupTokenKey() {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY ausente para assinar token')
+  return key
+}
+function b64url(buf) {
+  return Buffer.from(buf).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+}
+// Gera o token { uid, email, exp } assinado.
+export function signSetupToken(uid, email) {
+  const payload = b64url(JSON.stringify({ uid, email, exp: Date.now() + SETUP_TOKEN_TTL_MS }))
+  const sig = b64url(createHmac('sha256', setupTokenKey()).update(payload).digest())
+  return `${payload}.${sig}`
+}
+// Valida assinatura + expiracao. Retorna { uid, email } ou null.
+export function verifySetupToken(token) {
+  try {
+    const [payload, sig] = String(token || '').split('.')
+    if (!payload || !sig) return null
+    const expected = b64url(createHmac('sha256', setupTokenKey()).update(payload).digest())
+    const a = Buffer.from(sig); const b = Buffer.from(expected)
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null
+    const data = JSON.parse(Buffer.from(payload.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString())
+    if (!data?.uid || !data?.exp || Date.now() > data.exp) return null
+    return { uid: data.uid, email: data.email || null }
+  } catch {
+    return null
+  }
+}
 
 // Oferta unica. A cobranca inicial e avulsa; a recorrencia mensal e criada
 // depois que o primeiro pagamento for confirmado pelo webhook do Asaas.

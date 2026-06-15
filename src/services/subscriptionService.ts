@@ -121,6 +121,25 @@ export async function createTester(
   return res.json()
 }
 
+// Define a senha de uma conta criada no checkout (nasce sem senha). Dois modos:
+//  - token: vindo da tela de sucesso pos-pagamento (prova que acabou de comprar).
+//  - email: "Criar conta" no login, para cliente pago que ainda nao acessou.
+// Retorna o e-mail para o frontend fazer signInWithPassword em seguida.
+export async function setInitialPassword(
+  input: { token?: string; email?: string; password: string },
+): Promise<{ ok: boolean; email: string | null }> {
+  const res = await fetch(`${FN}/asaas-set-password`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}))
+    throw new Error(e.error || `Erro ${res.status}`)
+  }
+  return res.json()
+}
+
 export async function getCheckoutStatus(paymentId: string): Promise<CheckoutStatus> {
   const res = await fetch(`${FN}/asaas-checkout-status?paymentId=${encodeURIComponent(paymentId)}`)
   if (!res.ok) throw new Error(`Erro ${res.status}`)

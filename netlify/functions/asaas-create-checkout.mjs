@@ -10,7 +10,7 @@
 // O pagamento e exclusivamente por cartao de credito, pois a recorrencia automatica
 // depende do cartao (ver Termos de Uso, clausula de assinatura e cobranca).
 
-import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog, signSetupToken } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 const CHECKOUT_LIMIT = 10
@@ -88,6 +88,12 @@ export const handler = async (event) => {
     // exibido dentro do app (o callback não atrapalha).
     const appUrl = (process.env.APP_URL || 'https://destravai.dbe.digital').replace(/\/$/, '')
 
+    // Token de definicao de senha: a pessoa volta do pagamento para a tela de
+    // sucesso JA podendo criar a senha, sem depender do e-mail. Curta duracao e
+    // assinado no servidor (ver signSetupToken). O e-mail continua como backup.
+    const setupToken = signSetupToken(userId, email)
+    const successUrl = `${appUrl}/pagamento/sucesso?s=${encodeURIComponent(setupToken)}`
+
     const today = new Date().toISOString().slice(0, 10)
     const firstPayment = await asaas('/payments', {
       method: 'POST',
@@ -99,7 +105,7 @@ export const handler = async (event) => {
         description: `${COMPLETE_PLAN.name} - 1o mes (oferta de lancamento)`,
         externalReference: userId,
         callback: {
-          successUrl: `${appUrl}/pagamento/sucesso`,
+          successUrl,
           autoRedirect: true,
         },
       }),

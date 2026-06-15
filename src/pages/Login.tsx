@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase/client'
 import { mensagemDeErro } from '../lib/errors'
+import { setInitialPassword } from '../services/subscriptionService'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Zap, Video, Sparkles } from 'lucide-react'
 
@@ -52,7 +53,20 @@ export default function Login() {
           // de e-mail estiver ativa no Supabase). Volta para a raiz do app já logado.
           options: { data: { name }, emailRedirectTo: `${window.location.origin}/` },
         })
-        if (signUpError) throw signUpError
+        if (signUpError) {
+          // "Já tem conta" geralmente é uma conta criada no checkout (sem senha).
+          // Tenta reivindicar: o backend só define a senha se for cliente pago que
+          // ainda NÃO acessou. Se der certo, já entra com a senha escolhida.
+          if (/already registered|already been registered|user already/i.test(signUpError.message)) {
+            const { email: claimedEmail } = await setInitialPassword({ email, password })
+            const { error: signInErr } = await supabase.auth.signInWithPassword({
+              email: claimedEmail || email, password,
+            })
+            if (signInErr) throw signInErr
+            return
+          }
+          throw signUpError
+        }
 
         // Se a confirmação de e-mail estiver ATIVA, ainda não há sessão: avisamos
         // o usuário para confirmar pelo e-mail. Se estiver desativada, a sessão já

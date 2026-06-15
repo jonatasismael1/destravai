@@ -20,8 +20,47 @@ export default function DefinirSenha() {
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
 
+  // Motivo do link ter falhado (expirado/usado), quando vem na URL.
+  const [linkErro, setLinkErro] = useState('')
+  // Reenvio de link na propria tela (sem mandar a pessoa de volta ao login).
+  const [resendEmail, setResendEmail] = useState('')
+  const [resending, setResending] = useState(false)
+  const [resent, setResent] = useState(false)
+
   // Aguarda o Supabase processar o token do link e estabelecer a sessão.
   useEffect(() => {
+    const url = new URL(window.location.href)
+
+    // 1) Fluxo token_hash (verifyOtp): link mais robusto, resistente a scanners de
+    //    e-mail que abrem o link antes do usuario. Usado se o template de e-mail
+    //    apontar para /definir-senha?token_hash=...&type=recovery.
+    const tokenHash = url.searchParams.get('token_hash')
+    const otpType = url.searchParams.get('type')
+    if (tokenHash) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      supabase.auth.verifyOtp({ token_hash: tokenHash, type: (otpType || 'recovery') as any })
+        .then(({ data, error }) => {
+          setHasSession(!!data?.session && !error)
+          if (error) setLinkErro('Esse link expirou ou já foi usado.')
+          setReady(true)
+        })
+      return
+    }
+
+    // 2) Erro explicito vindo na URL (hash ou query): link expirado/usado.
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+    const errCode = url.searchParams.get('error_code') || hashParams.get('error_code')
+    const errDesc = url.searchParams.get('error') || hashParams.get('error')
+    if (errCode || errDesc) {
+      setLinkErro(/expired|otp/i.test(`${errCode} ${errDesc}`)
+        ? 'Esse link expirou ou já foi usado.'
+        : 'Não foi possível validar o link.')
+      setHasSession(false)
+      setReady(true)
+      return
+    }
+
+    // 3) Fluxo implicito (detectSessionInUrl coloca a sessao no hash).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setHasSession(!!session)
       setReady(true)
@@ -33,6 +72,26 @@ export default function DefinirSenha() {
     })
     return () => subscription.unsubscribe()
   }, [])
+
+  // Reenvia o link de definir/recuperar senha para o e-mail informado.
+  const handleResend = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const mail = resendEmail.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { setError('Digite um e-mail válido.'); return }
+    setError('')
+    setResending(true)
+    try {
+      const { error: resendErr } = await supabase.auth.resetPasswordForEmail(mail, {
+        redirectTo: `${window.location.origin}/definir-senha`,
+      })
+      if (resendErr) throw resendErr
+      setResent(true)
+    } catch (err) {
+      setError(mensagemDeErro(err, 'Não foi possível reenviar o link. Tente novamente.'))
+    } finally {
+      setResending(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -84,15 +143,47 @@ export default function DefinirSenha() {
             </button>
           </div>
         ) : !hasSession ? (
-          <div className="glass p-6 text-center">
-            <h1 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Link inválido ou expirado</h1>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-              Use a opção “Esqueci a senha” na tela de login para receber um novo link.
-            </p>
-            <button onClick={() => navigate('/login')} className="btn-secondary w-full py-3.5">
-              Ir para o login
-            </button>
-          </div>
+          resent ? (
+            <div className="glass p-6 text-center">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 mx-auto"
+                style={{ background: 'var(--success)' }}>
+                <CheckCircle2 size={26} className="text-white" />
+              </div>
+              <h1 className="text-xl font-extrabold mb-2" style={{ color: 'var(--text-primary)' }}>Link enviado!</h1>
+              <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+                Enviamos um novo link para <strong style={{ color: 'var(--brand)' }}>{resendEmail.trim().toLowerCase()}</strong>.
+                Abra o e-mail e clique <strong>logo após receber</strong> (o link expira e é de uso único).
+              </p>
+              <button onClick={() => navigate('/login')} className="btn-secondary w-full py-3.5">
+                Ir para o login
+              </button>
+            </div>
+          ) : (
+            <div className="glass p-6">
+              <h1 className="text-xl font-extrabold mb-2 text-center" style={{ color: 'var(--text-primary)' }}>
+                {linkErro || 'Link inválido ou expirado'}
+              </h1>
+              <p className="text-sm mb-5 text-center" style={{ color: 'var(--text-secondary)' }}>
+                Sem problema — digite seu e-mail que enviamos um novo link na hora.
+              </p>
+              <form onSubmit={handleResend} className="space-y-3">
+                <input type="email" className="input" placeholder="Seu e-mail"
+                  value={resendEmail} onChange={e => { setResendEmail(e.target.value); setError('') }} autoFocus />
+                {error && (
+                  <div className="rounded-xl px-4 py-3 text-sm font-semibold"
+                    style={{ background: 'rgba(255,122,107,0.1)', border: '1px solid rgba(255,122,107,0.2)', color: '#FF7A6B' }}>
+                    {error}
+                  </div>
+                )}
+                <button type="submit" disabled={resending} className="btn-primary w-full py-3.5 disabled:opacity-50">
+                  {resending ? <Loader2 size={18} className="animate-spin" /> : <>Enviar novo link <ArrowRight size={18} /></>}
+                </button>
+              </form>
+              <button onClick={() => navigate('/login')} className="btn-secondary w-full py-3 mt-3">
+                Voltar ao login
+              </button>
+            </div>
+          )
         ) : (
           <div className="glass p-6">
             <div className="flex items-center gap-2 mb-1">

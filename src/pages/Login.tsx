@@ -247,7 +247,7 @@ export default function Login() {
                     redirectTo: `${window.location.origin}/definir-senha`,
                   })
                   if (error) setError('Erro ao enviar o e-mail de recuperação. Tente novamente.')
-                  else setNotice('Enviamos um e-mail com o link para você redefinir sua senha.')
+                  else setNotice('Enviamos um e-mail com o link para redefinir sua senha. Abra e clique logo após receber — o link expira e é de uso único.')
                 }}
               >
                 Recuperar

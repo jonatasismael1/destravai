@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase/client'
+import { mensagemDeErro } from '../lib/errors'
 import { Link } from 'react-router-dom'
 import { ArrowRight, Eye, EyeOff, Zap, Video, Sparkles } from 'lucide-react'
 
@@ -66,17 +67,12 @@ export default function Login() {
         // no mobile/PWA).
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
-        if (signInError) {
-          if (signInError.message.includes('Invalid login credentials')) {
-            throw new Error('E-mail ou senha incorretos.')
-          }
-          throw signInError
-        }
+        // A tradução do erro (credenciais inválidas, etc.) fica centralizada no catch.
+        if (signInError) throw signInError
         // Login OK: o AppContext detecta a sessão e redireciona. Sem chamadas extras.
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao autenticar. Tente novamente.'
-      setError(msg)
+      setError(mensagemDeErro(err, 'Não foi possível entrar agora. Tente novamente.'))
     } finally {
       setLoading(false)
     }

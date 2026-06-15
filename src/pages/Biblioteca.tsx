@@ -10,6 +10,7 @@ import {
   createLibraryItemsBatch,
 } from '../services/libraryService'
 import { generateLibraryItems } from '../lib/ai'
+import { mensagemDeErro } from '../lib/errors'
 import { splitSequenceStories, stripStoryHeader } from '../lib/stories'
 import { getBrandEssence } from '../services/essenceService'
 import { addCalendarItem, toISODateKey } from '../services/userJourneyService'
@@ -386,7 +387,7 @@ export default function Biblioteca() {
       setItems(prev => reset ? newItems : [...prev, ...newItems])
       setTotal(newTotal)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao carregar biblioteca.')
+      setError(mensagemDeErro(err, 'Não foi possível carregar a biblioteca.'))
     }
   }, [typeFilter, showFavOnly, search, page])
 
@@ -439,7 +440,7 @@ export default function Biblioteca() {
             setItems(saved)
             setTotal(saved.length)
           } catch (genErr) {
-            setError(genErr instanceof Error ? genErr.message : 'Erro ao gerar biblioteca.')
+            setError(mensagemDeErro(genErr, 'Não foi possível gerar sua biblioteca agora. Tente de novo em instantes.'))
           } finally {
             setGenerating(false)
           }
@@ -448,7 +449,7 @@ export default function Biblioteca() {
           setTotal(existingTotal)
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erro ao carregar.')
+        setError(mensagemDeErro(err, 'Não foi possível carregar a biblioteca.'))
       } finally {
         setLoading(false)
       }
@@ -469,7 +470,7 @@ export default function Biblioteca() {
       await toggleFavorite(item.id, item.is_favorite)
       setItems(prev => prev.map(i => i.id === item.id ? { ...i, is_favorite: !i.is_favorite } : i))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao favoritar.')
+      setError(mensagemDeErro(err, 'Não foi possível favoritar agora. Tente de novo.'))
     }
   }
 
@@ -479,7 +480,7 @@ export default function Biblioteca() {
       setItems(prev => prev.filter(i => i.id !== id))
       setTotal(t => t - 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao excluir.')
+      setError(mensagemDeErro(err, 'Não foi possível excluir agora. Tente de novo.'))
     }
   }
 
@@ -490,7 +491,7 @@ export default function Biblioteca() {
       setNotice('Adicionado ao calendário de hoje.')
       setTimeout(() => setNotice(''), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao adicionar ao calendário.')
+      setError(mensagemDeErro(err, 'Não foi possível adicionar ao calendário. Tente de novo.'))
     }
   }
 
@@ -500,7 +501,7 @@ export default function Biblioteca() {
       setItems(prev => [dup, ...prev])
       setTotal(t => t + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao duplicar.')
+      setError(mensagemDeErro(err, 'Não foi possível duplicar agora. Tente de novo.'))
     }
   }
 
@@ -509,7 +510,7 @@ export default function Biblioteca() {
       const updated = await updateLibraryItem(id, updates)
       setItems(prev => prev.map(i => i.id === id ? updated : i))
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao editar.')
+      setError(mensagemDeErro(err, 'Não foi possível salvar a edição. Tente de novo.'))
     }
   }
 

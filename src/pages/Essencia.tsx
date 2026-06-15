@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useApp } from '../context/AppContext'
 import { getBrandEssence, saveBrandEssence, updateEssenceSummary } from '../services/essenceService'
 import { generateEssenceSummary } from '../lib/ai'
+import { mensagemDeErro } from '../lib/errors'
 import type { BrandEssence } from '../lib/supabase/types'
 import { Save, Plus, X, User, MessageSquare, Layout, Briefcase, Shield, Clock, Sparkles, RefreshCw, Heart } from 'lucide-react'
 import { useScreenTour } from '../context/OnboardingContext'
@@ -178,7 +179,7 @@ export default function Essencia() {
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar. Tente novamente.')
+      setError(mensagemDeErro(err, 'Não foi possível salvar agora. Tente novamente.'))
     } finally {
       setSaving(false)
     }
@@ -204,10 +205,10 @@ export default function Essencia() {
       if (updated) { setEssence(updated); setForm(initForm(updated)) }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao gerar resumo.'
-      // Os dados já foram salvos acima; aqui só informamos a falha da IA
-      setError(`Dados salvos, mas a IA não conseguiu gerar o resumo: ${msg}`)
+    } catch {
+      // Os dados já foram salvos acima; aqui só informamos a falha da IA, sem
+      // expor o erro técnico — a ação para o usuário é simplesmente tentar de novo.
+      setError('Seus dados foram salvos, mas a IA não conseguiu gerar o resumo agora. Tente gerar de novo em instantes.')
     } finally {
       setGenerating(false)
     }

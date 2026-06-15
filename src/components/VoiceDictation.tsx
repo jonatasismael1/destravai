@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Mic, MicOff, Check, X } from 'lucide-react'
+import { mensagemDeErroVoz } from '../lib/errors'
 
 interface Props {
   label?: string
@@ -76,7 +77,7 @@ export default function VoiceDictation({
       setInterim(mergeCumulative(interims))
     }
     rec.onerror = (e: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-      if (e.error !== 'aborted') setError(`Microfone indisponível (${e.error})`)
+      if (e.error !== 'aborted') setError(mensagemDeErroVoz(e.error))
       setIsListening(false)
     }
     rec.onend = () => setIsListening(false)

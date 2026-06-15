@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase/client'
+import { mensagemDeErro } from '../lib/errors'
 import { Eye, EyeOff, Loader2, KeyRound, CheckCircle2, ArrowRight } from 'lucide-react'
 
 // Página de destino do link de e-mail (recovery/convite). O cliente Supabase
@@ -44,7 +45,7 @@ export default function DefinirSenha() {
       if (updateError) throw updateError
       setDone(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Não foi possível salvar a senha.')
+      setError(mensagemDeErro(err, 'Não foi possível salvar a senha. Tente novamente.'))
     } finally {
       setLoading(false)
     }

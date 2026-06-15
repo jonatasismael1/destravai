@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { COMPLETE_PLAN } from '../lib/plans'
 import { supabase } from '../lib/supabase/client'
+import { mensagemDeErro } from '../lib/errors'
 import { createPublicCheckout } from '../services/subscriptionService'
 
 type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
@@ -135,7 +136,7 @@ export default function Checkout() {
       }
       setError('Não foi possível abrir o pagamento. Tente novamente.')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao iniciar o pagamento.')
+      setError(mensagemDeErro(err, 'Não foi possível iniciar o pagamento. Tente novamente.'))
     } finally {
       setLoading(false)
     }

@@ -1,8 +1,14 @@
+import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { XCircle, RefreshCw } from 'lucide-react'
+import { track } from '../lib/analytics'
 
 export default function PagamentoErro() {
   const navigate = useNavigate()
+
+  // Funil: caiu na tela de erro de pagamento. O webhook do Asaas raramente
+  // sinaliza recusa de cartao, entao aqui mandamos para Clarity E GA4.
+  useEffect(() => { track('compra_recusada') }, [])
 
   return (
     <div className="min-h-[100svh] flex flex-col items-center justify-center px-6 text-center" style={{ background: 'var(--bg-base)' }}>

@@ -145,9 +145,25 @@ export const handler = async (event) => {
           updates.access_granted = true
           updates.access_granted_at = new Date().toISOString()
           shouldGrantAccess = true
+
+          // Funil/conversao: registra a compra no GA4 de forma AUTORITATIVA (server),
+          // independente do navegador do comprador. Dentro do guard de idempotencia
+          // (so na 1a confirmacao), entao nunca conta a mesma compra duas vezes.
+          await sendGa4Event(subRow.user_id, 'compra_aprovada', {
+            currency: 'BRL',
+            value: Number(subRow.first_month_price ?? COMPLETE_PLAN.firstMonthPrice),
+            transaction_id: asaasPaymentId || subRow.id,
+          })
         }
       }
       if (mapped.status === 'refunded') updates.refunded_at = new Date().toISOString()
+      // Pagamento falhou (ex.: cartao recusado): registra a recusa no GA4.
+      if (mapped.payment_status === 'failed') {
+        await sendGa4Event(subRow?.user_id, 'compra_recusada', {
+          currency: 'BRL',
+          value: Number(subRow?.first_month_price ?? COMPLETE_PLAN.firstMonthPrice),
+        })
+      }
     } else if (eventType === 'SUBSCRIPTION_DELETED' || eventType === 'SUBSCRIPTION_INACTIVATED') {
       updates.status = 'canceled'
       updates.canceled_at = new Date().toISOString()
@@ -187,6 +203,37 @@ export const handler = async (event) => {
     // Responde 200 para o Asaas não reenviar infinitamente em erro nosso não-crítico;
     // o evento fica registrado e pode ser reprocessado manualmente se necessário.
     return json(200, { ok: false, error: err?.message })
+  }
+}
+
+// Envia um evento para o GA4 via Measurement Protocol (server-side). Registra a
+// conversao de forma autoritativa: nao depende do navegador do comprador (que pode
+// fechar a aba antes do redirect). No-op se as envs nao estiverem configuradas.
+// Telemetria NUNCA derruba o webhook — qualquer falha aqui e silenciosa.
+// Envs: GA4_MEASUREMENT_ID (G-XXXX) e GA4_API_SECRET (Admin > Fluxos de dados >
+// Measurement Protocol > criar secret) nas Netlify Functions.
+async function sendGa4Event(clientId, name, params) {
+  const measurementId = process.env.GA4_MEASUREMENT_ID
+  const apiSecret = process.env.GA4_API_SECRET
+  if (!measurementId || !apiSecret || !clientId) return
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 2500)
+  try {
+    await fetch(
+      `https://www.google-analytics.com/mp/collect?measurement_id=${encodeURIComponent(measurementId)}&api_secret=${encodeURIComponent(apiSecret)}`,
+      {
+        method: 'POST',
+        // client_id estavel por usuario (uuid): conta a conversao mesmo sem o
+        // client_id real do navegador. Costurar a sessao do GA fica como melhoria
+        // futura (capturar o _ga no checkout e persistir na assinatura).
+        body: JSON.stringify({ client_id: String(clientId), events: [{ name, params }] }),
+        signal: controller.signal,
+      },
+    )
+  } catch (e) {
+    console.warn('[asaas-webhook] GA4 Measurement Protocol falhou (ignorado):', e?.message)
+  } finally {
+    clearTimeout(timer)
   }
 }
 

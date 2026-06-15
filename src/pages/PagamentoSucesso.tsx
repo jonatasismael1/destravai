@@ -2,11 +2,18 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
 import { CheckCircle2, Loader2, ArrowRight } from 'lucide-react'
+import { trackClarity } from '../lib/analytics'
 
 export default function PagamentoSucesso() {
   const { state, refreshSubscription } = useApp()
   const navigate = useNavigate()
   const [checking, setChecking] = useState(true)
+
+  // Funil: o usuario voltou do Asaas para a tela de sucesso (pagamento concluido
+  // do lado do provedor). Marca a sessao no Clarity. A contagem OFICIAL de
+  // compra_aprovada no GA4 vem do webhook do Asaas (autoritativo), para nao
+  // contar duas vezes.
+  useEffect(() => { trackClarity('compra_aprovada') }, [])
 
   // Quem volta do pagamento por CARTÃO chega aqui SEM sessão (o checkout é anônimo;
   // o acesso é liberado pelo webhook + e-mail). Sem usuário logado, não dá para

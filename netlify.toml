@@ -24,7 +24,10 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(self), microphone=(self), geolocation=(), payment=(), usb=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+    # Clarity + GA4 liberados em script-src e connect-src (img-src ja cobre 'https:').
+    # Para o Meta Pixel depois: + https://connect.facebook.net em script-src e
+    # https://www.facebook.com em connect-src.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://www.clarity.ms https://*.clarity.ms https://www.googletagmanager.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.clarity.ms https://*.google-analytics.com https://*.analytics.google.com https://www.googletagmanager.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 
 # As Netlify Functions têm precedência sobre o redirect SPA abaixo,
 # então /.netlify/functions/* funciona normalmente.

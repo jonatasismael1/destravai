@@ -7,6 +7,7 @@ import { COMPLETE_PLAN } from '../lib/plans'
 import { supabase } from '../lib/supabase/client'
 import { mensagemDeErro } from '../lib/errors'
 import { createPublicCheckout } from '../services/subscriptionService'
+import { track } from '../lib/analytics'
 
 type FieldErrors = Partial<Record<'name' | 'email' | 'phone' | 'doc', string>>
 
@@ -83,6 +84,9 @@ export default function Checkout() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
+  // Funil: o usuario chegou na tela de checkout (1 disparo por carregamento).
+  useEffect(() => { track('checkout_iniciado') }, [])
+
   const renewal = renewalDateLabel()
 
   // Pré-preenche nome/e-mail quando o usuário já está logado (ex.: voltou para
@@ -121,6 +125,8 @@ export default function Checkout() {
     setFieldErrors(errs)
     if (Object.keys(errs).length) { setError(''); return }
     setError('')
+    // Funil: formulario validado e enviado (intencao de pagar, antes de ir ao Asaas).
+    track('checkout_preenchido')
     setLoading(true)
     try {
       const res = await createPublicCheckout({

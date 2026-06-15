@@ -893,6 +893,14 @@ export default function Criar() {
           )}
         </button>
 
+        {/* Aviso amigavel durante a geracao: a IA leva ~20-30s e o spinner sozinho
+            passa sensacao de travado. A mensagem segura a expectativa do usuario. */}
+        {loading && (
+          <p className="text-xs text-center mt-2" style={{ color: 'var(--text-secondary)' }}>
+            Criando sua ideia com a Deby AI... Costuma levar de 20 a 30 segundos.
+          </p>
+        )}
+
         {!profile && (
           <div className="rounded-2xl p-4 text-sm font-semibold text-center"
             style={{ background: 'rgba(247,185,85,0.1)', border: '1px solid rgba(247,185,85,0.2)', color: '#F7B955' }}>

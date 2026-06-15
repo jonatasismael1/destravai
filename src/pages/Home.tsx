@@ -515,7 +515,7 @@ export default function Home() {
           <div className="flex-1 min-w-0">
             <p className="font-extrabold text-sm" style={{ color: 'var(--text-primary)' }}>Destravando suas ideias...</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Costuma levar ~10–15s. Pode continuar navegando — sua missão aparece aqui quando ficar pronta.
+              Costuma levar de 30 a 60 segundos. Pode continuar navegando — sua missão aparece aqui quando ficar pronta.
             </p>
           </div>
           <div className="flex gap-1 flex-shrink-0">

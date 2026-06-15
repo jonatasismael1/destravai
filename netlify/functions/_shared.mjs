@@ -286,8 +286,14 @@ export async function sendAccessEmail(email, name = '', kind = 'purchase') {
         type: 'recovery', email, options: { redirectTo },
       })
       if (error) throw error
-      const link = data?.properties?.action_link
-      if (!link) throw new Error('generateLink não retornou action_link')
+      // Preferimos o token_hash (a tela /definir-senha valida via verifyOtp): e mais
+      // resistente a scanners de e-mail que abrem o link de uso unico antes do usuario.
+      // Cai para o action_link (fluxo implicito) se o token_hash nao vier.
+      const hashed = data?.properties?.hashed_token
+      const link = hashed
+        ? `${appUrl}/definir-senha?token_hash=${hashed}&type=recovery`
+        : data?.properties?.action_link
+      if (!link) throw new Error('generateLink não retornou link utilizável')
       await sendResendEmail({
         to: email,
         subject,

@@ -127,18 +127,29 @@ Deno.serve(async (req: Request) => {
         if (isAdmin) {
           allowed = true
         } else {
-          const { data: sub, error: subErr } = await supabase
+          // Olha as ULTIMAS linhas (nao so a mais recente). Basta UMA conceder
+          // acesso. Ler so a ultima trancava: (a) o testador de cortesia que depois
+          // abriu o checkout (nasce uma linha 'pending' mais nova) e (b) o pagante
+          // ativo que reabre o checkout. Mesma regra da Netlify (getAccessInfo).
+          const { data: subs, error: subErr } = await supabase
             .from('subscriptions')
             .select('status, payment_status, payment_method, access_granted, current_period_end')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle()
+            .limit(10)
           if (subErr) throw subErr
-          if (sub) {
-            if (sub.payment_method === 'COURTESY' && sub.access_granted) { allowed = true; isCourtesy = true }
-            else if (['active', 'trialing'].includes(sub.status) && sub.payment_status === 'paid') allowed = true
-            else if (sub.status === 'canceled' && sub.current_period_end && new Date(sub.current_period_end) >= new Date()) allowed = true
+          const grants = (s: {
+            status: string; payment_status: string; payment_method: string;
+            access_granted: boolean; current_period_end: string | null
+          }) =>
+            (s.payment_method === 'COURTESY' && s.access_granted) ||
+            (['active', 'trialing'].includes(s.status) && s.payment_status === 'paid') ||
+            (['canceled', 'past_due'].includes(s.status) && !!s.current_period_end && new Date(s.current_period_end) >= new Date())
+          const granting = (subs ?? []).filter(grants)
+          if (granting.length > 0) {
+            allowed = true
+            // Cortesia (tetos menores) so quando TODAS as linhas que liberam sao COURTESY.
+            isCourtesy = granting.every((s) => s.payment_method === 'COURTESY')
           }
         }
       } catch (err) {

@@ -235,6 +235,44 @@ function buildAudioConstraints(reduceNoise: boolean, deviceId?: string | null): 
   }
 }
 
+// Identifica um microfone "conectado" (USB, fone com fio, Bluetooth) vs. o microfone
+// do próprio aparelho. Quando há um conectado, ele já vira o padrão da gravação.
+// Não usamos a palavra genérica "microphone" aqui porque o mic embutido do telefone
+// costuma ser rotulado assim — só queremos os realmente externos.
+function isExternalMic(label: string): boolean {
+  return /usb|extern|headset|fone|bluetooth|airpod/i.test(label)
+    && !/default|comunic|communications|built-?in|embutido|internal|interno|telefone|phone|speaker/i.test(label)
+}
+
+// Traduz e limpa o rótulo cru do sistema (que costuma vir em inglês e com códigos
+// de hardware) para um nome simples e em português, mais fácil para o usuário.
+function cleanMicLabel(label: string): string {
+  return label
+    .replace(/\([0-9a-f]{4}:[0-9a-f]{4}\)/gi, '') // remove IDs tipo (046d:0825)
+    .replace(/\bdefault\b/gi, 'Padrão')
+    .replace(/\bcommunications?\b/gi, 'Comunicação')
+    .replace(/\bmicrophone\b/gi, 'Microfone')
+    .replace(/\bbuilt-?in\b/gi, 'embutido')
+    .replace(/\binternal\b/gi, 'interno')
+    .replace(/\bheadset\b/gi, 'Fone com microfone')
+    .replace(/\bspeakerphone\b/gi, 'Viva-voz')
+    .replace(/\bwired\b/gi, 'com fio')
+    .replace(/\bfront\b/gi, 'frontal')
+    .replace(/\bback\b/gi, 'traseiro')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// Nome final mostrado no seletor de microfone.
+function friendlyMicLabel(rawLabel: string, index: number): string {
+  const label = (rawLabel || '').trim()
+  if (!label) return `Microfone ${index + 1}`
+  if (isExternalMic(label)) return `Microfone conectado — ${cleanMicLabel(label)}`
+  if (/default|padr[ãa]o/i.test(label)) return 'Microfone do telefone (padrão)'
+  if (/communications?|comunica/i.test(label)) return 'Microfone para chamadas'
+  return cleanMicLabel(label) || `Microfone ${index + 1}`
+}
+
 function getCameraAttempts(mode: 'user' | 'environment', audio: MediaTrackConstraints): MediaStreamConstraints[] {
   const facingMode = { ideal: mode }
   // IMPORTANTE: NÃO forçamos aspectRatio nem resizeMode. Forçar 3:4 + resizeMode
@@ -434,10 +472,11 @@ export default function StudioModal({ idea, onClose }: Props) {
       const devices = await navigator.mediaDevices.enumerateDevices()
       const mics = devices.filter(d => d.kind === 'audioinput')
       setAudioInputs(mics)
-      // Auto-seleciona um microfone externo (USB/headset) se houver e nada estiver
-      // escolhido — assim o mic USB passa a ser usado sem o usuário precisar mexer.
+      // Se houver um microfone conectado (USB/fone/Bluetooth) e o usuário ainda não
+      // escolheu nada, já o deixamos como padrão — sem precisar mexer nos ajustes.
+      // Sem nenhum conectado, fica o microfone do próprio telefone.
       if (!selectedMicRef.current) {
-        const external = mics.find(m => /usb|extern|headset|fone|micro(phone)?\b/i.test(m.label) && !/default|comunic/i.test(m.label))
+        const external = mics.find(m => isExternalMic(m.label))
         if (external) setSelectedMicId(external.deviceId)
       }
     } catch { /* enumeração indisponível */ }
@@ -1323,22 +1362,23 @@ export default function StudioModal({ idea, onClose }: Props) {
               </button>
             </div>
 
-            {/* Seletor de microfone — permite usar um microfone USB/externo */}
+            {/* Seletor de microfone — usa o conectado se houver, senão o do telefone */}
             {audioInputs.length > 1 && (
               <div className="pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                 <span className="text-sm font-semibold text-white/80">Microfone</span>
                 <p className="text-[11px] mt-0.5 mb-2 text-white/40">
-                  Conectou um microfone USB? Selecione-o aqui para gravar com ele.
+                  Conectou um microfone (USB, fone ou Bluetooth)? Ele já é usado sozinho.
+                  Sem nenhum conectado, gravamos com o microfone do telefone. Troque aqui quando quiser.
                 </p>
                 <select
                   value={selectedMicId ?? ''}
                   onChange={e => setSelectedMicId(e.target.value || null)}
                   className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
                   style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', color: '#fff' }}>
-                  <option value="">Microfone padrão do aparelho</option>
+                  <option value="">Microfone do telefone (padrão)</option>
                   {audioInputs.map((mic, i) => (
                     <option key={mic.deviceId} value={mic.deviceId} style={{ color: '#111' }}>
-                      {mic.label || `Microfone ${i + 1}`}
+                      {friendlyMicLabel(mic.label, i)}
                     </option>
                   ))}
                 </select>

@@ -256,13 +256,10 @@ export default function Login() {
           )}
         </div>
 
-        {/* ── Rodapé de confiança ──────────────────────────── */}
-        <p className="text-center text-xs mt-6" style={{ color: 'var(--text-muted)' }}>
-          R$9,90 no primeiro mês · Depois R$49,90/mês · Cancele quando quiser
-        </p>
-
-        {/* Links legais */}
-        <p className="text-center text-[11px] mt-3" style={{ color: 'var(--text-muted)' }}>
+        {/* Links legais. O preço/oferta NÃO aparece aqui: quem chega na tela de
+            login já comprou (vai entrar ou criar a conta pós-compra), então copy
+            de venda só geraria ruído. */}
+        <p className="text-center text-[11px] mt-6" style={{ color: 'var(--text-muted)' }}>
           Ao continuar, você concorda com os{' '}
           <Link to="/termos" className="font-semibold underline" style={{ color: 'var(--brand)' }}>Termos de Uso</Link>
           {' '}e a{' '}

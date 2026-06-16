@@ -162,6 +162,14 @@ export default function Login() {
             ))}
           </div>
 
+          {/* Ajuda para quem acabou de comprar: na tela de login so chega quem ja
+              comprou, entao orientamos a criar a conta com o mesmo e-mail da compra. */}
+          <p className="text-xs text-center -mt-3 mb-5" style={{ color: 'var(--text-secondary)' }}>
+            {mode === 'register'
+              ? 'Use o mesmo e-mail da sua compra para criar a conta.'
+              : 'Comprou agora? Toque em “Criar conta” e use o e-mail da compra.'}
+          </p>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'register' && (
               <div>

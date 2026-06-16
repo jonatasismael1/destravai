@@ -173,6 +173,11 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     setFinishing(true)
+    // Sinaliza a transicao pos-onboarding: o PageLoader mostra "a Deby esta
+    // preparando seu espaco" durante o redirect + carregamento da Home (antes
+    // a pessoa via so um fundo escuro e achava que tinha travado). A Home limpa
+    // esse sinal ao montar.
+    try { sessionStorage.setItem('dbe_preparando', '1') } catch { /* ignore */ }
     try {
       const pillars: ContentPillar[] = selectedPillars.map((name, i) => ({
         id: crypto.randomUUID(), name, description: '', priority: i + 1,
@@ -570,7 +575,7 @@ export default function Onboarding() {
         ) : (
           <button onClick={handleFinish} disabled={finishing} className="btn-primary flex-1">
             {finishing
-              ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              ? <><span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Preparando…</>
               : <><Rocket size={18} /> Destravar agora</>
             }
           </button>

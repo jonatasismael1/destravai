@@ -127,6 +127,10 @@ export default function Home() {
   const { addToast } = useToast()
   const navigate = useNavigate()
 
+  // Chegou na Home: encerra o aviso "a Deby está preparando seu espaço" (mostrado
+  // pelo PageLoader durante a transição pós-onboarding).
+  useEffect(() => { try { sessionStorage.removeItem('dbe_preparando') } catch { /* ignore */ } }, [])
+
   // Tour de boas-vindas (apresenta o app) — dispara uma vez, após a essência.
   useScreenTour('main')
 

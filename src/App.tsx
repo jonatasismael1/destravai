@@ -38,12 +38,24 @@ const PAYWALL_ENABLED = import.meta.env.VITE_PAYWALL_ENABLED === 'true'
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL || 'assessoriadbe@gmail.com').toLowerCase()
 
 function PageLoader() {
+  // Logo da marca para a tela de carregamento NUNCA parecer "tela preta" travada.
+  // Mensagem especial logo apos o onboarding: a transicao (download do app + a
+  // geracao inicial da Deby) leva alguns segundos e antes era so um fundo escuro.
+  const preparando = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('dbe_preparando') === '1'
   return (
-    <div className="flex items-center justify-center" style={{ minHeight: '100svh', background: 'var(--bg-base)' }}>
+    <div className="flex flex-col items-center justify-center gap-5 px-8 text-center"
+      style={{ minHeight: '100svh', background: 'var(--bg-base)' }}>
+      <img src="/destravai-logo-completa.png" alt="Destravaí" className="h-11" />
       <span
         className="w-8 h-8 rounded-full animate-spin"
         style={{ border: '2px solid var(--border-subtle)', borderTopColor: 'var(--brand)' }}
       />
+      {preparando && (
+        <p className="text-sm max-w-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+          Aguarde, a Deby está preparando seu espaço com as suas respostas.
+          Isso leva alguns segundos. 💜
+        </p>
+      )}
     </div>
   )
 }

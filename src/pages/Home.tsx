@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '../context/AppContext'
 import { useToast } from '../context/ToastContext'
+import { useTheme } from '../context/ThemeContext'
 import { useNavigate } from 'react-router-dom'
 import { triggerConfetti } from '../lib/confetti'
 import {
   Flame, ChevronRight, Check, Sparkles, ArrowRight,
   Wand2, Copy, X,
-  Zap, Timer, ShoppingBag, BookOpen, Sun, Film, Briefcase, TrendingUp, CalendarDays
+  Zap, Timer, ShoppingBag, BookOpen, Sun, Moon, Film, Briefcase, TrendingUp, CalendarDays
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import type { LibraryItemType } from '../lib/supabase/types'
@@ -50,6 +51,7 @@ import { runActivationNudges } from '../services/notificationsService'
 import StudioModal from '../components/StudioModal'
 import GroupsOverview from '../components/GroupsOverview'
 import { HeaderActions, TopTabs } from '../components/premium'
+import PhotoTextComposer from '../components/PhotoTextComposer'
 
 // Check-ins com ícones vetoriais (sem emojis estruturais)
 const BASE_CHECKIN_OPTIONS = [
@@ -125,6 +127,7 @@ export default function Home() {
     generateTodayContent, setTodayContent, resetTodayContent,
   } = useApp()
   const { addToast } = useToast()
+  const { theme: appTheme, toggleTheme } = useTheme()
   const navigate = useNavigate()
 
   // Chegou na Home: encerra o aviso "a Deby está preparando seu espaço" (mostrado
@@ -151,6 +154,7 @@ export default function Home() {
   const [captionData, setCaptionData] = useState<{ caption: string; hashtags: string[] } | null>(null)
   const [captionLoading, setCaptionLoading] = useState(false)
   const [homeTab, setHomeTab] = useState<'hoje' | 'grupos'>('hoje')
+  const [photoComposer, setPhotoComposer] = useState<{ text: string; title: string } | null>(null)
 
   const profile = state.localProfile
   const progress = state.progress
@@ -357,12 +361,26 @@ export default function Home() {
           alt="Destravaí"
           className="h-24 -my-6 w-auto object-contain"
         />
-        <HeaderActions
-          initials={headerInitials}
-          avatarUrl={state.profile?.avatar_url}
-          showNotifications={false}
-          onProfileClick={() => navigate('/essencia')}
-        />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="premium-round-button w-9 h-9"
+            aria-label={appTheme === 'dark' ? 'Tema escuro ativo. Alternar para claro' : 'Tema claro ativo. Alternar para escuro'}
+            title={appTheme === 'dark' ? 'Tema escuro' : 'Tema claro'}
+            style={{ opacity: 0.82 }}
+          >
+            {appTheme === 'dark'
+              ? <Moon size={16} style={{ color: '#9B8CFF' }} />
+              : <Sun size={16} style={{ color: '#F7B955' }} />}
+          </button>
+          <HeaderActions
+            initials={headerInitials}
+            avatarUrl={state.profile?.avatar_url}
+            showNotifications={false}
+            onProfileClick={() => navigate('/essencia')}
+          />
+        </div>
       </div>
 
       {/* Abas */}
@@ -586,6 +604,7 @@ export default function Home() {
               <ScriptCard idea={mission} onDone={() => handleDone(mission)} onSave={() => handleSave(mission)}
                 onVariation={(hint) => handleVariation(mission, hint)}
                 onRecord={(override) => setStudioIdea(override ?? mission)}
+                onCreatePhoto={(text, targetIdea) => setPhotoComposer({ text, title: targetIdea.theme })}
                 onCaption={() => handleCaption(mission)}
                 onUpdate={handleUpdateIdea}
                 featured />
@@ -602,6 +621,7 @@ export default function Home() {
                     onSave={() => handleSave(idea)}
                     onVariation={(hint) => handleVariation(idea, hint)}
                     onRecord={(override) => setStudioIdea(override ?? idea)}
+                    onCreatePhoto={(text, targetIdea) => setPhotoComposer({ text, title: targetIdea.theme })}
                     onCaption={() => handleCaption(idea)}
                     onUpdate={handleUpdateIdea} />
                 ))}
@@ -668,6 +688,13 @@ export default function Home() {
         ) : captionData ? (
           <CaptionModal caption={captionData.caption} hashtags={captionData.hashtags} onClose={() => { setCaptionIdea(null); setCaptionData(null) }} />
         ) : null
+      )}
+      {photoComposer && (
+        <PhotoTextComposer
+          initialText={photoComposer.text}
+          title={photoComposer.title}
+          onClose={() => setPhotoComposer(null)}
+        />
       )}
       </>
       )}

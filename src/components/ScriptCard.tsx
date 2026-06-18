@@ -21,12 +21,21 @@ const VARIATION_OPTIONS = [
 
 function CopyScreenTextButton({ text, label = 'Copiar texto' }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false)
+  const disabled = !text.trim()
   return (
     <button
       type="button"
-      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+      disabled={disabled}
+      onClick={() => {
+        if (disabled) return
+        navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }}
       className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95"
-      style={copied
+      style={disabled
+        ? { background: 'var(--bg-surface)', color: 'var(--text-muted)', border: '1px solid var(--border-color)', opacity: 0.55 }
+        : copied
         ? { background: 'rgba(83,214,161,0.15)', color: '#53D6A1', border: '1px solid rgba(83,214,161,0.3)' }
         : { background: 'var(--brand)', color: '#fff' }}>
       {copied ? <><Check size={12} /> Copiado</> : <><Copy size={12} /> {label}</>}
@@ -39,6 +48,7 @@ export interface ScriptCardProps {
   onUpdate: (updated: ContentIdea) => void
   onSave: () => void
   onRecord: (override?: ContentIdea) => void
+  onCreatePhoto?: (screenText: string, idea: ContentIdea) => void
   onCaption: () => void
   onVariation: (hint: string) => void
   onDone?: () => void             // Opcional: se fornecido, ativa o botão "Fiz" e comemoração (Home)
@@ -52,6 +62,7 @@ export default function ScriptCard({
   onUpdate,
   onSave,
   onRecord,
+  onCreatePhoto,
   onCaption,
   onVariation,
   onDone,
@@ -104,7 +115,7 @@ export default function ScriptCard({
   const handleCopy = () => {
     const text = isPhoto
       ? (isMultiStory
-          ? stories.map((s, i) => `Foto ${i + 1}:\n${extractScreenText(s)}`).join('\n\n')
+          ? stories.map(s => extractScreenText(s)).filter(Boolean).join('\n\n')
           : extractScreenText(idea.content))
       : idea.content + (idea.cta ? `\n\nCTA: ${idea.cta}` : '')
     
@@ -227,7 +238,16 @@ export default function ScriptCard({
                           {isPhoto ? 'Foto' : 'Story'} {i + 1} de {stories.length}
                         </span>
                         {isPhoto ? (
-                          <CopyScreenTextButton text={screenText} />
+                          <div className="flex items-center gap-1.5">
+                            <CopyScreenTextButton text={screenText} />
+                            {onCreatePhoto && screenText.trim() && (
+                              <button onClick={() => onCreatePhoto(screenText, storyIdea)}
+                                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full transition-all duration-200 active:scale-95"
+                                style={{ background: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}>
+                                <Image size={12} /> Criar foto
+                              </button>
+                            )}
+                          </div>
                         ) : (
                           idea.status !== 'done' && (
                             <button onClick={() => onRecord(storyIdea)}
@@ -244,7 +264,7 @@ export default function ScriptCard({
                           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: 'var(--text-muted)' }}>Texto da tela</p>
                           <pre className="text-xs whitespace-pre-wrap font-sans leading-relaxed rounded-xl p-3"
                             style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                            {screenText}
+                            {screenText || 'Texto na tela vazio. Toque em Editar para preencher.'}
                           </pre>
                           {extractPhotoDirection(story) && (
                             <>
@@ -275,7 +295,7 @@ export default function ScriptCard({
                     </div>
                     <pre className="text-sm whitespace-pre-wrap font-sans leading-relaxed rounded-xl p-3"
                       style={{ color: 'var(--text-primary)', background: 'var(--bg-input)', border: '1px solid var(--border-color)' }}>
-                      {extractScreenText(idea.content)}
+                      {extractScreenText(idea.content) || 'Texto na tela vazio. Toque em Editar para preencher.'}
                     </pre>
                     {extractPhotoDirection(idea.content) && (
                       <>
@@ -362,6 +382,19 @@ export default function ScriptCard({
                 >
                   <Camera size={14} />
                   <span className="text-xs hidden sm:inline">Gravar</span>
+                </button>
+              )}
+
+              {/* Botão Criar foto (se for foto única) */}
+              {!isMultiStory && isPhoto && onCreatePhoto && extractScreenText(idea.content).trim() && (
+                <button
+                  onClick={() => onCreatePhoto(extractScreenText(idea.content), idea)}
+                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
+                  title="Criar foto com esse texto"
+                  aria-label="Criar foto com esse texto"
+                >
+                  <Image size={14} />
+                  <span className="text-xs hidden sm:inline">Criar foto</span>
                 </button>
               )}
 

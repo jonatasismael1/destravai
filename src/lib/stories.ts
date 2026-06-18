@@ -51,6 +51,8 @@ export function extractScreenText(raw: string): string {
   const body = stripStoryHeader(raw || '')
   const out: string[] = []
   let capturing = false
+  let sawScreenTextLabel = false
+  let sawAnyLabel = false
 
   for (const rawLine of body.split(/\r?\n/)) {
     const line = rawLine.trim()
@@ -62,9 +64,11 @@ export function extractScreenText(raw: string): string {
     const label = colon > 0 && colon <= 40 ? line.slice(0, colon).toUpperCase().trim() : ''
 
     if (label) {
+      sawAnyLabel = true
       // É o rótulo do texto na tela? (TEXTO NA TELA / TEXTO / TELA)
       if (/\bTEXTO\b/.test(label) || /\bTELA\b/.test(label)) {
         capturing = true
+        sawScreenTextLabel = true
         const after = line.slice(colon + 1).trim()
         if (after) out.push(after)
       } else {
@@ -77,9 +81,11 @@ export function extractScreenText(raw: string): string {
 
   // Junta preservando parágrafos, mas sem acumular linhas em branco no fim/excesso.
   const screen = out.join('\n').replace(/\n{3,}/g, '\n\n').trim()
-  // Sem rótulos reconhecidos (conteúdo legado/sem marcação): devolve o corpo limpo
-  // para o botão copiar nunca ficar vazio.
-  return screen || body.trim()
+  // Se o roteiro veio estruturado e o rótulo TEXTO NA TELA está vazio, não use
+  // FOTO:/CENA: como fallback. Copiar orientação visual foi justamente o bug.
+  if (sawScreenTextLabel || sawAnyLabel) return screen
+  // Sem rótulos reconhecidos (conteúdo legado/sem marcação): devolve o corpo limpo.
+  return body.trim()
 }
 
 // Inverso de extractScreenText: devolve só a DIREÇÃO da foto (o que fotografar,
@@ -101,7 +107,8 @@ export function extractPhotoDirection(raw: string): string {
         skipping = true                  // pula este rótulo e suas continuações
       } else {
         skipping = false
-        out.push(line)                   // outro rótulo (FOTO:, CENA:…) → mantém
+        const after = line.slice(colon + 1).trim()
+        if (after) out.push(after)       // mantém a orientação sem repetir o título
       }
     } else if (!skipping) {
       out.push(line)

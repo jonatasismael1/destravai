@@ -8,6 +8,7 @@ import { generateContent, generateCaption, generatePersonalizedCTAs, generateFre
 import ScriptCard from '../components/ScriptCard'
 import { createLibraryItem, updateLibraryItem } from '../services/libraryService'
 import StudioModal from '../components/StudioModal'
+import PhotoTextComposer from '../components/PhotoTextComposer'
 import VoiceDictation from '../components/VoiceDictation'
 import { useScreenTour } from '../context/OnboardingContext'
 
@@ -382,6 +383,7 @@ export default function Criar() {
   const [captionLoading, setCaptionLoading] = useState(false)
   const [libraryItemId, setLibraryItemId] = useState<string | null>(null)
   const [savedNotice, setSavedNotice] = useState(false)
+  const [photoComposer, setPhotoComposer] = useState<{ text: string; title: string } | null>(null)
   const mountedRef = useRef(true)
   const appliedGenerationRef = useRef<string | null>(null)
 
@@ -874,7 +876,9 @@ export default function Criar() {
               Formatos pensados para vídeo curto: gancho → desenvolvimento → fechamento.
             </p>
           )}
-          <DarkSelect label="Tempo disponível" options={TIME_OPTIONS} value={timeAvailable} onChange={setTimeAvailable} />
+          {postMode !== 'photo' && (
+            <DarkSelect label="Tempo disponível" options={TIME_OPTIONS} value={timeAvailable} onChange={setTimeAvailable} />
+          )}
         </div>
 
         {/* Generate button */}
@@ -953,6 +957,7 @@ export default function Criar() {
             }}
             onCopy={() => {}}
             onRecord={(override) => { setStudioIdea(override ?? result); setShowStudio(true) }}
+            onCreatePhoto={(text, targetIdea) => setPhotoComposer({ text, title: targetIdea.theme })}
             onCaption={handleCaption}
             onUpdate={(updated) => {
               // Reflete a edição na hora (card + teleprompter), no histórico local
@@ -985,6 +990,14 @@ export default function Criar() {
 
       {showStudio && (studioIdea ?? result) && (
         <StudioModal idea={(studioIdea ?? result)!} onClose={() => { setShowStudio(false); setStudioIdea(null) }} />
+      )}
+
+      {photoComposer && (
+        <PhotoTextComposer
+          initialText={photoComposer.text}
+          title={photoComposer.title}
+          onClose={() => setPhotoComposer(null)}
+        />
       )}
 
       {showVoice && (

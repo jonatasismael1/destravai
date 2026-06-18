@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  AlignCenter, AlignLeft, AlignRight, Bold, Copy, Download, ImagePlus,
+  AlignCenter, AlignLeft, AlignRight, Bold, Circle, Copy, Download, ImagePlus,
   Italic, Minus, Palette, Plus, RotateCcw, Share2, SwitchCamera, Type, X,
 } from 'lucide-react'
 
@@ -17,6 +17,7 @@ type OverlayState = {
   align: CanvasTextAlign
   bold: boolean
   italic: boolean
+  outline: boolean
 }
 
 type Props = {
@@ -39,6 +40,9 @@ type PhotoSize = { width: number; height: number }
 
 const SAFE_BOTTOM = 'max(env(safe-area-inset-bottom), 18px)'
 const ZOOM_LEVELS = [1, 2, 3, 5]
+const TEXT_SIZE_MIN = 10
+const TEXT_SIZE_MAX = 96
+const TEXT_SIZE_STEP = 4
 const PRIMARY_COLORS = ['#FFFFFF', '#161618', '#EF4444', '#2563EB', '#FACC15', '#22C55E']
 const ADVANCED_COLORS = [
   '#F7B955', '#53D6A1', '#9B8CFF', '#FF7A6B', '#F43F5E', '#EC4899',
@@ -86,6 +90,10 @@ function pointerAngle(a: PointerPoint, b: PointerPoint) {
 
 function pointerMidpoint(a: PointerPoint, b: PointerPoint): PointerPoint {
   return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+}
+
+function getOutlineColor(fill: string) {
+  return fill.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.78)'
 }
 
 function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints[] {
@@ -203,13 +211,14 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     text: initialText.trim(),
     x: 50,
     y: 56,
-    size: 32,
+    size: 16,
     rotation: 0,
     color: '#FFFFFF',
     font: FONTS[0].value,
     align: 'center',
     bold: true,
     italic: false,
+    outline: false,
   })
 
   const activeFont = useMemo(() => FONTS.find(f => f.value === overlay.font) ?? FONTS[0], [overlay.font])
@@ -380,6 +389,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
   }
 
   const handleStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     const isTextPointer = !!(event.target as HTMLElement).closest('[data-text-overlay="true"]')
@@ -397,6 +407,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
 
   const handleStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (!pointersRef.current.has(event.pointerId)) return
+    event.preventDefault()
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
     const points = Array.from(pointersRef.current.values())
 
@@ -414,7 +425,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
       const pos = pointerToPercent(mid.x, mid.y)
       setOverlay(current => ({
         ...current,
-        size: clamp(Math.round(start.size * (dist / start.distance)), 18, 96),
+        size: clamp(Math.round(start.size * (dist / start.distance)), TEXT_SIZE_MIN, TEXT_SIZE_MAX),
         rotation: start.rotation + (angle - start.angle),
         x: pos?.x ?? start.x,
         y: pos?.y ?? start.y,
@@ -465,12 +476,12 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     const lineHeight = fontSize * 1.08
     const startY = -((lines.length - 1) * lineHeight) / 2
     const drawX = overlay.align === 'left' ? -textBoxWidth / 2 : overlay.align === 'right' ? textBoxWidth / 2 : 0
-    ctx.strokeStyle = overlay.color === '#161618' ? 'rgba(255,255,255,0.62)' : 'rgba(0,0,0,0.58)'
-    ctx.lineWidth = Math.max(7, fontSize * 0.08)
+    ctx.strokeStyle = getOutlineColor(overlay.color)
+    ctx.lineWidth = Math.max(5, fontSize * 0.08)
     ctx.fillStyle = overlay.color
     lines.forEach((line, index) => {
       const y = startY + index * lineHeight
-      ctx.strokeText(line, drawX, y)
+      if (overlay.outline) ctx.strokeText(line, drawX, y)
       ctx.fillText(line, drawX, y)
     })
     ctx.restore()
@@ -548,14 +559,25 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
       <div className="absolute z-30 left-3 right-3 bottom-3 rounded-3xl p-3"
         style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.14)' }}>
         {activeTool === 'text' && (
-          <textarea
-            className="w-full rounded-2xl p-3 text-sm resize-none outline-none"
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)' }}
-            rows={3}
-            value={overlay.text}
-            onChange={event => setOverlay(current => ({ ...current, text: event.target.value }))}
-            autoFocus
-          />
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveTool(null)}
+              className="absolute right-2 top-2 w-7 h-7 rounded-full flex items-center justify-center active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+              aria-label="Fechar aba"
+            >
+              <X size={14} />
+            </button>
+            <textarea
+              className="w-full rounded-2xl p-3 pr-10 text-sm resize-none outline-none"
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)' }}
+              rows={3}
+              value={overlay.text}
+              onChange={event => setOverlay(current => ({ ...current, text: event.target.value }))}
+              autoFocus
+            />
+          </>
         )}
         {activeTool === 'font' && (
           <select
@@ -586,6 +608,15 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
               aria-label="Italico"
             >
               <Italic size={18} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setOverlay(current => ({ ...current, outline: !current.outline }))}
+              className="h-11 rounded-2xl flex items-center justify-center"
+              style={overlay.outline ? activeButtonStyle : inactiveButtonStyle}
+              aria-label="Contorno"
+            >
+              <Circle size={18} />
             </button>
             {ALIGN_OPTIONS.map(({ value, label, Icon }) => (
               <button
@@ -709,14 +740,14 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
           ) : (
             <>
               <img src={photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute z-20 right-3 top-1/2 -translate-y-1/2 flex flex-col overflow-hidden rounded-full"
+              <div className="absolute z-20 left-3 top-1/2 -translate-y-1/2 flex flex-col overflow-hidden rounded-full"
                 style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)' }}>
-                <button type="button" onClick={() => setOverlay(current => ({ ...current, size: clamp(current.size + 4, 18, 96) }))}
+                <button type="button" onClick={() => setOverlay(current => ({ ...current, size: clamp(current.size + TEXT_SIZE_STEP, TEXT_SIZE_MIN, TEXT_SIZE_MAX) }))}
                   className="w-11 h-11 flex items-center justify-center text-white active:scale-95" aria-label="Aumentar texto">
                   <Plus size={18} />
                 </button>
                 <div className="h-px" style={{ background: 'rgba(255,255,255,0.16)' }} />
-                <button type="button" onClick={() => setOverlay(current => ({ ...current, size: clamp(current.size - 4, 18, 96) }))}
+                <button type="button" onClick={() => setOverlay(current => ({ ...current, size: clamp(current.size - TEXT_SIZE_STEP, TEXT_SIZE_MIN, TEXT_SIZE_MAX) }))}
                   className="w-11 h-11 flex items-center justify-center text-white active:scale-95" aria-label="Diminuir texto">
                   <Minus size={18} />
                 </button>
@@ -735,6 +766,8 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
                   fontSize: overlay.size,
                   textAlign: overlay.align as 'left' | 'center' | 'right',
                   lineHeight: 1.06,
+                  WebkitTextStroke: overlay.outline ? `${Math.max(1, overlay.size * 0.055)}px ${getOutlineColor(overlay.color)}` : undefined,
+                  paintOrder: overlay.outline ? 'stroke fill' : undefined,
                   textShadow: overlay.color === '#161618' ? '0 2px 14px rgba(255,255,255,0.68)' : '0 3px 18px rgba(0,0,0,0.78)',
                   whiteSpace: 'pre-wrap',
                 }}

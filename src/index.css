@@ -71,8 +71,8 @@
   --bg-card-bright:  var(--bg-surface);
 
   --text-primary:    #161618;
-  --text-secondary:  #555560;
-  --text-muted:      #8A8A93;
+  --text-secondary:  #34343B;
+  --text-muted:      #5F5F68;
 
   --border-color:    rgba(20, 20, 24, 0.08);
   --border-bright:   rgba(20, 20, 24, 0.14);

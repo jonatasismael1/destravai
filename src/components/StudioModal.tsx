@@ -716,11 +716,6 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   useEffect(() => { editedVideoBlobRef.current = null }, [videoOverlay])
 
-  useEffect(() => {
-    if (phase !== 'preview') return
-    setVideoOverlay(current => current.text.trim() ? current : { ...current, text: script.trim().split(/\n+/)[0]?.slice(0, 90) ?? '' })
-  }, [phase, script])
-
   const stopStream = useCallback(() => {
     recordingStreamRef.current?.getTracks().forEach(t => t.stop())
     recordingStreamRef.current = null
@@ -1045,6 +1040,8 @@ export default function StudioModal({ idea, onClose }: Props) {
     recorder.start()
     recorderRef.current = recorder
     recordStartRef.current = Date.now()
+    setVideoTool(null)
+    setVideoOverlay(current => ({ ...current, text: '', x: 50, y: 56, rotation: 0 }))
     void trackEvent('recording_start', idea.id)
     setPhase('recording')
     setTimer(0)
@@ -1106,6 +1103,8 @@ export default function StudioModal({ idea, onClose }: Props) {
   }
 
   const retake = () => {
+    setVideoTool(null)
+    setVideoOverlay(current => ({ ...current, text: '', x: 50, y: 56, rotation: 0 }))
     setRecordedUrl(''); setScrollPx(0); setTimer(0); setPhase('setup'); startCamera(facing)
   }
 
@@ -1392,6 +1391,16 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   const toggleVideoTool = (tool: VideoEditTool) => setVideoTool(current => current === tool ? null : tool)
 
+  const getSuggestedVideoText = () => script.trim().split(/\n+/)[0]?.slice(0, 90) ?? ''
+
+  const handleVideoTextToolClick = () => {
+    const willOpen = videoTool !== 'text'
+    if (willOpen) {
+      setVideoOverlay(current => current.text.trim() ? current : { ...current, text: getSuggestedVideoText() })
+    }
+    setVideoTool(willOpen ? 'text' : null)
+  }
+
   const renderVideoEditorPanel = () => {
     if (!videoTool) return null
     const activeButtonStyle = { background: '#fff', color: '#111', border: '1px solid rgba(255,255,255,0.2)' }
@@ -1588,7 +1597,7 @@ export default function StudioModal({ idea, onClose }: Props) {
                 data-video-editor-control="true"
                 style={{ top: 'calc(max(env(safe-area-inset-top), 14px) + 20px)' }}
               >
-                <VideoIconTool active={videoTool === 'text'} onClick={() => toggleVideoTool('text')} label="Editar texto"><Type size={23} /></VideoIconTool>
+                <VideoIconTool active={videoTool === 'text'} onClick={handleVideoTextToolClick} label="Adicionar texto"><Type size={23} /></VideoIconTool>
                 <VideoIconTool active={videoTool === 'font'} onClick={() => toggleVideoTool('font')} label="Fonte"><span className="text-lg font-black">Aa</span></VideoIconTool>
                 <VideoIconTool active={videoTool === 'style'} onClick={() => toggleVideoTool('style')} label="Estilo"><Bold size={22} /></VideoIconTool>
                 <VideoIconTool active={videoTool === 'color'} onClick={() => toggleVideoTool('color')} label="Cor"><Palette size={22} /></VideoIconTool>

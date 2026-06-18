@@ -101,6 +101,9 @@ export default function ScriptCard({
   const isPhoto = idea.media === 'photo'
   const stories = idea.type === 'sequence' ? splitSequenceStories(idea.content) : []
   const isMultiStory = stories.length > 1
+  const screenText = extractScreenText(idea.content).trim()
+  const canCreatePhoto = !isMultiStory && isPhoto && !!onCreatePhoto && !!screenText
+  const hasPrimaryContentAction = canCreatePhoto || !isPhoto
 
   const handleDone = () => {
     if (onDone) {
@@ -359,21 +362,21 @@ export default function ScriptCard({
         {idea.status !== 'done' && (
           <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--border-color)' }}>
             <div className="flex gap-2 min-w-0">
-              {onDone ? (
-                <button onClick={handleDone} className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5">
-                  <Check size={14} /> Fiz
-                </button>
-              ) : isPhoto ? (
+              {isPhoto ? (
                 <>
-                  {!isMultiStory && onCreatePhoto && extractScreenText(idea.content).trim() && (
+                  {canCreatePhoto ? (
                     <button
-                      onClick={() => onCreatePhoto(extractScreenText(idea.content), idea)}
+                      onClick={() => onCreatePhoto(screenText, idea)}
                       className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5"
                     >
                       <Image size={14} />
                       <span className="truncate">Criar foto</span>
                     </button>
-                  )}
+                  ) : onDone ? (
+                    <button onClick={handleDone} className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5">
+                      <Check size={14} /> Fiz
+                    </button>
+                  ) : null}
                   <button onClick={handleCopy} className="btn-secondary flex-[0.95] min-w-0 py-2.5 px-3 text-sm gap-1.5"
                     style={copied ? { background: 'var(--success)', color: '#fff' } : {}}>
                     {copied ? <><Check size={14} /> <span className="truncate">Copiado</span></> : <><Copy size={14} /> <span className="truncate">Copiar</span></>}
@@ -406,7 +409,14 @@ export default function ScriptCard({
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {onDone && hasPrimaryContentAction && (
+                <button onClick={handleDone} className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5">
+                  <Check size={14} />
+                  <span className="text-xs">Fiz</span>
+                </button>
+              )}
+
               {/* Botão Legenda (Reels) */}
               {idea.type === 'reel' && (
                 <button

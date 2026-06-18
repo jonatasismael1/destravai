@@ -1,8 +1,10 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
-  X, SlidersHorizontal, Pencil, Scan, Timer, Type,
+  X, SlidersHorizontal, Pencil, Scan, Timer, Type, AlignCenter, AlignLeft, AlignRight,
   Zap, SwitchCamera, Download, Share2, RotateCcw, CameraOff, Check, Loader2,
+  Bold, Italic, Palette, Circle, Plus, Minus,
 } from 'lucide-react'
 import type { ContentIdea } from '../types'
 import { trackEvent } from '../services/eventsService'
@@ -19,6 +21,66 @@ type Phase = 'setup' | 'recording' | 'preview'
 const ZOOM_LEVELS = [1, 2, 3, 5] as const
 type RecordingSize = { width: number; height: number; videoBitsPerSecond: number }
 type RecordingCodec = 'compatible' | 'hevc'
+type PointerPoint = { x: number; y: number }
+type VideoTextEffect = 'none' | 'shadow' | 'outline' | 'glow' | 'background' | 'backgroundOutline'
+type VideoEditTool = 'text' | 'font' | 'style' | 'color' | 'effect' | null
+type VideoOverlayState = {
+  text: string
+  x: number
+  y: number
+  size: number
+  rotation: number
+  color: string
+  font: string
+  align: CanvasTextAlign
+  bold: boolean
+  italic: boolean
+  effect: VideoTextEffect
+}
+type VideoGestureStart = {
+  distance: number
+  angle: number
+  size: number
+  rotation: number
+  x: number
+  y: number
+}
+
+const VIDEO_TEXT_SIZE_MIN = 10
+const VIDEO_TEXT_SIZE_MAX = 96
+const VIDEO_TEXT_SIZE_STEP = 4
+const FONT_STYLESHEET_ID = 'destravai-photo-editor-fonts'
+const GOOGLE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Bebas+Neue&family=Bungee&family=Caveat:wght@700&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@700&family=Montserrat:wght@700;800&family=Oswald:wght@700&family=Pacifico&family=Playfair+Display:wght@700&family=Righteous&family=Roboto+Mono:wght@700&display=swap'
+const VIDEO_PRIMARY_COLORS = ['#FFFFFF', '#161618', '#EF4444', '#2563EB', '#FACC15', '#22C55E']
+const VIDEO_FONTS = [
+  { label: 'Forte', value: 'Montserrat, Inter, Arial, sans-serif', weight: 800 },
+  { label: 'Clean', value: 'Montserrat, Helvetica Neue, Arial, sans-serif', weight: 700 },
+  { label: 'Serif', value: 'Playfair Display, Georgia, serif', weight: 700 },
+  { label: 'Mono', value: 'Roboto Mono, Courier New, monospace', weight: 700 },
+  { label: 'Impacto', value: 'Anton, Impact, sans-serif', weight: 700 },
+  { label: 'Deco', value: 'Cinzel Decorative, Copperplate, fantasy', weight: 700 },
+  { label: 'Script', value: 'Pacifico, Brush Script MT, cursive', weight: 700 },
+  { label: 'Hand', value: 'Caveat, Segoe Print, cursive', weight: 700 },
+  { label: 'Luxo', value: 'Cormorant Garamond, Garamond, serif', weight: 700 },
+  { label: 'Cond', value: 'Oswald, Arial Narrow, sans-serif', weight: 700 },
+  { label: 'Bubble', value: 'Righteous, Arial Black, sans-serif', weight: 700 },
+  { label: 'Cartaz', value: 'Bebas Neue, Impact, sans-serif', weight: 700 },
+  { label: 'Retro', value: 'Abril Fatface, Georgia, serif', weight: 700 },
+  { label: 'Pixel', value: 'Bungee, Consolas, monospace', weight: 700 },
+]
+const VIDEO_EFFECT_OPTIONS: Array<{ id: VideoTextEffect; label: string; description: string }> = [
+  { id: 'none', label: 'Limpo', description: 'Sem sombra' },
+  { id: 'shadow', label: 'Sombra', description: 'Leve' },
+  { id: 'outline', label: 'Contorno', description: 'Ao redor' },
+  { id: 'glow', label: 'Brilho', description: 'Luz' },
+  { id: 'background', label: 'Fundo', description: 'Tarja' },
+  { id: 'backgroundOutline', label: 'Fundo+', description: 'Tarja + contorno' },
+]
+const VIDEO_ALIGN_OPTIONS: Array<{ value: CanvasTextAlign; label: string; Icon: typeof AlignLeft }> = [
+  { value: 'left', label: 'Alinhar a esquerda', Icon: AlignLeft },
+  { value: 'center', label: 'Centralizar', Icon: AlignCenter },
+  { value: 'right', label: 'Alinhar a direita', Icon: AlignRight },
+]
 
 // Classifica um rótulo (o texto antes do primeiro ":") como FALA (o que dizer)
 // ou INSTRUÇÃO (ação, visual, câmera, dica…). Retorna null se não for um rótulo
@@ -320,6 +382,174 @@ function getTrackZoomTarget(caps: { zoom?: { min: number; max: number } }, reque
   return Math.min(caps.zoom.max, Math.max(caps.zoom.min, target))
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function pointerDistance(a: PointerPoint, b: PointerPoint) {
+  return Math.hypot(b.x - a.x, b.y - a.y)
+}
+
+function pointerAngle(a: PointerPoint, b: PointerPoint) {
+  return Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI
+}
+
+function pointerMidpoint(a: PointerPoint, b: PointerPoint): PointerPoint {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
+}
+
+function getVideoOutlineColor(fill: string) {
+  return fill.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.78)'
+}
+
+function getVideoBackgroundColor(fill: string) {
+  return fill.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.52)'
+}
+
+function videoHasOutline(effect: VideoTextEffect) {
+  return effect === 'outline' || effect === 'backgroundOutline'
+}
+
+function videoHasBackground(effect: VideoTextEffect) {
+  return effect === 'background' || effect === 'backgroundOutline'
+}
+
+function getVideoTextShadow(effect: VideoTextEffect, fill: string) {
+  if (effect === 'none' || effect === 'background') return 'none'
+  if (effect === 'glow') {
+    return fill.toUpperCase() === '#161618'
+      ? '0 0 7px rgba(255,255,255,0.95), 0 0 22px rgba(255,255,255,0.7)'
+      : `0 0 8px ${fill}, 0 0 24px rgba(255,255,255,0.42), 0 3px 16px rgba(0,0,0,0.72)`
+  }
+  return fill.toUpperCase() === '#161618'
+    ? '0 2px 14px rgba(255,255,255,0.68)'
+    : '0 3px 18px rgba(0,0,0,0.78)'
+}
+
+function getVideoPreviewEffectStyle(effect: VideoTextEffect, color: string, size: number): CSSProperties {
+  return {
+    background: videoHasBackground(effect) ? getVideoBackgroundColor(color) : undefined,
+    borderRadius: videoHasBackground(effect) ? Math.max(8, size * 0.28) : undefined,
+    padding: videoHasBackground(effect) ? `${Math.max(4, size * 0.16)}px ${Math.max(7, size * 0.28)}px` : undefined,
+    WebkitTextStroke: videoHasOutline(effect) ? `${Math.max(1, size * 0.055)}px ${getVideoOutlineColor(color)}` : undefined,
+    paintOrder: videoHasOutline(effect) ? 'stroke fill' : undefined,
+    textShadow: getVideoTextShadow(effect, color),
+  }
+}
+
+function ensureEditorFonts() {
+  if (typeof document === 'undefined' || document.getElementById(FONT_STYLESHEET_ID)) return
+  const googlePreconnect = document.createElement('link')
+  googlePreconnect.rel = 'preconnect'
+  googlePreconnect.href = 'https://fonts.googleapis.com'
+  document.head.appendChild(googlePreconnect)
+  const gstaticPreconnect = document.createElement('link')
+  gstaticPreconnect.rel = 'preconnect'
+  gstaticPreconnect.href = 'https://fonts.gstatic.com'
+  gstaticPreconnect.crossOrigin = 'anonymous'
+  document.head.appendChild(gstaticPreconnect)
+  const stylesheet = document.createElement('link')
+  stylesheet.id = FONT_STYLESHEET_ID
+  stylesheet.rel = 'stylesheet'
+  stylesheet.href = GOOGLE_FONTS_URL
+  document.head.appendChild(stylesheet)
+}
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + width - r, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+  ctx.lineTo(x + width, y + height - r)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+  ctx.lineTo(x + r, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function wrapCanvasLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = []
+  for (const paragraph of text.split(/\r?\n/)) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean)
+    if (!words.length) { lines.push(''); continue }
+    let line = ''
+    for (const word of words) {
+      const next = line ? `${line} ${word}` : word
+      if (ctx.measureText(next).width > maxWidth && line) {
+        lines.push(line)
+        line = word
+      } else {
+        line = next
+      }
+    }
+    if (line) lines.push(line)
+  }
+  return lines
+}
+
+function drawVideoCover(ctx: CanvasRenderingContext2D, video: HTMLVideoElement, width: number, height: number) {
+  const vw = video.videoWidth
+  const vh = video.videoHeight
+  if (!vw || !vh) return
+  const scale = Math.max(width / vw, height / vh)
+  const dw = vw * scale
+  const dh = vh * scale
+  ctx.drawImage(video, (width - dw) / 2, (height - dh) / 2, dw, dh)
+}
+
+function drawVideoOverlayText(ctx: CanvasRenderingContext2D, overlay: VideoOverlayState, width: number, height: number) {
+  const font = VIDEO_FONTS.find(f => f.value === overlay.font) ?? VIDEO_FONTS[0]
+  ctx.save()
+  ctx.translate((overlay.x / 100) * width, (overlay.y / 100) * height)
+  ctx.rotate((overlay.rotation * Math.PI) / 180)
+  const fontSize = Math.round((overlay.size / 360) * width)
+  const fontWeight = overlay.bold ? Math.max(800, font.weight) : font.weight
+  ctx.font = `${overlay.italic ? 'italic ' : ''}${fontWeight} ${fontSize}px ${overlay.font}`
+  ctx.textAlign = overlay.align
+  ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  const textBoxWidth = width * 0.82
+  const lines = wrapCanvasLines(ctx, overlay.text, textBoxWidth)
+  const lineHeight = fontSize * 1.08
+  const startY = -((lines.length - 1) * lineHeight) / 2
+  const drawX = overlay.align === 'left' ? -textBoxWidth / 2 : overlay.align === 'right' ? textBoxWidth / 2 : 0
+  if (videoHasBackground(overlay.effect) && lines.length) {
+    const maxLineWidth = Math.min(textBoxWidth, Math.max(...lines.map(line => ctx.measureText(line || ' ').width)))
+    const padX = fontSize * 0.32
+    const padY = fontSize * 0.24
+    const rectWidth = maxLineWidth + padX * 2
+    const rectHeight = ((lines.length - 1) * lineHeight) + fontSize + padY * 2
+    const rectX = overlay.align === 'left'
+      ? drawX - padX
+      : overlay.align === 'right'
+        ? drawX - maxLineWidth - padX
+        : -rectWidth / 2
+    const rectY = startY - fontSize / 2 - padY
+    ctx.fillStyle = getVideoBackgroundColor(overlay.color)
+    roundedRect(ctx, rectX, rectY, rectWidth, rectHeight, fontSize * 0.28)
+    ctx.fill()
+  }
+  ctx.strokeStyle = getVideoOutlineColor(overlay.color)
+  ctx.lineWidth = Math.max(5, fontSize * 0.08)
+  ctx.shadowColor = overlay.effect === 'glow'
+    ? (overlay.color.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.85)' : overlay.color)
+    : overlay.effect === 'shadow'
+      ? 'rgba(0,0,0,0.55)'
+      : 'transparent'
+  ctx.shadowBlur = overlay.effect === 'glow' ? fontSize * 0.32 : overlay.effect === 'shadow' ? fontSize * 0.12 : 0
+  ctx.shadowOffsetY = overlay.effect === 'shadow' ? fontSize * 0.05 : 0
+  ctx.fillStyle = overlay.color
+  lines.forEach((line, index) => {
+    const y = startY + index * lineHeight
+    if (videoHasOutline(overlay.effect)) ctx.strokeText(line, drawX, y)
+    ctx.fillText(line, drawX, y)
+  })
+  ctx.restore()
+}
+
 // Resultado do compartilhamento — discriminado para o chamador decidir o que
 // mostrar (sucesso, usuário cancelou, ou sem suporte → fallback de download).
 export type ShareVideoResult =
@@ -411,6 +641,21 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Microfones disponíveis e o selecionado (ex.: microfone USB externo).
   const [audioInputs, setAudioInputs] = useState<MediaDeviceInfo[]>([])
   const [selectedMicId, setSelectedMicId] = useState<string | null>(null)
+  const [videoTool, setVideoTool] = useState<VideoEditTool>(null)
+  const [videoColorValue, setVideoColorValue] = useState('#FFFFFF')
+  const [videoOverlay, setVideoOverlay] = useState<VideoOverlayState>({
+    text: '',
+    x: 50,
+    y: 56,
+    size: 16,
+    rotation: 0,
+    color: '#FFFFFF',
+    font: VIDEO_FONTS[0].value,
+    align: 'center',
+    bold: true,
+    italic: false,
+    effect: 'shadow',
+  })
 
   // Câmera
   const [zoom, setZoom] = useState<number>(1)            // 1x/2x/3x/5x = ZOOM
@@ -423,6 +668,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   const liveVideoRef = useRef<HTMLVideoElement>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
   const reviewVideoRef = useRef<HTMLVideoElement>(null)
+  const reviewStageRef = useRef<HTMLDivElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const recordingStreamRef = useRef<MediaStream | null>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -442,12 +688,20 @@ export default function StudioModal({ idea, onClose }: Props) {
   const drawFrameRef = useRef<number | null>(null)
   const zoomSupportedRef = useRef(false)
   const recordingSizeRef = useRef<RecordingSize>({ width: 1080, height: 1920, videoBitsPerSecond: 14_000_000 })
+  const videoPointersRef = useRef(new Map<number, PointerPoint>())
+  const videoGestureStartRef = useRef<VideoGestureStart | null>(null)
+  const movingVideoTextRef = useRef(false)
+  const videoOverlayRef = useRef<VideoOverlayState | null>(null)
+  const editedVideoBlobRef = useRef<{ key: string; blob: Blob } | null>(null)
+  const pendingShareBlobRef = useRef<Blob | null>(null)
   // Sempre lê o valor atual de reduceNoise dentro de startCamera (que é memoizado).
   const reduceNoiseRef = useRef(reduceNoise)
   reduceNoiseRef.current = reduceNoise
   // Idem para o microfone selecionado.
   const selectedMicRef = useRef(selectedMicId)
   selectedMicRef.current = selectedMicId
+  videoOverlayRef.current = videoOverlay
+  const activeVideoFont = useMemo(() => VIDEO_FONTS.find(f => f.value === videoOverlay.font) ?? VIDEO_FONTS[0], [videoOverlay.font])
   // Refs de fase/câmera lidos dentro de listeners (visibilitychange/popstate) que
   // só são registrados uma vez — sem isso, eles enxergariam só o valor inicial.
   const phaseRef = useRef<Phase>(phase)
@@ -457,6 +711,15 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Marca que o fechamento já veio do botão "voltar" (popstate), para não
   // empurrar/voltar histórico em duplicidade.
   const poppedRef = useRef(false)
+
+  useEffect(() => { ensureEditorFonts() }, [])
+
+  useEffect(() => { editedVideoBlobRef.current = null }, [videoOverlay])
+
+  useEffect(() => {
+    if (phase !== 'preview') return
+    setVideoOverlay(current => current.text.trim() ? current : { ...current, text: script.trim().split(/\n+/)[0]?.slice(0, 90) ?? '' })
+  }, [phase, script])
 
   const stopStream = useCallback(() => {
     recordingStreamRef.current?.getTracks().forEach(t => t.stop())
@@ -878,6 +1141,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   // Clique em "Salvar" no preview: NÃO salva direto — abre a folha de escolha.
   const handleSaveClick = () => {
     if (!blobRef.current) return
+    pendingShareBlobRef.current = null
     setShareFallback(false)
     setShowSaveChoice(true)
   }
@@ -886,9 +1150,11 @@ export default function StudioModal({ idea, onClose }: Props) {
   // para o usuário escolher Instagram, WhatsApp, galeria, etc. (não publicamos
   // automaticamente — só entregamos o vídeo pronto e abrimos o caminho).
   const handlePostNow = async () => {
-    const blob = blobRef.current
-    if (!blob || saving) return
+    if (saving) return
     setSaving(true)
+    const blob = await getPreparedVideoBlob().catch(() => blobRef.current)
+    if (!blob) { setSaving(false); return }
+    pendingShareBlobRef.current = blob
     const filename = getVideoFilename(blob)
     trackRecordingSave(blob)
     void trackEvent('post_now_clicked', idea.id)
@@ -914,12 +1180,16 @@ export default function StudioModal({ idea, onClose }: Props) {
 
   // POSTAR DEPOIS: salva no dispositivo SEM abrir o compartilhamento e marca o
   // vídeo como ainda não publicado (pendente), para o usuário postar quando quiser.
-  const handlePostLater = () => {
-    const blob = blobRef.current
+  const handlePostLater = async () => {
+    const blob = pendingShareBlobRef.current ?? blobRef.current
     if (!blob || saving) return
-    const filename = getVideoFilename(blob)
-    trackRecordingSave(blob)
-    triggerPlainDownload(blob, filename)
+    setSaving(true)
+    const prepared = await getPreparedVideoBlob().catch(() => null)
+    const finalBlob = prepared ?? blob
+    setSaving(false)
+    const filename = getVideoFilename(finalBlob)
+    trackRecordingSave(finalBlob)
+    triggerPlainDownload(finalBlob, filename)
     void trackEvent('will_post_later', idea.id)
     setShowSaveChoice(false)
     addToast('Vídeo salvo. Você pode postar quando quiser.', 'success')
@@ -930,7 +1200,7 @@ export default function StudioModal({ idea, onClose }: Props) {
   // para o usuário postar manualmente nos Stories. Como o clique foi em "Postar
   // agora", também conta como conteúdo postado nas missões.
   const handleFallbackDownload = () => {
-    const blob = blobRef.current
+    const blob = pendingShareBlobRef.current ?? blobRef.current
     if (!blob) return
     trackRecordingSave(blob)
     triggerPlainDownload(blob, getVideoFilename(blob))
@@ -946,6 +1216,300 @@ export default function StudioModal({ idea, onClose }: Props) {
     if (saving) return
     setShareFallback(false)
     setShowSaveChoice(false)
+  }
+
+  const videoPointerToPercent = (clientX: number, clientY: number) => {
+    const rect = reviewStageRef.current?.getBoundingClientRect()
+    if (!rect) return null
+    return {
+      x: clamp(((clientX - rect.left) / rect.width) * 100, 8, 92),
+      y: clamp(((clientY - rect.top) / rect.height) * 100, 8, 92),
+    }
+  }
+
+  const moveVideoTextTo = (clientX: number, clientY: number) => {
+    const next = videoPointerToPercent(clientX, clientY)
+    if (next) setVideoOverlay(current => ({ ...current, ...next }))
+  }
+
+  const startVideoGesture = () => {
+    const points = Array.from(videoPointersRef.current.values())
+    const current = videoOverlayRef.current
+    if (points.length < 2 || !current) return
+    const [a, b] = points
+    const mid = pointerMidpoint(a, b)
+    const pos = videoPointerToPercent(mid.x, mid.y)
+    videoGestureStartRef.current = {
+      distance: Math.max(1, pointerDistance(a, b)),
+      angle: pointerAngle(a, b),
+      size: current.size,
+      rotation: current.rotation,
+      x: pos?.x ?? current.x,
+      y: pos?.y ?? current.y,
+    }
+  }
+
+  const handleVideoStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('[data-video-editor-control="true"]')) return
+    event.currentTarget.setPointerCapture(event.pointerId)
+    videoPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    const isTextPointer = !!(event.target as HTMLElement).closest('[data-video-text-overlay="true"]')
+    if (videoPointersRef.current.size >= 2) {
+      event.preventDefault()
+      movingVideoTextRef.current = true
+      startVideoGesture()
+      return
+    }
+    movingVideoTextRef.current = isTextPointer
+    videoGestureStartRef.current = null
+    if (isTextPointer) {
+      event.preventDefault()
+      moveVideoTextTo(event.clientX, event.clientY)
+    }
+  }
+
+  const handleVideoStagePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (!videoPointersRef.current.has(event.pointerId)) return
+    videoPointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    const points = Array.from(videoPointersRef.current.values())
+    if (points.length >= 2) {
+      event.preventDefault()
+      movingVideoTextRef.current = true
+      const [a, b] = points
+      const start = videoGestureStartRef.current
+      if (!start) { startVideoGesture(); return }
+      const dist = pointerDistance(a, b)
+      const angle = pointerAngle(a, b)
+      const mid = pointerMidpoint(a, b)
+      const pos = videoPointerToPercent(mid.x, mid.y)
+      setVideoOverlay(current => ({
+        ...current,
+        size: clamp(Math.round(start.size * (dist / start.distance)), VIDEO_TEXT_SIZE_MIN, VIDEO_TEXT_SIZE_MAX),
+        rotation: start.rotation + (angle - start.angle),
+        x: pos?.x ?? start.x,
+        y: pos?.y ?? start.y,
+      }))
+      return
+    }
+    if (movingVideoTextRef.current) {
+      event.preventDefault()
+      moveVideoTextTo(event.clientX, event.clientY)
+    }
+  }
+
+  const handleVideoStagePointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
+    videoPointersRef.current.delete(event.pointerId)
+    if (videoPointersRef.current.size >= 2) {
+      startVideoGesture()
+      return
+    }
+    videoGestureStartRef.current = null
+    if (videoPointersRef.current.size === 0) movingVideoTextRef.current = false
+  }
+
+  const videoOverlayKey = () => JSON.stringify(videoOverlay)
+
+  const renderEditedVideoBlob = async (sourceBlob: Blob, overlay: VideoOverlayState): Promise<Blob> => {
+    if (!overlay.text.trim()) return sourceBlob
+    ensureEditorFonts()
+    const src = URL.createObjectURL(sourceBlob)
+    const video = document.createElement('video')
+    video.src = src
+    video.muted = false
+    video.playsInline = true
+    video.preload = 'auto'
+    video.crossOrigin = 'anonymous'
+
+    await new Promise<void>((resolve, reject) => {
+      video.onloadedmetadata = () => resolve()
+      video.onerror = () => reject(new Error('Nao foi possivel preparar o video editado.'))
+    })
+
+    const width = 1080
+    const height = 1920
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const ctx = canvas.getContext('2d', { alpha: false })
+    if (!ctx) throw new Error('Canvas indisponivel.')
+    const font = VIDEO_FONTS.find(f => f.value === overlay.font) ?? VIDEO_FONTS[0]
+    const fontSize = Math.round((overlay.size / 360) * width)
+    const fontWeight = overlay.bold ? Math.max(800, font.weight) : font.weight
+    try { await document.fonts?.load(`${overlay.italic ? 'italic ' : ''}${fontWeight} ${fontSize}px ${overlay.font}`) } catch { /* fallback */ }
+
+    const canvasStream = canvas.captureStream(30)
+    const sourceStream = (video as HTMLVideoElement & { captureStream?: () => MediaStream; mozCaptureStream?: () => MediaStream }).captureStream?.()
+      ?? (video as HTMLVideoElement & { mozCaptureStream?: () => MediaStream }).mozCaptureStream?.()
+    const audioTracks = sourceStream?.getAudioTracks() ?? []
+    const outputStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks])
+    const mimeType = getBestMimeType('compatible')
+    const recorder = new MediaRecorder(outputStream, {
+      ...(mimeType ? { mimeType } : {}),
+      videoBitsPerSecond: recordingSizeRef.current.videoBitsPerSecond,
+      ...(audioTracks.length ? { audioBitsPerSecond: 256_000 } : {}),
+    })
+    const chunks: Blob[] = []
+    recorder.ondataavailable = event => { if (event.data?.size > 0) chunks.push(event.data) }
+    const stopped = new Promise<Blob>(resolve => {
+      recorder.onstop = async () => {
+        const type = recorder.mimeType || mimeType || 'video/webm'
+        const raw = new Blob(chunks, { type })
+        const fixed = await fixMp4Duration(raw, video.duration || timer || 0)
+        resolve(fixed)
+      }
+    })
+
+    const draw = () => {
+      if (video.paused || video.ended) return
+      ctx.fillStyle = '#000'
+      ctx.fillRect(0, 0, width, height)
+      drawVideoCover(ctx, video, width, height)
+      drawVideoOverlayText(ctx, overlay, width, height)
+      requestAnimationFrame(draw)
+    }
+
+    recorder.start()
+    await video.play()
+    draw()
+    await new Promise<void>(resolve => { video.onended = () => resolve() })
+    if (recorder.state === 'recording') recorder.stop()
+    const result = await stopped
+    outputStream.getTracks().forEach(track => track.stop())
+    URL.revokeObjectURL(src)
+    return result
+  }
+
+  const getPreparedVideoBlob = async () => {
+    const source = blobRef.current
+    if (!source) return null
+    const key = videoOverlayKey()
+    if (!videoOverlay.text.trim()) return source
+    if (editedVideoBlobRef.current?.key === key) return editedVideoBlobRef.current.blob
+    const rendered = await renderEditedVideoBlob(source, videoOverlay)
+    editedVideoBlobRef.current = { key, blob: rendered }
+    return rendered
+  }
+
+  const toggleVideoTool = (tool: VideoEditTool) => setVideoTool(current => current === tool ? null : tool)
+
+  const renderVideoEditorPanel = () => {
+    if (!videoTool) return null
+    const activeButtonStyle = { background: '#fff', color: '#111', border: '1px solid rgba(255,255,255,0.2)' }
+    const inactiveButtonStyle = { background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)' }
+    return (
+      <div
+        className="absolute z-30 left-3 right-3 bottom-3 rounded-3xl p-3"
+        data-video-editor-control="true"
+        style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.14)' }}
+      >
+        {videoTool === 'text' && (
+          <>
+            <button
+              type="button"
+              onClick={() => setVideoTool(null)}
+              className="absolute right-2 top-2 w-7 h-7 rounded-full flex items-center justify-center active:scale-95"
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff' }}
+              aria-label="Fechar aba"
+            >
+              <X size={14} />
+            </button>
+            <textarea
+              className="w-full rounded-2xl p-3 pr-10 text-sm resize-none outline-none"
+              style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)' }}
+              rows={3}
+              value={videoOverlay.text}
+              onChange={event => setVideoOverlay(current => ({ ...current, text: event.target.value }))}
+              autoFocus
+            />
+          </>
+        )}
+        {videoTool === 'font' && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ touchAction: 'pan-x' }}>
+            {VIDEO_FONTS.map(font => {
+              const active = videoOverlay.font === font.value
+              return (
+                <button
+                  key={font.label}
+                  type="button"
+                  onClick={() => setVideoOverlay(current => ({ ...current, font: font.value }))}
+                  className="h-16 min-w-[92px] rounded-2xl px-3 flex flex-col items-center justify-center active:scale-95"
+                  style={active ? activeButtonStyle : inactiveButtonStyle}
+                >
+                  <span className="text-lg leading-none truncate max-w-full" style={{ fontFamily: font.value, fontWeight: font.weight }}>
+                    {font.label}
+                  </span>
+                  <span className="text-[10px] mt-1 opacity-70 font-sans">Fonte</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+        {videoTool === 'style' && (
+          <div className="grid grid-cols-5 gap-2">
+            <button type="button" onClick={() => setVideoOverlay(current => ({ ...current, bold: !current.bold }))}
+              className="h-11 rounded-2xl flex items-center justify-center" style={videoOverlay.bold ? activeButtonStyle : inactiveButtonStyle} aria-label="Negrito">
+              <Bold size={18} />
+            </button>
+            <button type="button" onClick={() => setVideoOverlay(current => ({ ...current, italic: !current.italic }))}
+              className="h-11 rounded-2xl flex items-center justify-center" style={videoOverlay.italic ? activeButtonStyle : inactiveButtonStyle} aria-label="Italico">
+              <Italic size={18} />
+            </button>
+            {VIDEO_ALIGN_OPTIONS.map(({ value, label, Icon }) => (
+              <button key={value} type="button" onClick={() => setVideoOverlay(current => ({ ...current, align: value }))}
+                className="h-11 rounded-2xl flex items-center justify-center" style={videoOverlay.align === value ? activeButtonStyle : inactiveButtonStyle} aria-label={label}>
+                <Icon size={18} />
+              </button>
+            ))}
+          </div>
+        )}
+        {videoTool === 'color' && (
+          <div className="grid grid-cols-[repeat(6,minmax(0,1fr))_52px] gap-2">
+            {VIDEO_PRIMARY_COLORS.map(color => (
+              <button key={color} type="button" onClick={() => { setVideoColorValue(color); setVideoOverlay(current => ({ ...current, color })) }}
+                className="aspect-square rounded-full active:scale-90"
+                style={{
+                  background: color,
+                  border: videoOverlay.color === color ? '2px solid #fff' : '1px solid rgba(255,255,255,0.32)',
+                  boxShadow: color === '#FFFFFF' ? 'inset 0 0 0 1px rgba(0,0,0,0.2)' : 'none',
+                }}
+                aria-label={`Usar cor ${color}`}
+              />
+            ))}
+            <input
+              type="color"
+              value={videoColorValue}
+              onChange={event => {
+                const next = event.target.value.toUpperCase()
+                setVideoColorValue(next)
+                setVideoOverlay(current => ({ ...current, color: next }))
+              }}
+              className="w-[52px] h-[52px] rounded-full overflow-hidden"
+              aria-label="Escolher cor"
+            />
+          </div>
+        )}
+        {videoTool === 'effect' && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ touchAction: 'pan-x' }}>
+            {VIDEO_EFFECT_OPTIONS.map(effect => {
+              const active = videoOverlay.effect === effect.id
+              const previewColor = videoHasBackground(effect.id) || videoHasOutline(effect.id) ? '#FFFFFF' : active ? '#111111' : '#FFFFFF'
+              return (
+                <button key={effect.id} type="button" onClick={() => setVideoOverlay(current => ({ ...current, effect: effect.id }))}
+                  className="h-16 min-w-[98px] rounded-2xl px-3 flex flex-col items-center justify-center active:scale-95 overflow-hidden"
+                  style={active ? activeButtonStyle : inactiveButtonStyle}
+                >
+                  <span className="text-base leading-none font-black" style={{ color: previewColor, ...getVideoPreviewEffectStyle(effect.id, previewColor, 16) }}>
+                    Aa
+                  </span>
+                  <span className="text-[10px] mt-1 opacity-80 leading-none">{effect.label}</span>
+                  <span className="text-[9px] mt-0.5 opacity-55 leading-none">{effect.description}</span>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
   }
 
   // ── PREVIEW ───────────────────────────────────────────────
@@ -965,14 +1529,73 @@ export default function StudioModal({ idea, onClose }: Props) {
               </p>
             </div>
           ) : (
-            <video
-              ref={reviewVideoRef}
-              src={recordedUrl}
-              controls
-              playsInline
-              onError={() => setPreviewError(true)}
-              className="w-full h-full object-cover"
-            />
+            <div
+              ref={reviewStageRef}
+              className="relative w-full h-full max-w-[480px] mx-auto overflow-hidden bg-black touch-none select-none"
+              onPointerDown={handleVideoStagePointerDown}
+              onPointerMove={handleVideoStagePointerMove}
+              onPointerUp={handleVideoStagePointerEnd}
+              onPointerCancel={handleVideoStagePointerEnd}
+            >
+              <video
+                ref={reviewVideoRef}
+                src={recordedUrl}
+                controls
+                playsInline
+                onError={() => setPreviewError(true)}
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div
+                className="absolute z-20 left-3 top-1/2 -translate-y-1/2 flex flex-col overflow-hidden rounded-full"
+                data-video-editor-control="true"
+                style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)' }}
+              >
+                <button type="button" onClick={() => setVideoOverlay(current => ({ ...current, size: clamp(current.size + VIDEO_TEXT_SIZE_STEP, VIDEO_TEXT_SIZE_MIN, VIDEO_TEXT_SIZE_MAX) }))}
+                  className="w-11 h-11 flex items-center justify-center text-white active:scale-95" aria-label="Aumentar texto">
+                  <Plus size={18} />
+                </button>
+                <div className="h-px" style={{ background: 'rgba(255,255,255,0.16)' }} />
+                <button type="button" onClick={() => setVideoOverlay(current => ({ ...current, size: clamp(current.size - VIDEO_TEXT_SIZE_STEP, VIDEO_TEXT_SIZE_MIN, VIDEO_TEXT_SIZE_MAX) }))}
+                  className="w-11 h-11 flex items-center justify-center text-white active:scale-95" aria-label="Diminuir texto">
+                  <Minus size={18} />
+                </button>
+              </div>
+              {videoOverlay.text.trim() && (
+                <div
+                  data-video-text-overlay="true"
+                  className="absolute w-[82%] leading-none cursor-grab active:cursor-grabbing touch-none z-20"
+                  style={{
+                    left: `${videoOverlay.x}%`,
+                    top: `${videoOverlay.y}%`,
+                    transform: `translate(-50%, -50%) rotate(${videoOverlay.rotation}deg)`,
+                    color: videoOverlay.color,
+                    fontFamily: videoOverlay.font,
+                    fontWeight: videoOverlay.bold ? Math.max(800, activeVideoFont.weight) : activeVideoFont.weight,
+                    fontStyle: videoOverlay.italic ? 'italic' : 'normal',
+                    fontSize: videoOverlay.size,
+                    textAlign: videoOverlay.align as 'left' | 'center' | 'right',
+                    lineHeight: 1.06,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  <span className="inline-block max-w-full" style={{ color: videoOverlay.color, ...getVideoPreviewEffectStyle(videoOverlay.effect, videoOverlay.color, videoOverlay.size) }}>
+                    {videoOverlay.text}
+                  </span>
+                </div>
+              )}
+              <div
+                className="absolute z-30 right-3 flex flex-col gap-4 items-center"
+                data-video-editor-control="true"
+                style={{ top: 'calc(max(env(safe-area-inset-top), 14px) + 20px)' }}
+              >
+                <VideoIconTool active={videoTool === 'text'} onClick={() => toggleVideoTool('text')} label="Editar texto"><Type size={23} /></VideoIconTool>
+                <VideoIconTool active={videoTool === 'font'} onClick={() => toggleVideoTool('font')} label="Fonte"><span className="text-lg font-black">Aa</span></VideoIconTool>
+                <VideoIconTool active={videoTool === 'style'} onClick={() => toggleVideoTool('style')} label="Estilo"><Bold size={22} /></VideoIconTool>
+                <VideoIconTool active={videoTool === 'color'} onClick={() => toggleVideoTool('color')} label="Cor"><Palette size={22} /></VideoIconTool>
+                <VideoIconTool active={videoTool === 'effect'} onClick={() => toggleVideoTool('effect')} label="Efeitos"><Circle size={22} /></VideoIconTool>
+              </div>
+              {renderVideoEditorPanel()}
+            </div>
           )}
         </div>
         <div className="flex-shrink-0 px-5 pt-4 space-y-3" style={{ background: '#111', paddingBottom: SAFE_BOTTOM }}>
@@ -1394,4 +2017,19 @@ export default function StudioModal({ idea, onClose }: Props) {
       )}
     </div>
   ), document.body)
+}
+
+function VideoIconTool({ active, onClick, label, children }: { active: boolean; onClick: () => void; label: string; children: ReactNode }) {
+  const activeButtonStyle = { background: '#fff', color: '#111', border: '1px solid rgba(255,255,255,0.2)' }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className="w-11 h-11 rounded-full flex items-center justify-center active:scale-95"
+      style={active ? activeButtonStyle : { background: 'rgba(0,0,0,0.44)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)', backdropFilter: 'blur(10px)' }}
+    >
+      {children}
+    </button>
+  )
 }

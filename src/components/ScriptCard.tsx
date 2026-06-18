@@ -358,59 +358,55 @@ export default function ScriptCard({
         {/* Painel de Ações Principal */}
         {idea.status !== 'done' && (
           <div className="mt-4 pt-4 space-y-2" style={{ borderTop: '1px solid var(--border-color)' }}>
-            <div className="flex gap-2">
-              
-              {/* Botão Fiz / Copiar dependendo do uso */}
+            <div className="flex gap-2 min-w-0">
               {onDone ? (
-                <button onClick={handleDone} className="btn-primary flex-1 py-2.5 text-sm gap-1.5">
+                <button onClick={handleDone} className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5">
                   <Check size={14} /> Fiz
                 </button>
+              ) : isPhoto ? (
+                <>
+                  {!isMultiStory && onCreatePhoto && extractScreenText(idea.content).trim() && (
+                    <button
+                      onClick={() => onCreatePhoto(extractScreenText(idea.content), idea)}
+                      className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5"
+                    >
+                      <Image size={14} />
+                      <span className="truncate">Criar foto</span>
+                    </button>
+                  )}
+                  <button onClick={handleCopy} className="btn-secondary flex-[0.95] min-w-0 py-2.5 px-3 text-sm gap-1.5"
+                    style={copied ? { background: 'var(--success)', color: '#fff' } : {}}>
+                    {copied ? <><Check size={14} /> <span className="truncate">Copiado</span></> : <><Copy size={14} /> <span className="truncate">Copiar</span></>}
+                  </button>
+                </>
               ) : (
-                <button onClick={handleCopy} className="btn-primary flex-1 py-2.5 text-sm gap-1.5"
-                  style={copied ? { background: 'var(--success)' } : {}}>
-                  {copied ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> {isPhoto ? 'Copiar texto' : 'Copiar roteiro'}</>}
-                </button>
+                <>
+                  {!isMultiStory ? (
+                    <button
+                      onClick={() => onRecord()}
+                      className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5"
+                    >
+                      <Camera size={14} />
+                      <span className="truncate">Gravar vídeo</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setExpanded(true)}
+                      className="btn-primary flex-[1.05] min-w-0 py-2.5 px-3 text-sm gap-1.5"
+                    >
+                      <Camera size={14} />
+                      <span className="truncate">Gravar 1 a 1</span>
+                    </button>
+                  )}
+                  <button onClick={handleCopy} className="btn-secondary flex-[0.95] min-w-0 py-2.5 px-3 text-sm gap-1.5"
+                    style={copied ? { background: 'var(--success)', color: '#fff' } : {}}>
+                    {copied ? <><Check size={14} /> <span className="truncate">Copiado</span></> : <><Copy size={14} /> <span className="truncate">Copiar</span></>}
+                  </button>
+                </>
               )}
+            </div>
 
-              {/* Botão Gravar (se for vídeo único) */}
-              {!isMultiStory && !isPhoto && (
-                <button
-                  onClick={() => onRecord()}
-                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
-                  title="Gravar"
-                  aria-label="Gravar"
-                >
-                  <Camera size={14} />
-                  <span className="text-xs hidden sm:inline">Gravar</span>
-                </button>
-              )}
-
-              {/* Botão Criar foto (se for foto única) */}
-              {!isMultiStory && isPhoto && onCreatePhoto && extractScreenText(idea.content).trim() && (
-                <button
-                  onClick={() => onCreatePhoto(extractScreenText(idea.content), idea)}
-                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
-                  title="Criar foto com esse texto"
-                  aria-label="Criar foto com esse texto"
-                >
-                  <Image size={14} />
-                  <span className="text-xs hidden sm:inline">Criar foto</span>
-                </button>
-              )}
-
-              {/* Botão Gravar Sequência 1 a 1 */}
-              {isMultiStory && !isPhoto && (
-                <button
-                  onClick={() => setExpanded(true)}
-                  className="btn-secondary py-2.5 px-4 text-sm flex items-center justify-center gap-1.5"
-                  title="Gravar 1 a 1"
-                  aria-label="Gravar 1 a 1"
-                >
-                  <Camera size={14} />
-                  <span className="text-xs hidden sm:inline">Gravar 1 a 1</span>
-                </button>
-              )}
-
+            <div className="flex gap-2">
               {/* Botão Legenda (Reels) */}
               {idea.type === 'reel' && (
                 <button
@@ -420,7 +416,7 @@ export default function ScriptCard({
                   aria-label="Legenda"
                 >
                   <FileText size={14} />
-                  <span className="text-xs hidden sm:inline">Legenda</span>
+                  <span className="text-xs">Legenda</span>
                 </button>
               )}
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
+import type { CSSProperties, PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, Circle, Copy, Download, ImagePlus,
@@ -17,7 +17,7 @@ type OverlayState = {
   align: CanvasTextAlign
   bold: boolean
   italic: boolean
-  outline: boolean
+  effect: TextEffect
 }
 
 type Props = {
@@ -35,14 +35,17 @@ type GestureStart = {
   x: number
   y: number
 }
-type EditTool = 'text' | 'font' | 'style' | 'color' | null
+type EditTool = 'text' | 'font' | 'style' | 'color' | 'effect' | null
 type PhotoSize = { width: number; height: number }
+type TextEffect = 'none' | 'shadow' | 'outline' | 'glow' | 'background' | 'backgroundOutline'
 
 const SAFE_BOTTOM = 'max(env(safe-area-inset-bottom), 18px)'
 const ZOOM_LEVELS = [1, 2, 3, 5]
 const TEXT_SIZE_MIN = 10
 const TEXT_SIZE_MAX = 96
 const TEXT_SIZE_STEP = 4
+const FONT_STYLESHEET_ID = 'destravai-photo-editor-fonts'
+const GOOGLE_FONTS_URL = 'https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Anton&family=Bebas+Neue&family=Bungee&family=Caveat:wght@700&family=Cinzel+Decorative:wght@700&family=Cormorant+Garamond:wght@700&family=Montserrat:wght@700;800&family=Oswald:wght@700&family=Pacifico&family=Playfair+Display:wght@700&family=Righteous&family=Roboto+Mono:wght@700&display=swap'
 const PRIMARY_COLORS = ['#FFFFFF', '#161618', '#EF4444', '#2563EB', '#FACC15', '#22C55E']
 const ADVANCED_COLORS = [
   '#F7B955', '#53D6A1', '#9B8CFF', '#FF7A6B', '#F43F5E', '#EC4899',
@@ -50,20 +53,29 @@ const ADVANCED_COLORS = [
   '#F97316', '#EAB308', '#A16207', '#6B7280',
 ]
 const FONTS = [
-  { label: 'Forte', value: 'Inter, Arial, sans-serif', weight: 800 },
-  { label: 'Limpa', value: 'Arial, sans-serif', weight: 700 },
-  { label: 'Editorial', value: 'Georgia, serif', weight: 700 },
-  { label: 'Mono', value: 'Courier New, monospace', weight: 700 },
-  { label: 'Impacto', value: 'Impact, Haettenschweiler, sans-serif', weight: 700 },
-  { label: 'Condensada', value: 'Arial Narrow, Arial, sans-serif', weight: 700 },
-  { label: 'Leve', value: 'Trebuchet MS, Arial, sans-serif', weight: 600 },
-  { label: 'Classica', value: 'Times New Roman, Times, serif', weight: 700 },
-  { label: 'Luxo', value: 'Garamond, Georgia, serif', weight: 700 },
-  { label: 'Humana', value: 'Verdana, Geneva, sans-serif', weight: 700 },
-  { label: 'Quadrada', value: 'Tahoma, Geneva, sans-serif', weight: 700 },
-  { label: 'Marcante', value: 'Arial Black, Arial, sans-serif', weight: 900 },
-  { label: 'Suave', value: 'Segoe UI, Arial, sans-serif', weight: 650 },
-  { label: 'Tecnica', value: 'Consolas, Monaco, monospace', weight: 700 },
+  { label: 'Forte', value: 'Montserrat, Inter, Arial, sans-serif', weight: 800 },
+  { label: 'Clean', value: 'Montserrat, Helvetica Neue, Arial, sans-serif', weight: 700 },
+  { label: 'Serif', value: 'Playfair Display, Georgia, serif', weight: 700 },
+  { label: 'Mono', value: 'Roboto Mono, Courier New, monospace', weight: 700 },
+  { label: 'Impacto', value: 'Anton, Impact, sans-serif', weight: 700 },
+  { label: 'Deco', value: 'Cinzel Decorative, Copperplate, fantasy', weight: 700 },
+  { label: 'Script', value: 'Pacifico, Brush Script MT, cursive', weight: 700 },
+  { label: 'Hand', value: 'Caveat, Segoe Print, cursive', weight: 700 },
+  { label: 'Luxo', value: 'Cormorant Garamond, Garamond, serif', weight: 700 },
+  { label: 'Cond', value: 'Oswald, Arial Narrow, sans-serif', weight: 700 },
+  { label: 'Bubble', value: 'Righteous, Arial Black, sans-serif', weight: 700 },
+  { label: 'Cartaz', value: 'Bebas Neue, Impact, sans-serif', weight: 700 },
+  { label: 'Retro', value: 'Abril Fatface, Georgia, serif', weight: 700 },
+  { label: 'Pixel', value: 'Bungee, Consolas, monospace', weight: 700 },
+]
+
+const EFFECT_OPTIONS: Array<{ id: TextEffect; label: string; description: string }> = [
+  { id: 'none', label: 'Limpo', description: 'Sem sombra' },
+  { id: 'shadow', label: 'Sombra', description: 'Leve' },
+  { id: 'outline', label: 'Contorno', description: 'Ao redor' },
+  { id: 'glow', label: 'Brilho', description: 'Luz' },
+  { id: 'background', label: 'Fundo', description: 'Tarja' },
+  { id: 'backgroundOutline', label: 'Fundo+', description: 'Tarja + contorno' },
 ]
 
 const ALIGN_OPTIONS: Array<{ value: CanvasTextAlign; label: string; Icon: typeof AlignLeft }> = [
@@ -94,6 +106,77 @@ function pointerMidpoint(a: PointerPoint, b: PointerPoint): PointerPoint {
 
 function getOutlineColor(fill: string) {
   return fill.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.78)'
+}
+
+function getBackgroundColor(fill: string) {
+  return fill.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.52)'
+}
+
+function hasOutline(effect: TextEffect) {
+  return effect === 'outline' || effect === 'backgroundOutline'
+}
+
+function hasBackground(effect: TextEffect) {
+  return effect === 'background' || effect === 'backgroundOutline'
+}
+
+function getTextShadow(effect: TextEffect, fill: string) {
+  if (effect === 'none' || effect === 'background') return 'none'
+  if (effect === 'glow') {
+    return fill.toUpperCase() === '#161618'
+      ? '0 0 7px rgba(255,255,255,0.95), 0 0 22px rgba(255,255,255,0.7)'
+      : `0 0 8px ${fill}, 0 0 24px rgba(255,255,255,0.42), 0 3px 16px rgba(0,0,0,0.72)`
+  }
+  return fill.toUpperCase() === '#161618'
+    ? '0 2px 14px rgba(255,255,255,0.68)'
+    : '0 3px 18px rgba(0,0,0,0.78)'
+}
+
+function getPreviewEffectStyle(effect: TextEffect, color: string, size: number): CSSProperties {
+  return {
+    background: hasBackground(effect) ? getBackgroundColor(color) : undefined,
+    borderRadius: hasBackground(effect) ? Math.max(8, size * 0.28) : undefined,
+    padding: hasBackground(effect) ? `${Math.max(4, size * 0.16)}px ${Math.max(7, size * 0.28)}px` : undefined,
+    WebkitTextStroke: hasOutline(effect) ? `${Math.max(1, size * 0.055)}px ${getOutlineColor(color)}` : undefined,
+    paintOrder: hasOutline(effect) ? 'stroke fill' : undefined,
+    textShadow: getTextShadow(effect, color),
+  }
+}
+
+function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
+  const r = Math.min(radius, width / 2, height / 2)
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + width - r, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+  ctx.lineTo(x + width, y + height - r)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+  ctx.lineTo(x + r, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+  ctx.lineTo(x, y + r)
+  ctx.quadraticCurveTo(x, y, x + r, y)
+  ctx.closePath()
+}
+
+function ensureEditorFonts() {
+  if (typeof document === 'undefined' || document.getElementById(FONT_STYLESHEET_ID)) return
+
+  const googlePreconnect = document.createElement('link')
+  googlePreconnect.rel = 'preconnect'
+  googlePreconnect.href = 'https://fonts.googleapis.com'
+  document.head.appendChild(googlePreconnect)
+
+  const gstaticPreconnect = document.createElement('link')
+  gstaticPreconnect.rel = 'preconnect'
+  gstaticPreconnect.href = 'https://fonts.gstatic.com'
+  gstaticPreconnect.crossOrigin = 'anonymous'
+  document.head.appendChild(gstaticPreconnect)
+
+  const stylesheet = document.createElement('link')
+  stylesheet.id = FONT_STYLESHEET_ID
+  stylesheet.rel = 'stylesheet'
+  stylesheet.href = GOOGLE_FONTS_URL
+  document.head.appendChild(stylesheet)
 }
 
 function getCameraAttempts(mode: 'user' | 'environment'): MediaStreamConstraints[] {
@@ -200,6 +283,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
   const [cameraError, setCameraError] = useState('')
   const [facing, setFacing] = useState<'user' | 'environment'>('environment')
   const [zoom, setZoom] = useState(1)
+  const [cameraSession, setCameraSession] = useState(0)
   const [photoUrl, setPhotoUrl] = useState('')
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
@@ -218,12 +302,14 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     align: 'center',
     bold: true,
     italic: false,
-    outline: false,
+    effect: 'shadow',
   })
 
   const activeFont = useMemo(() => FONTS.find(f => f.value === overlay.font) ?? FONTS[0], [overlay.font])
 
   useEffect(() => { overlayRef.current = overlay }, [overlay])
+
+  useEffect(() => { ensureEditorFonts() }, [])
 
   const stopCamera = useCallback(() => {
     if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
@@ -260,6 +346,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
         liveVideoRef.current.muted = true
         await liveVideoRef.current.play()
       }
+      setCameraSession(current => current + 1)
       return stream
     } catch {
       setCameraError('Nao consegui acessar a camera. Voce pode permitir o acesso ou escolher uma foto da galeria.')
@@ -316,7 +403,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
       if (drawFrameRef.current) cancelAnimationFrame(drawFrameRef.current)
       drawFrameRef.current = null
     }
-  }, [facing, photoUrl, zoom])
+  }, [cameraSession, facing, photoUrl, zoom])
 
   const applyZoom = async (nextZoom: number) => {
     setZoom(nextZoom)
@@ -389,6 +476,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
   }
 
   const handleStagePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if ((event.target as HTMLElement).closest('[data-editor-control="true"]')) return
     event.preventDefault()
     event.currentTarget.setPointerCapture(event.pointerId)
     pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
@@ -468,6 +556,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     const fontSize = Math.round((overlay.size / 360) * width)
     const fontWeight = overlay.bold ? Math.max(800, activeFont.weight) : activeFont.weight
     ctx.font = `${overlay.italic ? 'italic ' : ''}${fontWeight} ${fontSize}px ${overlay.font}`
+    try { await document.fonts?.load(ctx.font) } catch { /* fallback to loaded/system font */ }
     ctx.textAlign = overlay.align
     ctx.textBaseline = 'middle'
     ctx.lineJoin = 'round'
@@ -476,12 +565,35 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     const lineHeight = fontSize * 1.08
     const startY = -((lines.length - 1) * lineHeight) / 2
     const drawX = overlay.align === 'left' ? -textBoxWidth / 2 : overlay.align === 'right' ? textBoxWidth / 2 : 0
+    if (hasBackground(overlay.effect) && lines.length) {
+      const maxLineWidth = Math.min(textBoxWidth, Math.max(...lines.map(line => ctx.measureText(line || ' ').width)))
+      const padX = fontSize * 0.32
+      const padY = fontSize * 0.24
+      const rectWidth = maxLineWidth + padX * 2
+      const rectHeight = ((lines.length - 1) * lineHeight) + fontSize + padY * 2
+      const rectX = overlay.align === 'left'
+        ? drawX - padX
+        : overlay.align === 'right'
+          ? drawX - maxLineWidth - padX
+          : -rectWidth / 2
+      const rectY = startY - fontSize / 2 - padY
+      ctx.fillStyle = getBackgroundColor(overlay.color)
+      roundedRect(ctx, rectX, rectY, rectWidth, rectHeight, fontSize * 0.28)
+      ctx.fill()
+    }
     ctx.strokeStyle = getOutlineColor(overlay.color)
     ctx.lineWidth = Math.max(5, fontSize * 0.08)
+    ctx.shadowColor = overlay.effect === 'glow'
+      ? (overlay.color.toUpperCase() === '#161618' ? 'rgba(255,255,255,0.85)' : overlay.color)
+      : overlay.effect === 'shadow'
+        ? 'rgba(0,0,0,0.55)'
+        : 'transparent'
+    ctx.shadowBlur = overlay.effect === 'glow' ? fontSize * 0.32 : overlay.effect === 'shadow' ? fontSize * 0.12 : 0
+    ctx.shadowOffsetY = overlay.effect === 'shadow' ? fontSize * 0.05 : 0
     ctx.fillStyle = overlay.color
     lines.forEach((line, index) => {
       const y = startY + index * lineHeight
-      if (overlay.outline) ctx.strokeText(line, drawX, y)
+      if (hasOutline(overlay.effect)) ctx.strokeText(line, drawX, y)
       ctx.fillText(line, drawX, y)
     })
     ctx.restore()
@@ -557,6 +669,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
     if (!photoUrl || !activeTool) return null
     return (
       <div className="absolute z-30 left-3 right-3 bottom-3 rounded-3xl p-3"
+        data-editor-control="true"
         style={{ background: 'rgba(0,0,0,0.62)', backdropFilter: 'blur(14px)', border: '1px solid rgba(255,255,255,0.14)' }}>
         {activeTool === 'text' && (
           <>
@@ -580,17 +693,32 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
           </>
         )}
         {activeTool === 'font' && (
-          <select
-            className="w-full rounded-2xl p-3 text-sm font-bold outline-none"
-            style={{ background: 'rgba(255,255,255,0.12)', color: '#fff', border: '1px solid rgba(255,255,255,0.14)' }}
-            value={overlay.font}
-            onChange={event => setOverlay(current => ({ ...current, font: event.target.value }))}
-          >
-            {FONTS.map(font => <option key={font.value} value={font.value}>{font.label}</option>)}
-          </select>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ touchAction: 'pan-x' }}>
+            {FONTS.map(font => {
+              const active = overlay.font === font.value
+              return (
+                <button
+                  key={font.label}
+                  type="button"
+                  onClick={() => setOverlay(current => ({ ...current, font: font.value }))}
+                  className="h-16 min-w-[92px] rounded-2xl px-3 flex flex-col items-center justify-center active:scale-95"
+                  style={active ? activeButtonStyle : inactiveButtonStyle}
+                  aria-label={`Usar fonte ${font.label}`}
+                >
+                  <span
+                    className="text-lg leading-none truncate max-w-full"
+                    style={{ fontFamily: font.value, fontWeight: font.weight }}
+                  >
+                    {font.label}
+                  </span>
+                  <span className="text-[10px] mt-1 opacity-70 font-sans">Fonte</span>
+                </button>
+              )
+            })}
+          </div>
         )}
         {activeTool === 'style' && (
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             <button
               type="button"
               onClick={() => setOverlay(current => ({ ...current, bold: !current.bold }))}
@@ -608,15 +736,6 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
               aria-label="Italico"
             >
               <Italic size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setOverlay(current => ({ ...current, outline: !current.outline }))}
-              className="h-11 rounded-2xl flex items-center justify-center"
-              style={overlay.outline ? activeButtonStyle : inactiveButtonStyle}
-              aria-label="Contorno"
-            >
-              <Circle size={18} />
             </button>
             {ALIGN_OPTIONS.map(({ value, label, Icon }) => (
               <button
@@ -660,6 +779,36 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
             >
               <Plus size={18} />
             </button>
+          </div>
+        )}
+        {activeTool === 'effect' && (
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide" style={{ touchAction: 'pan-x' }}>
+            {EFFECT_OPTIONS.map(effect => {
+              const active = overlay.effect === effect.id
+              const previewColor = hasBackground(effect.id) || hasOutline(effect.id) ? '#FFFFFF' : active ? '#111111' : '#FFFFFF'
+              return (
+                <button
+                  key={effect.id}
+                  type="button"
+                  onClick={() => setOverlay(current => ({ ...current, effect: effect.id }))}
+                  className="h-16 min-w-[98px] rounded-2xl px-3 flex flex-col items-center justify-center active:scale-95 overflow-hidden"
+                  style={active ? activeButtonStyle : inactiveButtonStyle}
+                  aria-label={`Usar efeito ${effect.label}`}
+                >
+                  <span
+                    className="text-base leading-none font-black"
+                    style={{
+                      color: previewColor,
+                      ...getPreviewEffectStyle(effect.id, previewColor, 16),
+                    }}
+                  >
+                    Aa
+                  </span>
+                  <span className="text-[10px] mt-1 opacity-80 leading-none">{effect.label}</span>
+                  <span className="text-[9px] mt-0.5 opacity-55 leading-none">{effect.description}</span>
+                </button>
+              )
+            })}
           </div>
         )}
       </div>
@@ -741,6 +890,7 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
             <>
               <img src={photoUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
               <div className="absolute z-20 left-3 top-1/2 -translate-y-1/2 flex flex-col overflow-hidden rounded-full"
+                data-editor-control="true"
                 style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)' }}>
                 <button type="button" onClick={() => setOverlay(current => ({ ...current, size: clamp(current.size + TEXT_SIZE_STEP, TEXT_SIZE_MIN, TEXT_SIZE_MAX) }))}
                   className="w-11 h-11 flex items-center justify-center text-white active:scale-95" aria-label="Aumentar texto">
@@ -766,19 +916,29 @@ export default function PhotoTextComposer({ initialText, title, onClose }: Props
                   fontSize: overlay.size,
                   textAlign: overlay.align as 'left' | 'center' | 'right',
                   lineHeight: 1.06,
-                  WebkitTextStroke: overlay.outline ? `${Math.max(1, overlay.size * 0.055)}px ${getOutlineColor(overlay.color)}` : undefined,
-                  paintOrder: overlay.outline ? 'stroke fill' : undefined,
-                  textShadow: overlay.color === '#161618' ? '0 2px 14px rgba(255,255,255,0.68)' : '0 3px 18px rgba(0,0,0,0.78)',
                   whiteSpace: 'pre-wrap',
                 }}
               >
-                {overlay.text || 'Texto'}
+                <span
+                  className="inline-block max-w-full"
+                  style={{
+                    color: overlay.color,
+                    ...getPreviewEffectStyle(overlay.effect, overlay.color, overlay.size),
+                  }}
+                >
+                  {overlay.text || 'Texto'}
+                </span>
               </div>
-              <div className="absolute z-30 right-3 flex flex-col gap-4 items-center" style={{ top: 'calc(max(env(safe-area-inset-top), 14px) + 72px)' }}>
+              <div
+                className="absolute z-30 right-3 flex flex-col gap-4 items-center"
+                data-editor-control="true"
+                style={{ top: 'calc(max(env(safe-area-inset-top), 14px) + 72px)' }}
+              >
                 <IconTool active={activeTool === 'text'} onClick={() => toggleTool('text')} label="Editar texto"><Type size={23} /></IconTool>
                 <IconTool active={activeTool === 'font'} onClick={() => toggleTool('font')} label="Fonte"><span className="text-lg font-black">Aa</span></IconTool>
                 <IconTool active={activeTool === 'style'} onClick={() => toggleTool('style')} label="Estilo"><Bold size={22} /></IconTool>
                 <IconTool active={activeTool === 'color'} onClick={() => toggleTool('color')} label="Cor"><Palette size={22} /></IconTool>
+                <IconTool active={activeTool === 'effect'} onClick={() => toggleTool('effect')} label="Efeitos"><Circle size={22} /></IconTool>
               </div>
               {renderToolPanel()}
             </>

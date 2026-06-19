@@ -10,7 +10,7 @@
 // O pagamento e exclusivamente por cartao de credito, pois a recorrencia automatica
 // depende do cartao (ver Termos de Uso, clausula de assinatura e cobranca).
 
-import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog, signSetupToken } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, getAccessInfo, asaas, serverLog, signSetupToken } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 const CHECKOUT_LIMIT = 10
@@ -57,6 +57,17 @@ export const handler = async (event) => {
 
     const admin = supabaseAdmin()
     const userId = await getOrCreateAuthUser(email, name)
+
+    // Bloqueia nova cobrança se o usuário já tem acesso ativo (pago, cortesia ou
+    // dentro do período de carência). Evita cobranças duplicadas quando o usuário
+    // clica "Criar conta" após já ter pago — o caso clássico do Glaydson.
+    const { allowed: alreadyHasAccess } = await getAccessInfo(admin, { id: userId, email })
+    if (alreadyHasAccess) {
+      return json(409, {
+        error: 'Você já tem uma assinatura ativa! Faça login com seu e-mail e senha.',
+        alreadyActive: true,
+      })
+    }
 
     const { data: existing } = await admin
       .from('subscriptions')
@@ -145,19 +156,23 @@ export const handler = async (event) => {
       pix_expiration: null,
     }
 
-    const { data: pendingRow } = await admin
+    // Reusa a linha mais recente sem acesso ativo (pending ou failed pela recusa de
+    // cartão). Isso evita proliferação de linhas para o mesmo usuário em tentativas
+    // repetidas — o caso clássico de "cartão recusado à noite, aprovado de manhã".
+    const { data: reuseRow } = await admin
       .from('subscriptions')
       .select('id')
       .eq('user_id', userId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'failed'])
+      .eq('access_granted', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (pendingRow?.id) {
+    if (reuseRow?.id) {
       await admin.from('subscriptions')
         .update({ ...subRecord, updated_at: new Date().toISOString() })
-        .eq('id', pendingRow.id)
+        .eq('id', reuseRow.id)
     } else {
       await admin.from('subscriptions').insert(subRecord)
     }

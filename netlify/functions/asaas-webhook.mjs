@@ -95,12 +95,29 @@ export const handler = async (event) => {
     // status para 'failed' e encurtaria indevidamente o acesso/carência.
     const terminalStatus = !!subRow && ['canceled', 'refunded'].includes(subRow.status)
     const mappedRaw = (!isCourtesy && eventType.startsWith('PAYMENT_')) ? mapPaymentEvent(eventType) : null
+
+    // Evento de uma cobrança ANTIGA não pode rebaixar uma assinatura JÁ PAGA.
+    // Caso real (Glaydson): a tentativa recusada à noite (cobrança A) virou
+    // OVERDUE e depois DELETED no dia seguinte; como a pessoa já tinha pago de
+    // manhã por OUTRA cobrança (B), esses eventos de A rebaixavam a linha para
+    // past_due/failed e derrubavam o acesso dentro do período já pago. Regra:
+    // se o evento é de rebaixamento (overdue/failed), a pessoa está dentro do
+    // período pago (access_granted + current_period_end no futuro) e o evento
+    // se refere a uma cobrança DIFERENTE da que está vinculada, ignoramos o
+    // rebaixamento — apenas registramos o evento. A renovação real (cobrança
+    // vinculada vencendo) continua passando, pois usa o mesmo asaas_payment_id.
+    const isDowngrade = !!mappedRaw && ['past_due', 'failed'].includes(mappedRaw.status)
+    const withinPaidPeriod = !!subRow?.access_granted && !!subRow?.current_period_end
+      && new Date(subRow.current_period_end) >= new Date()
+    const staleCharge = isDowngrade && withinPaidPeriod && !!asaasPaymentId
+      && !!subRow?.asaas_payment_id && asaasPaymentId !== subRow.asaas_payment_id
+
     // Em estado terminal (cancelado/reembolsado) só permitimos a transição para
     // 'refunded' (estorno efetivado). Eventos como PAYMENT_DELETED (da recorrência
     // cancelada) NÃO podem rebaixar o status nem encurtar o acesso/carência.
     const mapped = terminalStatus
       ? (mappedRaw && mappedRaw.status === 'refunded' ? mappedRaw : null)
-      : mappedRaw
+      : (staleCharge ? null : mappedRaw)
     const updates = { last_webhook_event: eventType, last_webhook_payload: payload }
 
     // Indica que, ao confirmar o pagamento, precisamos liberar acesso + e-mail.

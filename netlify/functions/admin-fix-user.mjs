@@ -7,7 +7,7 @@
 //   curl "https://destravai.dbe.digital/.netlify/functions/admin-fix-user?token=SEU_TOKEN&email=EMAIL&password=NOVA_SENHA"
 
 import { timingSafeEqual } from 'node:crypto'
-import { supabaseAdmin, json, grantAccess, COMPLETE_PLAN_ID } from './_shared.mjs'
+import { supabaseAdmin, json, grantAccess, getUser, isAdminUser, COMPLETE_PLAN_ID } from './_shared.mjs'
 
 function safeEqual(a, b) {
   if (!a || !b) return false
@@ -20,9 +20,19 @@ function safeEqual(a, b) {
 export const handler = async (event) => {
   if (event.httpMethod !== 'GET') return json(405, { error: 'Use GET' })
 
+  // Aceita autenticação via MONITOR_TOKEN (query param) OU JWT do admin (header).
+  const monitorToken = event.queryStringParameters?.token
   const expected = process.env.MONITOR_TOKEN
-  const token = event.queryStringParameters?.token
-  if (!expected || !safeEqual(token, expected)) {
+  const tokenOk = expected && safeEqual(monitorToken, expected)
+
+  // Fallback: JWT do usuário admin (assessoriadbe@gmail.com)
+  let jwtOk = false
+  if (!tokenOk) {
+    const caller = await getUser(event).catch(() => null)
+    jwtOk = caller ? isAdminUser(caller) : false
+  }
+
+  if (!tokenOk && !jwtOk) {
     return json(401, { error: 'Não autorizado' })
   }
 

@@ -10,7 +10,7 @@
 // O pagamento e exclusivamente por cartao de credito, pois a recorrencia automatica
 // depende do cartao (ver Termos de Uso, clausula de assinatura e cobranca).
 
-import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, asaas, serverLog, signSetupToken } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, getAccessInfo, asaas, serverLog, signSetupToken } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 const CHECKOUT_LIMIT = 10
@@ -27,6 +27,18 @@ function maskPII(text) {
   return String(text || '')
     .replace(/[^\s@]+@[^\s@]+\.[^\s@]+/g, '[email]')   // e-mails
     .replace(/\d{6,}/g, (m) => `[${m.length} dígitos]`) // CPF/CNPJ/telefone/sequências longas
+}
+
+// Tenta cancelar uma cobrança pendente no Asaas antes de criar a nova.
+// Silencioso: erros (ex: cobrança já paga/inexistente) são ignorados para
+// não bloquear o novo checkout — o importante é não gerar dívida duplicada.
+async function tryDeleteAsaasPayment(paymentId) {
+  if (!paymentId) return
+  try {
+    await asaas(`/payments/${paymentId}`, { method: 'DELETE' })
+  } catch (e) {
+    console.warn('[asaas-create-checkout] não foi possível cancelar cobrança antiga:', paymentId, e?.message)
+  }
 }
 
 export const handler = async (event) => {
@@ -56,9 +68,42 @@ export const handler = async (event) => {
     }
 
     const admin = supabaseAdmin()
+
+    // ── Bloqueia por telefone ─────────────────────────────────────────────────
+    // Se o celular já está cadastrado com acesso ativo, rejeita antes mesmo de
+    // criar/buscar a conta — a pessoa pode ter usado outro e-mail antes.
+    if (phone) {
+      const { data: phoneSub } = await admin
+        .from('subscriptions')
+        .select('customer_email')
+        .eq('customer_phone', phone)
+        .eq('access_granted', true)
+        .limit(1)
+        .maybeSingle()
+      if (phoneSub) {
+        return json(409, {
+          error: 'Este celular já tem acesso ativo. Faça login com o e-mail cadastrado.',
+          alreadyActive: true,
+        })
+      }
+    }
+
+    // ── Cria/reaproveita usuário por e-mail ───────────────────────────────────
     const userId = await getOrCreateAuthUser(email, name)
 
-    const { data: existing } = await admin
+    // ── Bloqueia por e-mail ───────────────────────────────────────────────────
+    // Verifica acesso antes de qualquer chamada ao Asaas. Evita cobranças
+    // duplicadas quando o usuário já pagou e volta ao checkout por engano.
+    const { allowed: alreadyHasAccess } = await getAccessInfo(admin, { id: userId, email })
+    if (alreadyHasAccess) {
+      return json(409, {
+        error: 'Você já tem uma assinatura ativa! Faça login com seu e-mail e senha.',
+        alreadyActive: true,
+      })
+    }
+
+    // ── Cria/reaproveita customer no Asaas ────────────────────────────────────
+    const { data: existingCust } = await admin
       .from('subscriptions')
       .select('asaas_customer_id')
       .eq('user_id', userId)
@@ -67,7 +112,7 @@ export const handler = async (event) => {
       .limit(1)
       .maybeSingle()
 
-    let customerId = existing?.asaas_customer_id || null
+    let customerId = existingCust?.asaas_customer_id || null
     if (!customerId) {
       const customer = await asaas('/customers', {
         method: 'POST',
@@ -145,19 +190,26 @@ export const handler = async (event) => {
       pix_expiration: null,
     }
 
-    const { data: pendingRow } = await admin
+    // ── Reutiliza assinatura pendente/falha existente ─────────────────────────
+    // Busca a linha mais recente sem acesso ativo (pending ou failed pela recusa
+    // de cartão). Cancela a cobrança antiga no Asaas antes de criar a nova, para
+    // não deixar cobranças duplicadas abertas na conta do cliente.
+    const { data: reuseRow } = await admin
       .from('subscriptions')
-      .select('id')
+      .select('id, asaas_payment_id')
       .eq('user_id', userId)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'failed'])
+      .eq('access_granted', false)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (pendingRow?.id) {
+    if (reuseRow?.id) {
+      // Cancela a cobrança anterior no Asaas (silencioso se já inexistente/paga)
+      await tryDeleteAsaasPayment(reuseRow.asaas_payment_id)
       await admin.from('subscriptions')
         .update({ ...subRecord, updated_at: new Date().toISOString() })
-        .eq('id', pendingRow.id)
+        .eq('id', reuseRow.id)
     } else {
       await admin.from('subscriptions').insert(subRecord)
     }

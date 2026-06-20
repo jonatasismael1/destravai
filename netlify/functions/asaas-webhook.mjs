@@ -106,7 +106,11 @@ export const handler = async (event) => {
     // se refere a uma cobrança DIFERENTE da que está vinculada, ignoramos o
     // rebaixamento — apenas registramos o evento. A renovação real (cobrança
     // vinculada vencendo) continua passando, pois usa o mesmo asaas_payment_id.
-    const isDowngrade = !!mappedRaw && ['past_due', 'failed'].includes(mappedRaw.status)
+    // Inclui 'refunded': um estorno de uma cobrança ANTIGA/diferente não pode
+    // rebaixar a assinatura ativa (mesma classe do bug das cobranças recusadas). O
+    // estorno legítimo é sempre na cobrança VINCULADA (mesmo asaas_payment_id), então
+    // passa normalmente — só o estorno de OUTRA cobrança dentro do período pago é ignorado.
+    const isDowngrade = !!mappedRaw && ['past_due', 'failed', 'refunded'].includes(mappedRaw.status)
     const withinPaidPeriod = !!subRow?.access_granted && !!subRow?.current_period_end
       && new Date(subRow.current_period_end) >= new Date()
     const staleCharge = isDowngrade && withinPaidPeriod && !!asaasPaymentId

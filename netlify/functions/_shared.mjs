@@ -106,7 +106,7 @@ export async function getAccessInfo(admin, user) {
     .select('status, payment_status, payment_method, access_granted, current_period_end')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(10)
+    .limit(20)
   const granting = (subs ?? []).filter(subscriptionRowGrantsAccess)
   if (granting.length === 0) return { allowed: false, courtesy: false }
   return {

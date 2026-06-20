@@ -38,12 +38,22 @@ export const handler = async (event) => {
 
     const { data: existing } = await admin
       .from('subscriptions')
-      .select('id')
+      .select('id, payment_method, payment_status, asaas_subscription_id')
       .eq('user_id', userId)
       .in('status', ['active', 'trialing', 'pending'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
+
+    // Trava de segurança: não transformar em cortesia uma assinatura PAGA real (com
+    // cobrança recorrente ativa no Asaas). Isso marcaria a linha como grátis enquanto
+    // o Asaas seguiria cobrando o cliente. Cancele a cobrança no Asaas antes.
+    if (existing && existing.payment_method !== 'COURTESY'
+        && (existing.asaas_subscription_id || existing.payment_status === 'paid')) {
+      return json(409, {
+        error: 'Este e-mail já tem uma assinatura paga. Cancele a cobrança no Asaas antes de liberar cortesia.',
+      })
+    }
 
     const courtesy = {
       user_id: userId,

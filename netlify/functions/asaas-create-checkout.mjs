@@ -10,7 +10,7 @@
 // O pagamento e exclusivamente por cartao de credito, pois a recorrencia automatica
 // depende do cartao (ver Termos de Uso, clausula de assinatura e cobranca).
 
-import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, getAccessInfo, asaas, serverLog, signSetupToken } from './_shared.mjs'
+import { COMPLETE_PLAN, json, preflight, supabaseAdmin, getOrCreateAuthUser, getAccessInfo, asaas, serverLog, signSetupToken, subscriptionRowGrantsAccess } from './_shared.mjs'
 import { checkRateLimit, rateLimitExceeded, getClientIp } from './_rateLimiter.mjs'
 
 const CHECKOUT_LIMIT = 10
@@ -73,14 +73,13 @@ export const handler = async (event) => {
     // Se o celular já está cadastrado com acesso ativo, rejeita antes mesmo de
     // criar/buscar a conta — a pessoa pode ter usado outro e-mail antes.
     if (phone) {
-      const { data: phoneSub } = await admin
+      const { data: phoneSubs } = await admin
         .from('subscriptions')
-        .select('customer_email')
+        .select('status, payment_status, payment_method, access_granted, current_period_end')
         .eq('customer_phone', phone)
-        .eq('access_granted', true)
-        .limit(1)
-        .maybeSingle()
-      if (phoneSub) {
+        .order('created_at', { ascending: false })
+        .limit(5)
+      if ((phoneSubs ?? []).some(subscriptionRowGrantsAccess)) {
         return json(409, {
           error: 'Este celular já tem acesso ativo. Faça login com o e-mail cadastrado.',
           alreadyActive: true,

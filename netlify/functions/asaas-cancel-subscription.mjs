@@ -3,7 +3,7 @@
 // configurado na assinatura, cancela e solicita estorno; fora dele, interrompe
 // cobrancas futuras.
 
-import { json, preflight, supabaseAdmin, getUser, asaas } from './_shared.mjs'
+import { json, preflight, supabaseAdmin, getUser, asaas, subscriptionRowGrantsAccess } from './_shared.mjs'
 
 export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return preflight()
@@ -15,15 +15,24 @@ export const handler = async (event) => {
 
     const admin = supabaseAdmin()
 
-    // Assinatura mais recente que ainda está ativa/pendente/atrasada.
-    const { data: sub } = await admin
+    // Busca as assinaturas candidatas (ativa/pendente/atrasada). NÃO basta pegar a
+    // mais recente: se houver uma linha 'pending' mais nova (checkout reaberto, etc.)
+    // sem asaas_subscription_id, cancelar essa linha NÃO interrompe a cobrança real —
+    // a recorrência no Asaas continua cobrando. Por isso escolhemos preferencialmente
+    // a linha que carrega a recorrência (asaas_subscription_id) e concede acesso.
+    const { data: subs } = await admin
       .from('subscriptions')
       .select('*')
       .eq('user_id', user.id)
       .in('status', ['active', 'pending', 'past_due'])
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+      .limit(10)
+
+    const sub =
+      (subs ?? []).find((s) => s.asaas_subscription_id && subscriptionRowGrantsAccess(s)) ??
+      (subs ?? []).find((s) => s.asaas_subscription_id) ??
+      (subs ?? []).find(subscriptionRowGrantsAccess) ??
+      (subs ?? [])[0]
 
     if (!sub) return json(404, { error: 'Nenhuma assinatura ativa encontrada' })
 

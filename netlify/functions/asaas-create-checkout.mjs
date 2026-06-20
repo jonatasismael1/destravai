@@ -78,7 +78,7 @@ export const handler = async (event) => {
         .select('status, payment_status, payment_method, access_granted, current_period_end')
         .eq('customer_phone', phone)
         .order('created_at', { ascending: false })
-        .limit(5)
+        .limit(20)
       if ((phoneSubs ?? []).some(subscriptionRowGrantsAccess)) {
         return json(409, {
           error: 'Este celular já tem acesso ativo. Faça login com o e-mail cadastrado.',

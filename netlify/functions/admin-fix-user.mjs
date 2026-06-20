@@ -1,13 +1,18 @@
-// GET /.netlify/functions/admin-fix-user?token=TOKEN&email=EMAIL&password=SENHA
+// POST /.netlify/functions/admin-fix-user   { email, password? }
 // Endpoint de correção pontual para admin: corrige assinatura paga sem acesso e
-// redefine a senha do usuário. Protegido pelo MONITOR_TOKEN (variável de ambiente
-// Netlify, nunca exposta no frontend). Uso único — chamar via curl ou browser.
+// redefine a senha do usuário. Protegido pelo MONITOR_TOKEN OU pelo JWT do admin.
+//
+// IMPORTANTE: é POST e os dados vão no CORPO (nunca na query string) — senha e
+// token na URL acabam gravados em logs/histórico/Referer. O token pode vir no
+// header `x-monitor-token` ou no corpo (`token`); o admin logado dispensa o token.
 //
 // Exemplo:
-//   curl "https://destravai.dbe.digital/.netlify/functions/admin-fix-user?token=SEU_TOKEN&email=EMAIL&password=NOVA_SENHA"
+//   curl -X POST "https://destravai.dbe.digital/.netlify/functions/admin-fix-user" \
+//     -H "Content-Type: application/json" -H "x-monitor-token: SEU_TOKEN" \
+//     -d '{"email":"...","password":"..."}'
 
 import { timingSafeEqual } from 'node:crypto'
-import { supabaseAdmin, json, grantAccess, getUser, isAdminUser, COMPLETE_PLAN_ID } from './_shared.mjs'
+import { supabaseAdmin, json, preflight, grantAccess, getUser, isAdminUser, COMPLETE_PLAN_ID } from './_shared.mjs'
 
 function safeEqual(a, b) {
   if (!a || !b) return false
@@ -18,10 +23,15 @@ function safeEqual(a, b) {
 }
 
 export const handler = async (event) => {
-  if (event.httpMethod !== 'GET') return json(405, { error: 'Use GET' })
+  if (event.httpMethod === 'OPTIONS') return preflight()
+  if (event.httpMethod !== 'POST') return json(405, { error: 'Use POST' })
 
-  // Aceita autenticação via MONITOR_TOKEN (query param) OU JWT do admin (header).
-  const monitorToken = event.queryStringParameters?.token
+  let body = {}
+  try { body = JSON.parse(event.body || '{}') } catch { return json(400, { error: 'Corpo inválido' }) }
+
+  // Aceita autenticação via MONITOR_TOKEN (header x-monitor-token ou corpo) OU JWT
+  // do admin (header Authorization). Nunca via query string — token na URL vaza em log.
+  const monitorToken = event.headers?.['x-monitor-token'] || body.token
   const expected = process.env.MONITOR_TOKEN
   const tokenOk = expected && safeEqual(monitorToken, expected)
 
@@ -36,9 +46,9 @@ export const handler = async (event) => {
     return json(401, { error: 'Não autorizado' })
   }
 
-  const email = String(event.queryStringParameters?.email || '').trim().toLowerCase()
-  const password = String(event.queryStringParameters?.password || '').trim()
-  if (!email) return json(400, { error: 'Informe ?email=' })
+  const email = String(body.email || '').trim().toLowerCase()
+  const password = String(body.password || '').trim()
+  if (!email) return json(400, { error: 'Informe o e-mail no corpo.' })
 
   try {
     const admin = supabaseAdmin()

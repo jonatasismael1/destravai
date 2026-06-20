@@ -192,7 +192,17 @@ export const handler = async (event) => {
     // SUBSCRIPTION_CREATED / SUBSCRIPTION_UPDATED: só guardamos o último evento.
 
     if (subRow) {
-      await admin.from('subscriptions').update(updates).eq('id', subRow.id)
+      const { error: updateErr } = await admin.from('subscriptions').update(updates).eq('id', subRow.id)
+      if (updateErr) {
+        // Loga o erro mas NÃO aborta: o asaas-monitor vai detectar a divergência
+        // (paid=true, access_granted=false) e corrigir na próxima rodada (até 1h).
+        console.error('[asaas-webhook] erro ao atualizar assinatura', updateErr.message)
+        await serverLog('asaas-webhook', `Erro ao atualizar subscription: ${updateErr.message}`, 'error', subRow.user_id, {
+          subscriptionId: subRow.id,
+          eventType,
+          updates: Object.keys(updates),
+        })
+      }
 
       // Liberação de acesso: cria/atualiza o profile e envia o e-mail de acesso.
       if (shouldGrantAccess && subRow.user_id) {

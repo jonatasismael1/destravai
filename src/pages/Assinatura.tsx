@@ -22,9 +22,21 @@ export default function Assinatura() {
         </div>
 
         {state.subscription?.hasSubscription && !state.subscription.hasAccess && (
-          <div className="rounded-2xl p-3 mb-5 text-sm font-semibold text-center"
-            style={{ background: 'rgba(247,185,85,0.1)', border: '1px solid rgba(247,185,85,0.25)', color: '#FFB547' }}>
-            Sua assinatura esta {state.subscription.status === 'pending' ? 'aguardando pagamento' : state.subscription.status}.
+          <div className="rounded-2xl p-4 mb-5 space-y-3 text-center"
+            style={{ background: 'rgba(247,185,85,0.1)', border: '1px solid rgba(247,185,85,0.25)' }}>
+            <p className="text-sm font-semibold" style={{ color: '#FFB547' }}>
+              {state.subscription.status === 'pending'
+                ? 'Seu pagamento está sendo processado. Aguarde alguns instantes e verifique o status.'
+                : 'Sua assinatura está aguardando confirmação de pagamento.'}
+            </p>
+            {state.subscription.status === 'pending' && (
+              <button
+                onClick={() => navigate('/minha-assinatura')}
+                className="btn-secondary text-sm px-4 py-2"
+              >
+                Ver status do pagamento
+              </button>
+            )}
           </div>
         )}
 
@@ -50,9 +62,13 @@ export default function Assinatura() {
           </ul>
         </div>
 
-        <button onClick={() => navigate('/checkout')} className="btn-primary w-full py-4 text-base">
-          Comecar por R$9,90 <ArrowRight size={18} />
-        </button>
+        {/* Só mostra o botão de compra se não houver assinatura pendente — evita
+            que quem já pagou crie uma nova cobrança por engano. */}
+        {!state.subscription?.hasSubscription && (
+          <button onClick={() => navigate('/checkout')} className="btn-primary w-full py-4 text-base">
+            Comecar por R$9,90 <ArrowRight size={18} />
+          </button>
+        )}
 
         <div className="flex items-center justify-center gap-2 mt-4 text-xs" style={{ color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ color: '#53D6A1' }} />

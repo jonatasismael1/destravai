@@ -629,6 +629,20 @@ export default function Home() {
             </div>
           )}
 
+          {/* Aviso discreto quando as ideias extras falharam ao gerar */}
+          {!loading && extras.length === 0 && state.extrasFailedCount > 0 && (
+            <p className="text-xs text-center" style={{ color: 'var(--text-muted)' }}>
+              Não foi possível gerar todas as ideias agora.{' '}
+              <button
+                className="underline font-semibold"
+                style={{ color: 'var(--brand)' }}
+                onClick={() => profile && void generateTodayContent(profile, checkin)}
+              >
+                Tentar novamente
+              </button>
+            </p>
+          )}
+
           <button onClick={() => navigate('/criar')} className="btn-secondary w-full">
             <Sparkles size={16} /> Criar mais ideias <ArrowRight size={16} />
           </button>

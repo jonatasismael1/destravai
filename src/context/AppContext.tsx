@@ -86,6 +86,7 @@ interface AppState {
   // navegar para outra aba e volta pronta quando ele retorna à Home.
   todayContent: DayContent
   generatingContent: boolean
+  extrasFailedCount: number
   authLoading: boolean
   // Carregando profile/essência do banco após resolver a sessão.
   // Separado de authLoading para evitar deadlock no callback de auth do Supabase.
@@ -168,6 +169,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     personalSpace: defaultPersonalSpace,
     todayContent: emptyDayContent,
     generatingContent: false,
+    extrasFailedCount: 0,
     authLoading: true,
     profileLoading: true,
     subscription: null,
@@ -417,9 +419,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const extras = results
         .filter((r): r is PromiseFulfilledResult<ContentIdea> => r.status === 'fulfilled')
         .map(r => r.value)
+      const extrasFailedCount = results.filter(r => r.status === 'rejected').length
+      if (extrasFailedCount > 0) {
+        const reasons = results
+          .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+          .map(r => r.reason?.message || String(r.reason))
+        console.error(`[AppContext] ${extrasFailedCount} ideia(s) extra(s) não gerada(s):`, reasons)
+      }
 
       const next: DayContent = { checkin: checkinValue, mission: missionIdea, extras }
-      setState(s => ({ ...s, todayContent: next, generatingContent: false }))
+      setState(s => ({ ...s, todayContent: next, generatingContent: false, extrasFailedCount }))
       void upsertDailyCheckin(TODAY_KEY, next).catch(err => console.error('[AppContext generate day]', err))
 
       // Registra a missão e as ideias no estado/biblioteca (mesma lógica de antes).
@@ -450,6 +459,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       personalSpace: defaultPersonalSpace,
       todayContent: emptyDayContent,
       generatingContent: false,
+      extrasFailedCount: 0,
       authLoading: false,
       profileLoading: false,
       subscription: null,
